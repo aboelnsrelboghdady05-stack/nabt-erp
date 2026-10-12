@@ -71,11 +71,11 @@ app.include_router(creative_tasks_router)
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def serve_home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.api_route("/login", methods=["GET", "HEAD"])
 def serve_login(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health_check():
