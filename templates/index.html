@@ -1027,7 +1027,7 @@
                         <h3 class="font-bold text-slate-800 text-lg">فريق المناديب ولوجستيات التوصيل</h3>
                         <p class="text-xs text-slate-500">متابعة طلبات المناديب الحالية، عمولات التوصيل، وإرسال لوكيشن الطلبات بالواتساب بضغطة زر</p>
                     </div>
-                    <button onclick="openNewDriverModal()" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm">
+                    <button id="btn-add-driver" onclick="openNewDriverModal()" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer transition-all">
                         <i data-lucide="user-plus" class="w-4 h-4"></i>
                         إضافة مندوب جديد
                     </button>
@@ -3258,7 +3258,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261014_modal_fix_v12"></script>
+    <script src="/static/js/app.js?v=20261014_drivers_v13"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {

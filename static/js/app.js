@@ -2516,6 +2516,16 @@ async function loadDriversView() {
     const grid = document.getElementById('drivers-cards-grid');
     grid.innerHTML = '';
 
+    const canManageDrivers = isManagerRole();
+    const addDriverBtn = document.getElementById('btn-add-driver');
+    if (addDriverBtn) {
+        if (canManageDrivers) {
+            addDriverBtn.classList.remove('hidden');
+        } else {
+            addDriverBtn.classList.add('hidden');
+        }
+    }
+
     allDrivers.forEach(d => {
         const card = document.createElement('div');
         card.className = 'bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4';
@@ -2558,10 +2568,18 @@ async function loadDriversView() {
 
             <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <span class="text-xs text-slate-500 font-medium">العمولة: <strong>${d.commission_per_order} ر.س / طلب</strong></span>
-                <button onclick="openWhatsAppChatDirect('${d.phone}', '${d.name}', 'مرحباً ${d.name} 🌸 جاهز لتوصيل طلبات نبت اليوم؟')" class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 border border-emerald-200">
-                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
-                    محادثة
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="openWhatsAppChatDirect('${d.phone}', '${d.name}', 'مرحباً ${d.name} 🌸 جاهز لتوصيل طلبات نبت اليوم؟')" class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 border border-emerald-200 cursor-pointer">
+                        <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                        محادثة
+                    </button>
+                    ${canManageDrivers ? `
+                    <button onclick="confirmDeleteDriver(${d.id}, '${d.name.replace(/'/g, "\\'")}', ${d.current_active_orders || 0})" title="حذف المندوب من النظام" class="text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 border border-rose-200 cursor-pointer transition-all">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        حذف
+                    </button>
+                    ` : ''}
+                </div>
             </div>
         `;
         grid.appendChild(card);
@@ -2571,15 +2589,23 @@ async function loadDriversView() {
 }
 
 function openNewDriverModal() {
+    if (!isManagerRole()) {
+        alert("عذراً! صلاحية إضافة المناديب محصورة على المديرين فقط (نادر، فيصل، ياسر).");
+        return;
+    }
     openModal('modal-new-driver');
 }
 
 async function handleCreateDriver(event) {
     event.preventDefault();
+    if (!isManagerRole()) {
+        alert("عذراً! صلاحية إضافة المناديب محصورة على المديرين فقط (نادر، فيصل، ياسر).");
+        return;
+    }
     const payload = {
-        name: document.getElementById('driver-name-input').value,
-        phone: document.getElementById('driver-phone-input').value,
-        vehicle: document.getElementById('driver-vehicle-input').value,
+        name: document.getElementById('driver-name-input').value.trim(),
+        phone: document.getElementById('driver-phone-input').value.trim(),
+        vehicle: document.getElementById('driver-vehicle-input').value.trim(),
         commission_per_order: parseFloat(document.getElementById('driver-commission-input').value || 25)
     };
 
@@ -2592,13 +2618,47 @@ async function handleCreateDriver(event) {
         const data = await res.json();
         if (data.success) {
             closeModal('modal-new-driver');
-            loadDriversView();
+            await loadDriversView();
+            await loadDrivers();
             alert("تمت إضافة المندوب بنجاح");
         } else {
             alert(data.detail || "حدث خطأ");
         }
     } catch (err) {
         console.error(err);
+    }
+}
+
+async function confirmDeleteDriver(driverId, driverName, activeOrders) {
+    if (!isManagerRole()) {
+        alert("عذراً! صلاحية حذف المناديب محصورة على المديرين فقط (نادر، فيصل، ياسر).");
+        return;
+    }
+
+    if (activeOrders > 0) {
+        alert(`تنبيه: لا يمكن حذف المندوب (${driverName}) حالياً لأن لديه (${activeOrders}) طلبات جارية قيد التوصيل!\nيرجى إعادة إسناد الطلبات لمندوب آخر أو إنهاؤها أولاً.`);
+        return;
+    }
+
+    if (!confirm(`هل أنت متأكد من حذف المندوب "${driverName}" نهائياً من السيستم؟`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/drivers/${driverId}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(data.message || `تم حذف المندوب ${driverName} بنجاح`);
+            await loadDriversView();
+            await loadDrivers();
+        } else {
+            alert(data.detail || "تعذر حذف المندوب");
+        }
+    } catch (err) {
+        console.error("Delete driver error:", err);
+        alert("حدث خطأ أثناء محاولة حذف المندوب");
     }
 }
 
