@@ -206,7 +206,7 @@ def get_whatsapp_status():
     status = settings.get("whatsapp_status", "connected")
     phone = settings.get("whatsapp_phone", "+966500475452")
     store_name = settings.get("store_name", "نبت للزهور والمناسبات 🌸")
-    bot_enabled = settings.get("bot_enabled", "1") == "1"
+    bot_enabled = settings.get("bot_enabled", "0") == "1"
 
     instance_id = settings.get("ultramsg_instance_id") or "instance194389"
     token = settings.get("ultramsg_token") or "6ryfji0hc0bu26j0"
@@ -528,22 +528,9 @@ async def receive_incoming_whatsapp_webhook(request: Request):
     VALUES (?, ?, 'inbound', 'direct_chat', ?, 'read')
     """, (local_phone, cust_name, message_text))
 
-    # 2. Check if Auto-Bot is enabled
-    cursor.execute("SELECT value FROM system_settings WHERE key = 'bot_enabled'")
-    bot_row = cursor.fetchone()
-    bot_enabled = (bot_row[0] == "1") if bot_row else True
-
+    # 2. Auto-responder is completely disabled per owner request.
+    # Incoming messages are logged only so staff can chat directly without any automated/promotional replies.
     bot_reply = None
-    if bot_enabled:
-        bot_reply = generate_smart_bot_reply(local_phone, message_text, cursor)
-        if bot_reply:
-            cursor.execute("""
-            INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status)
-            VALUES (?, ?, 'outbound', 'bot_auto_reply', ?, 'delivered')
-            """, (local_phone, cust_name, bot_reply))
-            
-            # Send back to customer via gateway
-            dispatch_via_gateway_if_configured(local_phone, bot_reply)
 
     conn.commit()
     conn.close()
