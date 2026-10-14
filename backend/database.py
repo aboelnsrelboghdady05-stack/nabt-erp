@@ -278,7 +278,7 @@ def init_db():
         ("فيصل (مدير تشغيلي)", "0501110001", "operations_manager", "faisal", "123456", "إدارة تشغيلية وتنسيق", "السبت"),
         ("نادر (مدير فرع)", "0502220002", "branch_manager", "nader", "123456", "إدارة الفرع والطلبات", "الأحد"),
         ("عمر (منسق ورد)", "0533688697", "florist", "omar", "123456", "تنسيق باقات وتغليف", "الثلاثاء"),
-        ("ريكو (منسق ورد)", "0504440004", "florist", "rico", "123456", "تنسيق فازات وهدايا", "الاثنين")
+        ("ريكو (منسق ورد)", "0544917489", "florist", "rico", "123456", "تنسيق فازات وهدايا", "الاثنين")
     ]
     for uname_full, uphone, urole, ulogin, upwd, uspec, uoffday in users_to_ensure:
         cursor.execute("SELECT id, password, weekly_off_day, phone FROM employees WHERE username = ? OR phone = ? OR LOWER(name) LIKE ?", 
@@ -288,8 +288,8 @@ def init_db():
             emp_id = existing_row[0]
             existing_pwd = existing_row[1] or upwd
             existing_off = existing_row[2] or uoffday
-            # If user is Omar, prioritize 0533688697
-            existing_phone = uphone if ulogin == "omar" else (existing_row[3] or uphone)
+            # If user is Omar or Rico, prioritize their new numbers
+            existing_phone = uphone if ulogin in ["omar", "rico"] else (existing_row[3] or uphone)
             cursor.execute("""
             UPDATE employees 
             SET name = ?, phone = ?, role = ?, username = ?, specialty = ?, status = 'on_duty',
