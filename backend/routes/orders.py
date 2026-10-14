@@ -456,14 +456,15 @@ def update_order_status(order_id: int, payload: OrderStatusUpdateSchema):
     elif new_status == "ready":
         msg = f"تم تجهيز وتنسيق طلبكم الفاخر من الورد للطلب #{order['order_number']} وهي جاهزة للانطلاق للتسليم 🌸✨"
     elif new_status == "out_for_delivery":
-        # المرحلة الثانية: استلام المندوب للطلب
-        driver_info = ""
-        if order['driver_id']:
-            cursor.execute("SELECT name, phone FROM drivers WHERE id = ?", (order['driver_id'],))
-            d_row = cursor.fetchone()
-            if d_row:
-                driver_info = f"\nالمندوب: {d_row['name']} (جوال: {d_row['phone']})"
-        msg = f"طلبكم رقم #{order['order_number']} أصبح الآن مع المندوب وفي الطريق إليكم 🚗💨{driver_info}\nنسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐"
+        # المرحلة الثانية: استلام المندوب للطلب (بالطريق للتوصيل)
+        msg = (
+            f"يا هلا فيك ✋🏻\n"
+            f".\n"
+            f".\n"
+            f"طلبكم رقم #{order['order_number']} بالطريق للتوصيل 🚗\n"
+            f".\n"
+            f"من اليوم أنت جزء من نبت | Nabt🌱"
+        )
     elif new_status == "delivered":
         # المرحلة الثالثة: استلام الطلب
         msg = f"سلمنا طلبك رقم #{order['order_number']} بنجاح 💐🎉\nشكراً لأنك اخترت نبت | Nabt"
@@ -524,7 +525,14 @@ def assign_driver(order_id: int, payload: AssignDriverSchema):
     dispatch_via_gateway_if_configured(driver['phone'], driver_msg)
 
     # المرحلة الثانية: إشعار العميل باستلام المندوب للطلب
-    cust_stage2_msg = f"طلبكم رقم #{order['order_number']} أصبح الآن مع المندوب"
+    cust_stage2_msg = (
+        f"يا هلا فيك ✋🏻\n"
+        f".\n"
+        f".\n"
+        f"طلبكم رقم #{order['order_number']} بالطريق للتوصيل 🚗\n"
+        f".\n"
+        f"من اليوم أنت جزء من نبت | Nabt🌱"
+    )
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
