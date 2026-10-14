@@ -443,7 +443,13 @@ def update_order_status(order_id: int, payload: OrderStatusUpdateSchema):
         msg = f"تم تجهيز وتنسيق طلبكم الفاخر من الورد للطلب #{order['order_number']} وهي جاهزة للانطلاق للتسليم 🌸✨"
     elif new_status == "out_for_delivery":
         # المرحلة الثانية: استلام المندوب للطلب
-        msg = f"طلبكم رقم #{order['order_number']} أصبح الآن مع المندوب"
+        driver_info = ""
+        if order['driver_id']:
+            cursor.execute("SELECT name, phone FROM drivers WHERE id = ?", (order['driver_id'],))
+            d_row = cursor.fetchone()
+            if d_row:
+                driver_info = f"\nالمندوب: {d_row['name']} (جوال: {d_row['phone']})"
+        msg = f"طلبكم رقم #{order['order_number']} أصبح الآن مع المندوب وفي الطريق إليكم 🚗💨{driver_info}\nنسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐"
     elif new_status == "delivered":
         # المرحلة الثالثة: استلام الطلب
         msg = f"سلمنا طلبك رقم #{order['order_number']} بنجاح 💐🎉\nشكراً لأنك اخترت نبت | Nabt"
@@ -624,6 +630,19 @@ def accept_order(order_id: int, payload: OrderAcceptSchema):
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES ('0501110001', 'فيصل (الآدمن)', 'inbound', 'order_update', ?, 'delivered', ?)
     """, (accept_msg, order_id))
+
+    # إرسال إشعار فوري للعميل عبر الواتساب من رقم المتجر (قيد التجهيز)
+    if order['customer_phone']:
+        cust_preparing_msg = (
+            f"أهلاً بك عميلنا العزيز في نبت 🌸\n"
+            f"طلبكم رقم #{order['order_number']} الآن قيد التجهيز والتنسيق بعناية بين أيدي منسقينا المحترفين 🌿✨\n"
+            f"نسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐"
+        )
+        cursor.execute("""
+        INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+        VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
+        """, (order['customer_phone'], order['customer_name'], cust_preparing_msg, order_id))
+        dispatch_via_gateway_if_configured(order['customer_phone'], cust_preparing_msg)
 
     conn.commit()
     conn.close()
