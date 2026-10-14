@@ -180,6 +180,11 @@ class WeeklyOffUpdateSchema(BaseModel):
     modified_by_username: Optional[str] = None
     modified_by_role: Optional[str] = None
 
+class EmployeePhoneUpdateSchema(BaseModel):
+    phone: str
+    modified_by_username: Optional[str] = None
+    modified_by_role: Optional[str] = None
+
 @router.get("")
 def get_employees(role: Optional[str] = None):
     conn = get_db()
@@ -382,6 +387,30 @@ def update_weekly_off_day(employee_id: int, payload: WeeklyOffUpdateSchema):
         "success": True,
         "weekly_off_day": clean_day,
         "message": f"تم تحديد يوم ({clean_day}) كيوم راحة أسبوعية للموظف ({emp['name']}) بنجاح. لن يتم إسناد أي طلبات له في هذا اليوم."
+    }
+
+@router.put("/{employee_id}/phone")
+def update_employee_phone(employee_id: int, payload: EmployeePhoneUpdateSchema):
+    verify_leave_manager_access(payload.modified_by_username, payload.modified_by_role)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name FROM employees WHERE id = ?", (employee_id,))
+    emp = cursor.fetchone()
+    if not emp:
+        conn.close()
+        raise HTTPException(status_code=404, detail="الموظف غير موجود")
+
+    clean_phone = payload.phone.strip()
+    cursor.execute("UPDATE employees SET phone = ? WHERE id = ?", (clean_phone, employee_id))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True, 
+        "phone": clean_phone, 
+        "message": f"تم تحديث رقم جوال الموظف ({emp['name']}) بنجاح إلى ({clean_phone})."
     }
 
 @router.get("/leaves")

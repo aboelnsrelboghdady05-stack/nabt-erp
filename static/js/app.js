@@ -3146,7 +3146,14 @@ async function loadEmployees(role = null) {
                                 <h4 class="font-bold text-slate-800 text-sm">${e.name}</h4>
                                 ${e.username ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-mono font-bold px-1.5 py-0.5 rounded-md border border-slate-200">@${e.username}</span>` : ''}
                             </div>
-                            <span class="text-xs text-slate-400 font-mono">${e.phone}</span>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="text-xs text-slate-500 font-mono font-bold">${e.phone}</span>
+                                ${isLeaveManager() ? `
+                                <button onclick="promptEditEmployeePhone(${e.id}, '${e.name.replace(/'/g, "\\'")}', '${e.phone}')" title="تعديل رقم الجوال" class="text-slate-400 hover:text-brand-600 p-0.5 rounded cursor-pointer transition-all">
+                                    <i data-lucide="edit-2" class="w-3 h-3"></i>
+                                </button>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                     <div class="text-left space-y-1">
@@ -3439,6 +3446,37 @@ async function handleUpdateWeeklyOff(event) {
     } catch (err) {
         console.error(err);
         alert("حدث خطأ في الاتصال بالخادم أثناء حفظ يوم الراحة الأسبوعية");
+    }
+}
+
+async function promptEditEmployeePhone(empId, empName, currentPhone) {
+    if (!isLeaveManager()) {
+        alert("عذراً! تعديل أرقام الجوالات محصور على المسؤولين (نادر، فيصل، ياسر).");
+        return;
+    }
+    const newPhone = prompt(`تعديل رقم جوال الموظف (${empName}):`, currentPhone || '05xxxxxxxx');
+    if (!newPhone || newPhone.trim() === currentPhone) return;
+
+    try {
+        const res = await fetch(`/api/employees/${empId}/phone`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: newPhone.trim(),
+                modified_by_username: currentUser ? (currentUser.username || currentUser.name || "admin") : "admin",
+                modified_by_role: currentUser ? (currentUser.role || "branch_manager") : "branch_manager"
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(`✓ ${data.message || 'تم تحديث رقم الجوال بنجاح'}`);
+            await loadEmployees();
+        } else {
+            alert(data.detail || "تعذر تحديث رقم الجوال");
+        }
+    } catch (err) {
+        console.error("Error updating employee phone:", err);
+        alert("حدث خطأ في الاتصال أثناء تعديل رقم الجوال");
     }
 }
 

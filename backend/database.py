@@ -277,23 +277,25 @@ def init_db():
         ("ياسر (المدير العام)", "0500000001", "general_manager", "yasser", "123456", "إدارة عامة وإشراف", "الجمعة"),
         ("فيصل (مدير تشغيلي)", "0501110001", "operations_manager", "faisal", "123456", "إدارة تشغيلية وتنسيق", "السبت"),
         ("نادر (مدير فرع)", "0502220002", "branch_manager", "nader", "123456", "إدارة الفرع والطلبات", "الأحد"),
-        ("عمر (منسق ورد)", "0503330003", "florist", "omar", "123456", "تنسيق باقات وتغليف", "الثلاثاء"),
+        ("عمر (منسق ورد)", "0533688697", "florist", "omar", "123456", "تنسيق باقات وتغليف", "الثلاثاء"),
         ("ريكو (منسق ورد)", "0504440004", "florist", "rico", "123456", "تنسيق فازات وهدايا", "الاثنين")
     ]
     for uname_full, uphone, urole, ulogin, upwd, uspec, uoffday in users_to_ensure:
-        cursor.execute("SELECT id, password, weekly_off_day FROM employees WHERE phone = ? OR username = ? OR LOWER(name) LIKE ?", 
-                       (uphone, ulogin, f"%{ulogin}%"))
+        cursor.execute("SELECT id, password, weekly_off_day, phone FROM employees WHERE username = ? OR phone = ? OR LOWER(name) LIKE ?", 
+                       (ulogin, uphone, f"%{ulogin}%"))
         existing_row = cursor.fetchone()
         if existing_row:
             emp_id = existing_row[0]
             existing_pwd = existing_row[1] or upwd
             existing_off = existing_row[2] or uoffday
+            # If user is Omar, prioritize 0533688697
+            existing_phone = uphone if ulogin == "omar" else (existing_row[3] or uphone)
             cursor.execute("""
             UPDATE employees 
             SET name = ?, phone = ?, role = ?, username = ?, specialty = ?, status = 'on_duty',
                 password = ?, weekly_off_day = ?
             WHERE id = ?
-            """, (uname_full, uphone, urole, ulogin, uspec, existing_pwd, existing_off, emp_id))
+            """, (uname_full, existing_phone, urole, ulogin, uspec, existing_pwd, existing_off, emp_id))
         else:
             cursor.execute("""
             INSERT INTO employees (name, phone, role, username, password, specialty, status, weekly_off_day)
