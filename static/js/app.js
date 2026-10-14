@@ -2049,6 +2049,17 @@ async function checkWhatsAppStatus() {
                 pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> غير متصل`;
             }
         }
+
+        const botBtn = document.getElementById('bot-toggle-btn');
+        if (botBtn) {
+            if (data.bot_enabled) {
+                botBtn.className = 'text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-lg shadow-2xs cursor-pointer';
+                botBtn.textContent = 'مفعل ويرد آلياً ✅';
+            } else {
+                botBtn.className = 'text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white px-2 py-0.5 rounded-lg shadow-2xs cursor-pointer';
+                botBtn.textContent = 'معطل نهائياً 🛑';
+            }
+        }
     } catch (err) {
         console.error("WhatsApp status check error:", err);
     }
@@ -3173,7 +3184,7 @@ function handleCustomSimulatedQuery(event) {
 
 async function toggleBotStatus() {
     const btn = document.getElementById('bot-toggle-btn');
-    const isCurrentlyActive = btn.textContent.includes('نشط');
+    const isCurrentlyActive = btn.textContent.includes('مفعل') || btn.textContent.includes('نشط');
     const newStatus = !isCurrentlyActive;
 
     try {
@@ -3184,11 +3195,11 @@ async function toggleBotStatus() {
         });
 
         if (newStatus) {
-            btn.className = 'text-[11px] font-black bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-0.5 rounded-lg shadow-sm';
-            btn.textContent = 'نشط ويرد آلياً ✅';
+            btn.className = 'text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-lg shadow-2xs cursor-pointer';
+            btn.textContent = 'مفعل ويرد آلياً ✅';
         } else {
-            btn.className = 'text-[11px] font-black bg-slate-400 hover:bg-slate-500 text-white px-2.5 py-0.5 rounded-lg shadow-sm';
-            btn.textContent = 'متوقف مؤقتاً ⏸️';
+            btn.className = 'text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white px-2 py-0.5 rounded-lg shadow-2xs cursor-pointer';
+            btn.textContent = 'معطل نهائياً 🛑';
         }
     } catch (err) {
         console.error(err);
@@ -3217,7 +3228,7 @@ async function handleSaveGatewaySettings(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                bot_enabled: true,
+                bot_enabled: false,
                 ultramsg_instance_id: instanceId,
                 ultramsg_token: token
             })

@@ -875,19 +875,13 @@
 
                     <div class="flex flex-wrap items-center gap-2">
                         <!-- Auto Bot Status Badge & Toggle -->
-                        <div class="flex items-center gap-1.5 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-xl">
-                            <span class="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse"></span>
-                            <span class="text-[11px] font-bold text-purple-900">البوت:</span>
-                            <button onclick="toggleBotStatus()" id="bot-toggle-btn" class="text-[10px] font-bold bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded-lg shadow-2xs">
-                                نشط ويرد آلياً ✅
+                        <div class="flex items-center gap-1.5 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-xl">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                            <span class="text-[11px] font-bold text-slate-700">الرد الآلي (البوت):</span>
+                            <button onclick="toggleBotStatus()" id="bot-toggle-btn" class="text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white px-2 py-0.5 rounded-lg shadow-2xs cursor-pointer">
+                                معطل نهائياً 🛑
                             </button>
                         </div>
-
-                        <!-- Test Bot Interaction Modal Button -->
-                        <button onclick="openSimulateBotModal()" class="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-xl bg-gradient-to-r from-emerald-600 to-brand-600 text-white shadow-2xs hover:from-emerald-700 hover:to-brand-700 active:scale-95">
-                            <i data-lucide="bot" class="w-3.5 h-3.5"></i>
-                            <span>تجربة البوت 🤖</span>
-                        </button>
 
                         <button onclick="openGatewaySettingsModal()" class="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200">
                             <i data-lucide="settings" class="w-3 h-3"></i>
@@ -3266,7 +3260,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261014_live_orders_v19"></script>
+    <script src="/static/js/app.js?v=20261015_bot_disabled_v20"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {
