@@ -302,9 +302,11 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, 'on_duty', ?)
             """, (uname_full, uphone, urole, ulogin, upwd, uspec, uoffday))
 
-    # Ensure Store WhatsApp Sender Phone is Faisal's number (0501110001 / +966501110001)
-    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('whatsapp_phone', '+966501110001')")
+    # Ensure Store WhatsApp Sender Phone is the connected store number (+966532154152) and UltraMsg Gateway
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('whatsapp_phone', '+966532154152')")
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('whatsapp_status', 'connected')")
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_instance_id', 'instance194383')")
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_token', 'uhepgqwe0humzezx')")
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_confirm_msg', ?)", 
         ("شكرًا لأنك اخترت نبت | Nabt\nاستلمنا طلبك رقم #{order_number} بنجاح!\nقيمة الطلب: {total_amount} ر.س\nحالة السداد: ({payment_status})\nتاريخ التوصيل: {delivery_date}\nموعد التوصيل: {delivery_time_slot}\nنسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐",))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_driver_msg', ?)", 

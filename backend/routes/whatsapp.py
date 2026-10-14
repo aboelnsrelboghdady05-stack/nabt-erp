@@ -168,8 +168,10 @@ def dispatch_via_gateway_if_configured(phone: str, message: str):
     settings = dict(cursor.fetchall())
     conn.close()
 
-    instance_id = settings.get("ultramsg_instance_id")
-    token = settings.get("ultramsg_token")
+    instance_id = settings.get("ultramsg_instance_id") or "instance194383"
+    token = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
+    if token == "uhepqqwe0humzezx":
+        token = "uhepgqwe0humzezx"
 
     if instance_id and token:
         clean = clean_phone_number(phone)
@@ -221,10 +223,15 @@ def get_bot_settings():
     settings = dict(cursor.fetchall())
     conn.close()
 
+    inst = settings.get("ultramsg_instance_id") or "instance194383"
+    tok = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
+    if tok == "uhepqqwe0humzezx":
+        tok = "uhepgqwe0humzezx"
+
     return {
         "bot_enabled": settings.get("bot_enabled", "1") == "1",
-        "ultramsg_instance_id": settings.get("ultramsg_instance_id", ""),
-        "ultramsg_token": settings.get("ultramsg_token", ""),
+        "ultramsg_instance_id": inst,
+        "ultramsg_token": tok,
         "store_address": settings.get("store_address", "الرياض - حي النخيل - طريق الملك عبد العزيز"),
         "working_hours": settings.get("working_hours", "يومياً من 9:00 صباحاً حتى 11:00 مساءً"),
         "bank_iban": settings.get("bank_iban", "SA0380000000000000000000")
@@ -235,10 +242,14 @@ def save_bot_settings(payload: BotSettingsSchema):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('bot_enabled', ?)", ("1" if payload.bot_enabled else "0",))
-    if payload.ultramsg_instance_id is not None:
-        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_instance_id', ?)", (payload.ultramsg_instance_id,))
-    if payload.ultramsg_token is not None:
-        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_token', ?)", (payload.ultramsg_token,))
+    
+    inst = (payload.ultramsg_instance_id or "").strip() or "instance194383"
+    tok = (payload.ultramsg_token or "").strip() or "uhepgqwe0humzezx"
+    if tok == "uhepqqwe0humzezx":
+        tok = "uhepgqwe0humzezx"
+
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_instance_id', ?)", (inst,))
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_token', ?)", (tok,))
     if payload.store_address:
         cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('store_address', ?)", (payload.store_address,))
     if payload.working_hours:
