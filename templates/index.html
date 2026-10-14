@@ -1753,8 +1753,8 @@
     </div>
 
     <!-- MODAL: VIEW CUSTOMER REFERENCE IMAGE (عرض صورة التصميم المرجعي للطلب) -->
-    <div id="modal-view-reference-image" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-scale-up">
+    <div id="modal-view-reference-image" onclick="if(event.target === this) closeModal('modal-view-reference-image')" class="fixed inset-0 bg-slate-900/85 backdrop-blur-sm z-[90] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-scale-up" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
@@ -1785,8 +1785,8 @@
     </div>
 
     <!-- MODAL: ORDER DETAILS & LIFECYCLE TIMELINE (تفاصيل الطلب ومسار التنسيق والتوقيتات للادمن) -->
-    <div id="modal-order-detail" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 md:p-4">
-        <div class="bg-white rounded-3xl shadow-2xl border border-cream-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-up">
+    <div id="modal-order-detail" onclick="if(event.target === this) closeModal('modal-order-detail')" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 md:p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-cream-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-up" onclick="event.stopPropagation()">
             <div class="p-5 border-b border-cream-200 flex items-center justify-between bg-cream-50">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-olive-800 text-cream-50 flex items-center justify-center shadow-md">
@@ -1970,7 +1970,7 @@
     </div>
 
     <!-- MODAL: FLORIST COMPLETE WORK & UPLOAD PHOTO (رفع صورة المنتج بعد التجهيز للمنسق) -->
-    <div id="modal-florist-complete-work" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modal-florist-complete-work" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-[75] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-2xl border border-cream-200 w-full max-w-lg overflow-hidden animate-scale-up">
             <div class="p-4 border-b border-cream-200 flex items-center justify-between bg-cream-50">
                 <div class="flex items-center gap-2.5">
@@ -2028,7 +2028,7 @@
     </div>
 
     <!-- MODAL: MANAGER & ADMIN APPROVAL (تعميد المنتج من قبل نادر أو فيصل) -->
-    <div id="modal-manager-approval" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modal-manager-approval" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-[75] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-2xl border border-cream-200 w-full max-w-xl overflow-hidden animate-scale-up">
             <div class="p-4 border-b border-cream-200 flex items-center justify-between bg-cream-50">
                 <div class="flex items-center gap-2.5">
@@ -3258,7 +3258,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261012_speed_multiuser_v11"></script>
+    <script src="/static/js/app.js?v=20261014_modal_fix_v12"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {

@@ -220,8 +220,12 @@ async function handlePageLogin(event) {
 }
 
 function initIcons() {
-    if (window.lucide) {
-        lucide.createIcons();
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        try {
+            lucide.createIcons();
+        } catch (e) {
+            console.warn("Lucide createIcons warning:", e);
+        }
     }
 }
 
@@ -515,8 +519,7 @@ function openChangePasswordModal() {
     if (err) { err.classList.add('hidden'); err.textContent = ''; }
     if (succ) { succ.classList.add('hidden'); succ.textContent = ''; }
 
-    document.getElementById('modal-change-password').classList.remove('hidden');
-    initIcons();
+    openModal('modal-change-password');
 }
 
 async function handleFormChangePassword(event) {
@@ -1145,8 +1148,7 @@ function openFloristCompleteWorkModal(orderId, orderNum) {
         submitBtn.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i><span>إرسال الصورة للتعميد</span>`;
     }
 
-    document.getElementById('modal-florist-complete-work').classList.remove('hidden');
-    initIcons();
+    openModal('modal-florist-complete-work');
 }
 
 function compressImageFile(file, maxWidth = 1280, quality = 0.85) {
@@ -1389,8 +1391,7 @@ async function openManagerApprovalModal(orderId) {
             noRefMsg.classList.remove('hidden');
         }
 
-        document.getElementById('modal-manager-approval').classList.remove('hidden');
-        initIcons();
+        openModal('modal-manager-approval');
     } catch (e) {
         console.error("Open manager approval error:", e);
     }
@@ -1522,8 +1523,7 @@ async function openNewOrderModal() {
     if (timeSlotInput) timeSlotInput.value = '';
 
     calculateOrderModalTotals();
-    document.getElementById('modal-new-order').classList.remove('hidden');
-    initIcons();
+    openModal('modal-new-order');
 }
 
 async function refreshOrderModalFlorists() {
@@ -1607,11 +1607,14 @@ function removeReferenceImage() {
 }
 
 function viewReferenceImageModal(imgUrl, orderNum) {
-    document.getElementById('ref-modal-order-number').textContent = orderNum;
-    document.getElementById('ref-modal-img').src = imgUrl;
-    document.getElementById('ref-modal-open-link').href = imgUrl;
-    document.getElementById('modal-view-reference-image').classList.remove('hidden');
-    initIcons();
+    if (!imgUrl) return;
+    const numEl = document.getElementById('ref-modal-order-number');
+    if (numEl) numEl.textContent = orderNum || '';
+    const imgEl = document.getElementById('ref-modal-img');
+    if (imgEl) imgEl.src = imgUrl;
+    const linkEl = document.getElementById('ref-modal-open-link');
+    if (linkEl) linkEl.href = imgUrl;
+    openModal('modal-view-reference-image');
 }
 
 function formatAppDateTime(isoString) {
@@ -1825,8 +1828,7 @@ async function openOrderDetailModal(orderId) {
             payBadge.innerHTML = `<span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-3 py-1 rounded-xl text-xs">غير مسدد (آجل) ⚠️</span>`;
         }
 
-        document.getElementById('modal-order-detail').classList.remove('hidden');
-        initIcons();
+        openModal('modal-order-detail');
     } catch (err) {
         console.error("Open order detail error:", err);
     }
@@ -2096,13 +2098,12 @@ async function openWhatsAppModal() {
         const res = await fetch('/api/whatsapp/qr');
         const data = await res.json();
         document.getElementById('wa-qr-img').src = data.qr_image;
-        document.getElementById('modal-whatsapp-qr').classList.remove('hidden');
+        openModal('modal-whatsapp-qr');
         switchWaConnectMethod('code');
         // Auto-generate code if empty
         if (!currentWaPairingCode) {
             requestWaPairingCode();
         }
-        initIcons();
     } catch (err) {
         console.error("Error fetching QR:", err);
     }
@@ -2338,8 +2339,7 @@ function openRecordPaymentModal(invoiceId, invNum, custName, remaining) {
     document.getElementById('pay-amount-input').value = remaining.toFixed(2);
     document.getElementById('pay-amount-input').max = remaining;
 
-    document.getElementById('modal-record-payment').classList.remove('hidden');
-    initIcons();
+    openModal('modal-record-payment');
 }
 
 async function handleRecordPaymentSubmit(event) {
@@ -2481,8 +2481,7 @@ async function openInvoicePrintModal(invoiceId) {
         const qrEl = document.getElementById('print-zatca-qr');
         if (qrEl) qrEl.src = inv.qr_image || '';
 
-        document.getElementById('modal-invoice-detail').classList.remove('hidden');
-        initIcons();
+        openModal('modal-invoice-detail');
     } catch (err) {
         console.error("Print invoice error:", err);
     }
@@ -2572,8 +2571,7 @@ async function loadDriversView() {
 }
 
 function openNewDriverModal() {
-    document.getElementById('modal-new-driver').classList.remove('hidden');
-    initIcons();
+    openModal('modal-new-driver');
 }
 
 async function handleCreateDriver(event) {
@@ -2769,8 +2767,7 @@ async function loadExpenses() {
 }
 
 function openNewExpenseModal() {
-    document.getElementById('modal-new-expense').classList.remove('hidden');
-    initIcons();
+    openModal('modal-new-expense');
 }
 
 async function handleCreateExpense(event) {
@@ -2861,14 +2858,13 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.add('hidden');
-        modal.style.display = 'none';
+        modal.style.removeProperty('display');
     }
 }
 
 // 10. ACCOUNTING WEBHOOK & SIMULATION LOGIC
 function openAccountingSyncModal() {
-    document.getElementById('modal-accounting-sync').classList.remove('hidden');
-    initIcons();
+    openModal('modal-accounting-sync');
 }
 
 function copyToClipboard(inputId) {
@@ -2924,8 +2920,7 @@ function showInvoiceArrivalToast(invoiceNumber, paymentStatus) {
 
 // 11. SMART BOT & GATEWAY HANDLERS
 function openSimulateBotModal() {
-    document.getElementById('modal-simulate-bot').classList.remove('hidden');
-    initIcons();
+    openModal('modal-simulate-bot');
 }
 
 async function sendSimulatedCustomerQuery(queryText) {
@@ -2995,8 +2990,7 @@ async function openGatewaySettingsModal() {
         const settings = await res.json();
         document.getElementById('gateway-instance-input').value = settings.ultramsg_instance_id || '';
         document.getElementById('gateway-token-input').value = settings.ultramsg_token || '';
-        document.getElementById('modal-gateway-settings').classList.remove('hidden');
-        initIcons();
+        openModal('modal-gateway-settings');
     } catch (err) {
         console.error(err);
     }
@@ -3296,8 +3290,7 @@ function openEditLeaveModal(leaveId, empName, leaveType, startDate, endDate, rea
     document.getElementById('edit-leave-start-date').value = startDate;
     document.getElementById('edit-leave-end-date').value = endDate;
     document.getElementById('edit-leave-reason-input').value = reason || '';
-    document.getElementById('modal-edit-leave').classList.remove('hidden');
-    initIcons();
+    openModal('modal-edit-leave');
 }
 
 async function handleUpdateLeave(event) {
@@ -3396,8 +3389,7 @@ function openNewEmployeeModal() {
     }
     const pwdInput = document.getElementById('emp-password-input');
     if (pwdInput && !pwdInput.value) pwdInput.value = '123456';
-    document.getElementById('modal-new-employee').classList.remove('hidden');
-    initIcons();
+    openModal('modal-new-employee');
 }
 
 async function handleCreateEmployee(event) {
@@ -3494,8 +3486,7 @@ async function openRecordLeaveModal() {
     const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
     document.getElementById('leave-start-date').value = today;
     document.getElementById('leave-end-date').value = nextWeek;
-    document.getElementById('modal-record-leave').classList.remove('hidden');
-    initIcons();
+    openModal('modal-record-leave');
 }
 
 async function openRecordLeaveModalFor(employeeId) {
@@ -3828,9 +3819,7 @@ function openNewPurchaseModal() {
     const urgencySelect = document.getElementById('purchase-urgency');
     if (urgencySelect) urgencySelect.selectedIndex = 0;
 
-    const modal = document.getElementById('modal-new-purchase');
-    if (modal) modal.classList.remove('hidden');
-    initIcons();
+    openModal('modal-new-purchase');
 }
 
 async function handleCreatePurchase(event) {
@@ -3971,9 +3960,7 @@ function openPurchaseActionModal(requestId, defaultAction = 'view') {
         gmExpenseOption.classList.add('hidden');
     }
 
-    const modal = document.getElementById('modal-purchase-action');
-    if (modal) modal.classList.remove('hidden');
-    initIcons();
+    openModal('modal-purchase-action');
 }
 
 async function submitPurchaseActionDecision(decision) {
@@ -4288,11 +4275,7 @@ function filterCreativeTasks(status) {
 }
 
 async function openNewCreativeTaskModal() {
-    const modal = document.getElementById('modal-new-creative-task');
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-    }
+    openModal('modal-new-creative-task');
 
     // Default due date = tomorrow
     const dateInput = document.getElementById('crt-due-date-input');
