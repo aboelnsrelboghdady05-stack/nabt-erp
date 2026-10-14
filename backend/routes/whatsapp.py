@@ -360,7 +360,7 @@ def generate_whatsapp_pairing_code(payload: dict):
     import string
     phone = payload.get("phone", "").strip()
     if not phone:
-        phone = "0501110001"
+        phone = "0500475452"
     
     clean = clean_phone_number(phone)
     # Generate 8-char code like '7ABC-4X9Z'

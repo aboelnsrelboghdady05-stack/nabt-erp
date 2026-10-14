@@ -650,7 +650,7 @@ def accept_order(order_id: int, payload: OrderAcceptSchema):
     accept_msg = f"✅ تم قبول الطلب #{order['order_number']} بنجاح بواسطة المنسق ({florist_name}) وبدأ التنسيق والتجهيز 🌿"
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0501110001', 'فيصل (الآدمن)', 'inbound', 'order_update', ?, 'delivered', ?)
+    VALUES ('0500475452', 'فيصل (الآدمن)', 'inbound', 'order_update', ?, 'delivered', ?)
     """, (accept_msg, order_id))
 
     # إرسال إشعار فوري للعميل عبر الواتساب من رقم المتجر (قيد التجهيز)
@@ -751,7 +751,7 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
     # 2. Alert Faisal (Operations Manager)
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0501110001', 'فيصل (مدير تشغيلي)', 'outbound', 'florist_alert', ?, 'delivered', ?)
+    VALUES ('0500475452', 'فيصل (مدير تشغيلي)', 'outbound', 'florist_alert', ?, 'delivered', ?)
     """, (alert_text, order_id))
 
     # 3. Alert Nader (Branch Manager)
@@ -865,7 +865,7 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
 
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0501110001', 'فيصل (مدير تشغيلي)', 'outbound', 'order_update', ?, 'delivered', ?)
+    VALUES ('0500475452', 'فيصل (مدير تشغيلي)', 'outbound', 'order_update', ?, 'delivered', ?)
     """, (approval_alert, order_id))
 
     cursor.execute("""
