@@ -2155,7 +2155,7 @@
                 <div class="space-y-2">
                     <label class="block text-xs font-semibold text-slate-700">رقم جوال الواتساب:</label>
                     <div class="flex gap-2">
-                        <input type="text" id="wa-pairing-phone-input" value="0501110001" placeholder="مثال: 0501110001" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500">
+                        <input type="text" id="wa-pairing-phone-input" value="0500475452" placeholder="مثال: 0500475452" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500">
                         <button type="button" id="btn-generate-wa-code" onclick="requestWaPairingCode()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
                             <i data-lucide="key" class="w-3.5 h-3.5"></i>
                             <span>توليد الكود</span>
@@ -3266,12 +3266,12 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261014_real_qr_v17"></script>
+    <script src="/static/js/app.js?v=20261014_faisal_phone_v18"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {
         const input = document.getElementById('wa-pairing-phone-input');
-        const phone = (input && input.value && input.value.trim()) ? input.value.trim() : "0501110001";
+        const phone = (input && input.value && input.value.trim()) ? input.value.trim() : "0500475452";
         const display = document.getElementById('wa-generated-code-display');
         if (display) display.textContent = "جاري التوليد...";
         

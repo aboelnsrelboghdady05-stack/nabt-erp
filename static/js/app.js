@@ -2021,10 +2021,13 @@ async function checkWhatsAppStatus() {
         const pill = document.getElementById('wa-connection-pill');
         if (pill) {
             if (data.status === 'connected') {
-                pill.className = 'text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1';
-                pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> متصل (${data.phone})`;
+                let displayPhone = data.phone || "0500475452";
+                if (displayPhone.startsWith("+966")) displayPhone = "0" + displayPhone.slice(4);
+                else if (displayPhone.startsWith("966")) displayPhone = "0" + displayPhone.slice(3);
+                pill.className = 'text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono';
+                pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> متصل (${displayPhone})`;
             } else {
-                pill.className = 'text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1';
+                pill.className = 'text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono';
                 pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> غير متصل`;
             }
         }
