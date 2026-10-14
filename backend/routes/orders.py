@@ -444,7 +444,15 @@ def update_order_status(order_id: int, payload: OrderStatusUpdateSchema):
     # Trigger automatic WhatsApp notification based on new status
     msg = None
     if new_status == "preparing":
-        msg = f"طلبكم الجميل رقم #{order['order_number']} الآن بين أيدي منسقينا المحترفين في نبت 🌿 نسعد بخدمتكم!"
+        msg = (
+            f"يا هلا فيك ✋🏻\n"
+            f".\n"
+            f"طلبكم رقم #{order['order_number']}\n"
+            f"يتجهز الحين من أيادي منسقينا المحترفين 🌱✨\n"
+            f".\n"
+            f".\n"
+            f"من اليوم أنت جزء من نبت | Nabt 🌱"
+        )
     elif new_status == "ready":
         msg = f"تم تجهيز وتنسيق طلبكم الفاخر من الورد للطلب #{order['order_number']} وهي جاهزة للانطلاق للتسليم 🌸✨"
     elif new_status == "out_for_delivery":
@@ -640,9 +648,13 @@ def accept_order(order_id: int, payload: OrderAcceptSchema):
     # إرسال إشعار فوري للعميل عبر الواتساب من رقم المتجر (قيد التجهيز)
     if order['customer_phone']:
         cust_preparing_msg = (
-            f"أهلاً بك عميلنا العزيز في نبت 🌸\n"
-            f"طلبكم رقم #{order['order_number']} الآن قيد التجهيز والتنسيق بعناية بين أيدي منسقينا المحترفين 🌿✨\n"
-            f"نسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐"
+            f"يا هلا فيك ✋🏻\n"
+            f".\n"
+            f"طلبكم رقم #{order['order_number']}\n"
+            f"يتجهز الحين من أيادي منسقينا المحترفين 🌱✨\n"
+            f".\n"
+            f".\n"
+            f"من اليوم أنت جزء من نبت | Nabt 🌱"
         )
         cursor.execute("""
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
