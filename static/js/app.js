@@ -2241,11 +2241,11 @@ function renderChatMessages(messages) {
         msgDiv.className = `flex ${isOutbound ? 'justify-end' : 'justify-start'}`;
         const timeStr = m.created_at ? (m.created_at.includes(' ') ? m.created_at.split(' ')[1].slice(0, 5) : m.created_at) : '';
         msgDiv.innerHTML = `
-            <div class="max-w-[78%] p-3 rounded-2xl text-xs ${isOutbound ? 'bg-emerald-600 text-white rounded-br-none shadow-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm'}">
-                <p class="whitespace-pre-line leading-relaxed">${m.content}</p>
-                <div class="flex justify-end items-center gap-1 mt-1 text-[10px] ${isOutbound ? 'text-emerald-200' : 'text-slate-400'}">
+            <div class="max-w-[85%] sm:max-w-[75%] md:max-w-[500px] p-3.5 rounded-2xl text-xs leading-relaxed ${isOutbound ? 'bg-[#d9fdd3] text-slate-800 border border-[#bbf0a3] rounded-tl-xs shadow-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-tr-xs shadow-xs'}">
+                <p class="whitespace-pre-line leading-relaxed font-sans text-slate-800">${m.content}</p>
+                <div class="flex justify-end items-center gap-1 mt-1.5 text-[10px] ${isOutbound ? 'text-emerald-800/80' : 'text-slate-400'} font-mono">
                     <span>${timeStr}</span>
-                    ${isOutbound ? `<i data-lucide="check-check" class="w-3 h-3 text-emerald-200"></i>` : ''}
+                    ${isOutbound ? `<i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-600"></i>` : ''}
                 </div>
             </div>
         `;
