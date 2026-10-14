@@ -2104,17 +2104,38 @@ async function confirmWaCodeConnection() {
     }
 }
 
+let waQrPollInterval = null;
+
 async function openWhatsAppModal() {
     try {
         const res = await fetch('/api/whatsapp/qr');
         const data = await res.json();
-        document.getElementById('wa-qr-img').src = data.qr_image;
+        const imgElem = document.getElementById('wa-qr-img');
+        if (imgElem) imgElem.src = data.qr_image;
         openModal('modal-whatsapp-qr');
-        switchWaConnectMethod('code');
-        // Auto-generate code if empty
-        if (!currentWaPairingCode) {
-            requestWaPairingCode();
-        }
+        switchWaConnectMethod('qr'); // Show real QR directly!
+
+        // Auto poll status to detect when user scans with phone
+        if (waQrPollInterval) clearInterval(waQrPollInterval);
+        waQrPollInterval = setInterval(async () => {
+            const modal = document.getElementById('modal-whatsapp-qr');
+            if (!modal || modal.classList.contains('hidden')) {
+                clearInterval(waQrPollInterval);
+                waQrPollInterval = null;
+                return;
+            }
+            try {
+                const sRes = await fetch('/api/whatsapp/status');
+                const sData = await sRes.json();
+                if (sData.ultramsg_connected) {
+                    clearInterval(waQrPollInterval);
+                    waQrPollInterval = null;
+                    closeModal('modal-whatsapp-qr');
+                    checkWhatsAppStatus();
+                    alert("🎉 تم ربط واتساب نبت بنجاح! جميع رسائل الطلبات تنطلق فوراً.");
+                }
+            } catch (e) {}
+        }, 3000);
     } catch (err) {
         console.error("Error fetching QR:", err);
     }

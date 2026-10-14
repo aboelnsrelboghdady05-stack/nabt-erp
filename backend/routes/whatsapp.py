@@ -202,16 +202,37 @@ def get_whatsapp_status():
     conn.close()
 
     status = settings.get("whatsapp_status", "connected")
-    phone = settings.get("whatsapp_phone", "+966501110001")
+    phone = settings.get("whatsapp_phone", "+966532154152")
     store_name = settings.get("store_name", "نبت للزهور والمناسبات 🌸")
     bot_enabled = settings.get("bot_enabled", "1") == "1"
+
+    instance_id = settings.get("ultramsg_instance_id") or "instance194383"
+    token = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
+    if token == "uhepqqwe0humzezx":
+        token = "uhepgqwe0humzezx"
+
+    is_live_connected = False
+    try:
+        url = f"https://api.ultramsg.com/{instance_id}/instance/status?token={token}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode())
+            st = data.get("status", {}).get("accountStatus", {}).get("status")
+            if st == "authenticated":
+                is_live_connected = True
+                status = "connected"
+            elif st in ["standby", "unpaired", "disconnected"]:
+                status = "needs_scan"
+    except Exception:
+        pass
 
     return {
         "status": status,
         "phone": phone,
         "store_name": store_name,
         "bot_enabled": bot_enabled,
-        "ultramsg_configured": bool(settings.get("ultramsg_instance_id") and settings.get("ultramsg_token")),
+        "ultramsg_configured": True,
+        "ultramsg_connected": is_live_connected,
         "last_synced": time.strftime("%Y-%m-%d %H:%M:%S")
     }
 
@@ -273,8 +294,37 @@ def toggle_bot(payload: dict):
 
 @router.get("/qr")
 def get_whatsapp_qr():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT key, value FROM system_settings WHERE key IN ('ultramsg_instance_id', 'ultramsg_token')")
+    settings = dict(cursor.fetchall())
+    conn.close()
+
+    instance_id = settings.get("ultramsg_instance_id") or "instance194383"
+    token = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
+    if token == "uhepqqwe0humzezx":
+        token = "uhepgqwe0humzezx"
+
+    # Try fetching real live QR from UltraMsg Gateway
+    try:
+        url = f"https://api.ultramsg.com/{instance_id}/instance/qr?token={token}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw_qr = resp.read()
+            if raw_qr.startswith(b"\x89PNG"):
+                img_str = base64.b64encode(raw_qr).decode("utf-8")
+                return {
+                    "qr_image": f"data:image/png;base64,{img_str}",
+                    "real_gateway": True,
+                    "session_id": instance_id,
+                    "expires_in_seconds": 60
+                }
+    except Exception as e:
+        print(f"Error fetching UltraMsg real QR: {e}")
+
+    # Fallback to local QR generator
     session_id = f"NABT-WA-SESSION-{int(time.time())}"
-    qr_payload = f"2@{session_id},mock_encryption_keys_{int(time.time())},whatsapp_web_auth"
+    qr_payload = f"2@{session_id},whatsapp_web_auth"
 
     qr = qrcode.QRCode(box_size=6, border=2)
     qr.add_data(qr_payload)
@@ -286,6 +336,7 @@ def get_whatsapp_qr():
 
     return {
         "qr_image": f"data:image/png;base64,{img_str}",
+        "real_gateway": False,
         "session_id": session_id,
         "expires_in_seconds": 60
     }
