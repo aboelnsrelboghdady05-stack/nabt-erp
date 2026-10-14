@@ -168,10 +168,12 @@ def dispatch_via_gateway_if_configured(phone: str, message: str):
     settings = dict(cursor.fetchall())
     conn.close()
 
-    instance_id = settings.get("ultramsg_instance_id") or "instance194383"
-    token = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
-    if token == "uhepqqwe0humzezx":
-        token = "uhepgqwe0humzezx"
+    instance_id = settings.get("ultramsg_instance_id") or "instance194389"
+    token = settings.get("ultramsg_token") or "6ryfji0hc0bu26j0"
+    if instance_id == "instance194383":
+        instance_id = "instance194389"
+    if token in ["uhepqqwe0humzezx", "uhepgqwe0humzezx"]:
+        token = "6ryfji0hc0bu26j0"
 
     if instance_id and token:
         clean = clean_phone_number(phone)
@@ -202,14 +204,16 @@ def get_whatsapp_status():
     conn.close()
 
     status = settings.get("whatsapp_status", "connected")
-    phone = settings.get("whatsapp_phone", "+966532154152")
+    phone = settings.get("whatsapp_phone", "+966500475452")
     store_name = settings.get("store_name", "نبت للزهور والمناسبات 🌸")
     bot_enabled = settings.get("bot_enabled", "1") == "1"
 
-    instance_id = settings.get("ultramsg_instance_id") or "instance194383"
-    token = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
-    if token == "uhepqqwe0humzezx":
-        token = "uhepgqwe0humzezx"
+    instance_id = settings.get("ultramsg_instance_id") or "instance194389"
+    token = settings.get("ultramsg_token") or "6ryfji0hc0bu26j0"
+    if instance_id == "instance194383":
+        instance_id = "instance194389"
+    if token in ["uhepqqwe0humzezx", "uhepgqwe0humzezx"]:
+        token = "6ryfji0hc0bu26j0"
 
     is_live_connected = False
     try:
@@ -244,10 +248,12 @@ def get_bot_settings():
     settings = dict(cursor.fetchall())
     conn.close()
 
-    inst = settings.get("ultramsg_instance_id") or "instance194383"
-    tok = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
-    if tok == "uhepqqwe0humzezx":
-        tok = "uhepgqwe0humzezx"
+    inst = settings.get("ultramsg_instance_id") or "instance194389"
+    tok = settings.get("ultramsg_token") or "6ryfji0hc0bu26j0"
+    if inst == "instance194383":
+        inst = "instance194389"
+    if tok in ["uhepqqwe0humzezx", "uhepgqwe0humzezx"]:
+        tok = "6ryfji0hc0bu26j0"
 
     return {
         "bot_enabled": settings.get("bot_enabled", "1") == "1",
@@ -264,10 +270,12 @@ def save_bot_settings(payload: BotSettingsSchema):
     cursor = conn.cursor()
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('bot_enabled', ?)", ("1" if payload.bot_enabled else "0",))
     
-    inst = (payload.ultramsg_instance_id or "").strip() or "instance194383"
-    tok = (payload.ultramsg_token or "").strip() or "uhepgqwe0humzezx"
-    if tok == "uhepqqwe0humzezx":
-        tok = "uhepgqwe0humzezx"
+    inst = (payload.ultramsg_instance_id or "").strip() or "instance194389"
+    tok = (payload.ultramsg_token or "").strip() or "6ryfji0hc0bu26j0"
+    if inst == "instance194383":
+        inst = "instance194389"
+    if tok in ["uhepqqwe0humzezx", "uhepgqwe0humzezx"]:
+        tok = "6ryfji0hc0bu26j0"
 
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_instance_id', ?)", (inst,))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_token', ?)", (tok,))
@@ -300,10 +308,12 @@ def get_whatsapp_qr():
     settings = dict(cursor.fetchall())
     conn.close()
 
-    instance_id = settings.get("ultramsg_instance_id") or "instance194383"
-    token = settings.get("ultramsg_token") or "uhepgqwe0humzezx"
-    if token == "uhepqqwe0humzezx":
-        token = "uhepgqwe0humzezx"
+    instance_id = settings.get("ultramsg_instance_id") or "instance194389"
+    token = settings.get("ultramsg_token") or "6ryfji0hc0bu26j0"
+    if instance_id == "instance194383":
+        instance_id = "instance194389"
+    if token in ["uhepqqwe0humzezx", "uhepgqwe0humzezx"]:
+        token = "6ryfji0hc0bu26j0"
 
     # Try fetching real live QR from UltraMsg Gateway
     try:
