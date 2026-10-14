@@ -179,11 +179,17 @@ def dispatch_via_gateway_if_configured(phone: str, message: str):
             "to": clean,
             "body": message
         }).encode("utf-8")
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)"
+        }
         try:
-            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"})
-            urllib.request.urlopen(req, timeout=5)
+            req = urllib.request.Request(url, data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                result = resp.read().decode("utf-8")
+                print(f"UltraMsg dispatch to {clean}: {result}")
         except Exception as e:
-            print(f"Gateway send notice: {e}")
+            print(f"Gateway send error to {clean}: {e}")
 
 @router.get("/status")
 def get_whatsapp_status():
