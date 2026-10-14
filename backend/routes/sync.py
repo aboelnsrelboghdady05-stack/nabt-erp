@@ -166,12 +166,18 @@ async def receive_invoice_from_accounting(payload: ExternalInvoicePayload):
         amount_str = f"{payload.total_amount:g}" if float(payload.total_amount).is_integer() else f"{payload.total_amount:.2f}"
         wa_message = (
             f"شكرًا لأنك اخترت نبت | Nabt\n"
+            f".\n"
+            f".\n"
             f"استلمنا طلبك رقم #{order_number} بنجاح!\n"
+            f".\n"
             f"قيمة الطلب: {amount_str} ر.س\n"
             f"حالة السداد: ({pay_status_ar})\n"
+            f".\n"
             f"تاريخ التوصيل: {issue_date} \n"
             f"موعد التوصيل:مسائي (4ع - 8م))\n"
-            f"نسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐"
+            f".\n"
+            f".\n"
+            f"من اليوم أنت جزء من نبت | Nabt 🌱"
         )
         cursor.execute("""
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)

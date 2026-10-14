@@ -308,7 +308,7 @@ def init_db():
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_instance_id', 'instance194389')")
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('ultramsg_token', '6ryfji0hc0bu26j0')")
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_confirm_msg', ?)", 
-        ("شكرًا لأنك اخترت نبت | Nabt\nاستلمنا طلبك رقم #{order_number} بنجاح!\nقيمة الطلب: {total_amount} ر.س\nحالة السداد: ({payment_status})\nتاريخ التوصيل: {delivery_date}\nموعد التوصيل: {delivery_time_slot}\nنسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐",))
+        ("شكرًا لأنك اخترت نبت | Nabt\n.\n.\nاستلمنا طلبك رقم #{order_number} بنجاح!\n.\nقيمة الطلب: {total_amount} ر.س\nحالة السداد: ({payment_status})\n.\nتاريخ التوصيل: {delivery_date}\nموعد التوصيل: {delivery_time_slot}\n.\n.\nمن اليوم أنت جزء من نبت | Nabt 🌱",))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_driver_msg', ?)", 
         ("طلبكم رقم #{order_number} أصبح الآن مع المندوب",))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_delivered_msg', ?)", 
