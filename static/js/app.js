@@ -58,12 +58,26 @@ function startLiveClock() {
     liveClockInterval = setInterval(updateLiveDateTime, 1000);
 }
 
+function startLiveOrdersPolling() {
+    if (liveOrdersPollingInterval) clearInterval(liveOrdersPollingInterval);
+    liveOrdersPollingInterval = setInterval(() => {
+        if (document.hidden || !currentUser) return;
+        if (currentActiveTab === 'orders') {
+            loadOrders();
+        } else if (currentActiveTab === 'dashboard') {
+            loadDashboardData();
+        }
+    }, 5000);
+}
+
 let allProducts = [];
 let allDrivers = [];
 let activeOrderFilter = 'all';
 let activeInvoiceFilter = 'all';
 let currentActiveChatPhone = null;
 let waPollingInterval = null;
+let liveOrdersPollingInterval = null;
+let currentActiveTab = 'dashboard';
 let allWhatsAppConversations = [];
 let lastChatMessagesCount = 0;
 
@@ -103,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadProducts();
             loadDrivers();
             checkWhatsAppStatus();
+            startLiveOrdersPolling();
         } catch (e) {
             currentUser = null;
             localStorage.removeItem('nabt_current_user');
@@ -203,6 +218,7 @@ async function handlePageLogin(event) {
             loadProducts();
             loadDrivers();
             checkWhatsAppStatus();
+            startLiveOrdersPolling();
             loadPurchases();
             loadCreativeTasks();
         } else {
@@ -259,6 +275,8 @@ function switchTab(tabId) {
     if (currentUser && currentUser.role === 'florist' && (tabId === 'invoices' || tabId === 'expenses')) {
         tabId = 'orders';
     }
+
+    currentActiveTab = tabId;
 
     const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'creative-tasks'];
     tabs.forEach(t => {
