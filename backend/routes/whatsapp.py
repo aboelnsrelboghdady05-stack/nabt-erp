@@ -354,11 +354,13 @@ def get_conversations():
 def get_conversation_messages(phone: str):
     conn = get_db()
     cursor = conn.cursor()
+    clean = clean_phone_number(phone)
+    last9 = clean[-9:] if len(clean) >= 9 else clean
     cursor.execute("""
     SELECT * FROM whatsapp_messages
-    WHERE recipient_phone = ?
+    WHERE recipient_phone = ? OR recipient_phone LIKE ?
     ORDER BY id ASC
-    """, (phone,))
+    """, (phone, f"%{last9}"))
     messages = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return messages
@@ -405,10 +407,28 @@ async def receive_incoming_whatsapp_webhook(request: Request):
     except Exception:
         body = {}
 
-    # Handles UltraMsg / GreenAPI / Custom format
-    from_phone = body.get("from") or body.get("sender") or body.get("phone") or "0505112233"
-    message_text = body.get("body") or body.get("message") or body.get("text") or ""
-    cust_name = body.get("pushName") or body.get("name") or "عميل نبت"
+    # Handles UltraMsg payload format (data dictionary) or generic format
+    data = body.get("data") if isinstance(body.get("data"), dict) else body
+
+    # Ignore outbound messages sent from the store device itself to prevent echoing/loops
+    from_me = data.get("fromMe", False)
+    if from_me:
+        return {"status": "ignored_outbound"}
+
+    raw_from = str(data.get("from") or data.get("sender") or data.get("phone") or "")
+    if "@" in raw_from:
+        raw_from = raw_from.split("@")[0]
+
+    raw_from = raw_from.replace("+", "").replace(" ", "").strip()
+    if not raw_from:
+        return {"status": "ignored_no_sender"}
+
+    from_phone = clean_phone_number(raw_from)
+    # Standardize local display
+    local_phone = "0" + from_phone[3:] if from_phone.startswith("9665") else from_phone
+
+    message_text = str(data.get("body") or data.get("message") or data.get("text") or "").strip()
+    cust_name = str(data.get("pushname") or data.get("pushName") or data.get("name") or "").strip()
 
     if not message_text:
         return {"status": "ignored_empty"}
@@ -416,11 +436,25 @@ async def receive_incoming_whatsapp_webhook(request: Request):
     conn = get_db()
     cursor = conn.cursor()
 
+    # Resolve customer name if missing or generic
+    if not cust_name or cust_name in ["عميل نبت", "WhatsApp User"]:
+        cursor.execute("SELECT name FROM customers WHERE phone LIKE ? LIMIT 1", (f"%{local_phone[-9:]}%",))
+        c_row = cursor.fetchone()
+        if c_row:
+            cust_name = c_row[0]
+        else:
+            cursor.execute("SELECT customer_name FROM orders WHERE customer_phone LIKE ? ORDER BY id DESC LIMIT 1", (f"%{local_phone[-9:]}%",))
+            o_row = cursor.fetchone()
+            if o_row:
+                cust_name = o_row[0]
+            else:
+                cust_name = cust_name or "عميل نبت"
+
     # 1. Log incoming message
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status)
     VALUES (?, ?, 'inbound', 'direct_chat', ?, 'read')
-    """, (from_phone, cust_name, message_text))
+    """, (local_phone, cust_name, message_text))
 
     # 2. Check if Auto-Bot is enabled
     cursor.execute("SELECT value FROM system_settings WHERE key = 'bot_enabled'")
@@ -429,21 +463,22 @@ async def receive_incoming_whatsapp_webhook(request: Request):
 
     bot_reply = None
     if bot_enabled:
-        bot_reply = generate_smart_bot_reply(from_phone, message_text, cursor)
+        bot_reply = generate_smart_bot_reply(local_phone, message_text, cursor)
         if bot_reply:
             cursor.execute("""
             INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status)
             VALUES (?, ?, 'outbound', 'bot_auto_reply', ?, 'delivered')
-            """, (from_phone, cust_name, bot_reply))
+            """, (local_phone, cust_name, bot_reply))
             
             # Send back to customer via gateway
-            dispatch_via_gateway_if_configured(from_phone, bot_reply)
+            dispatch_via_gateway_if_configured(local_phone, bot_reply)
 
     conn.commit()
     conn.close()
 
     return {
         "success": True,
+        "from": local_phone,
         "bot_replied": bool(bot_reply),
         "reply": bot_reply
     }

@@ -63,6 +63,9 @@ let allDrivers = [];
 let activeOrderFilter = 'all';
 let activeInvoiceFilter = 'all';
 let currentActiveChatPhone = null;
+let waPollingInterval = null;
+let allWhatsAppConversations = [];
+let lastChatMessagesCount = 0;
 
 // User Management & Active Session
 let currentUser = null;
@@ -297,9 +300,17 @@ function switchTab(tabId) {
     }
 
     // Trigger tab-specific refresh
+    if (waPollingInterval) {
+        clearInterval(waPollingInterval);
+        waPollingInterval = null;
+    }
+
     if (tabId === 'dashboard') loadDashboardData();
     if (tabId === 'orders') loadOrders();
-    if (tabId === 'whatsapp') loadWhatsAppConversations();
+    if (tabId === 'whatsapp') {
+        loadWhatsAppConversations();
+        waPollingInterval = setInterval(pollWhatsAppLive, 4000);
+    }
     if (tabId === 'invoices') loadInvoices();
     if (tabId === 'drivers') loadDriversView();
     if (tabId === 'customers') loadCustomers();
@@ -2124,38 +2135,84 @@ async function simulateWhatsAppScan() {
     }
 }
 
+function renderWhatsAppConversationsList(conversations) {
+    const list = document.getElementById('wa-conversations-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (!conversations || conversations.length === 0) {
+        list.innerHTML = `<p class="p-6 text-xs text-slate-400 text-center">لا توجد محادثات مطابقة</p>`;
+        return;
+    }
+
+    conversations.forEach((c, idx) => {
+        const isActive = currentActiveChatPhone && (c.phone === currentActiveChatPhone || c.phone.endsWith(currentActiveChatPhone.slice(-9)));
+        const div = document.createElement('div');
+        div.onclick = () => selectWhatsAppConversation(c.phone, c.name);
+        div.className = `p-3.5 hover:bg-emerald-50/70 cursor-pointer transition-colors flex items-center gap-3 ${isActive ? 'bg-emerald-50 border-r-4 border-r-emerald-600' : ''}`;
+        
+        const initial = (c.name || 'ع').charAt(0).toUpperCase();
+        const timeStr = c.timestamp ? (c.timestamp.includes(' ') ? c.timestamp.split(' ')[1].slice(0, 5) : c.timestamp) : '';
+        
+        div.innerHTML = `
+            <div class="w-10 h-10 rounded-full ${isActive ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'} font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-sm">
+                ${initial}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-center mb-0.5">
+                    <strong class="text-xs text-slate-800 truncate block">${c.name}</strong>
+                    <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 truncate">${c.last_message || 'لا توجد رسائل'}</p>
+            </div>
+        `;
+        list.appendChild(div);
+    });
+}
+
+function filterWhatsAppConversations(term) {
+    term = (term || '').trim().toLowerCase();
+    if (!term) {
+        renderWhatsAppConversationsList(allWhatsAppConversations);
+        return;
+    }
+    const filtered = allWhatsAppConversations.filter(c => 
+        (c.name && c.name.toLowerCase().includes(term)) ||
+        (c.phone && c.phone.includes(term)) ||
+        (c.last_message && c.last_message.toLowerCase().includes(term))
+    );
+    renderWhatsAppConversationsList(filtered);
+}
+
+function promptNewWhatsAppChat() {
+    const phone = prompt("أدخل رقم الواتساب (مثال: 0544338827):");
+    if (!phone) return;
+    const clean = phone.replace(/[^0-9]/g, '');
+    if (clean.length < 9) {
+        alert("يرجى إدخال رقم هاتف صحيح");
+        return;
+    }
+    const name = prompt("اسم العميل أو جهة الاتصال (اختياري):") || `محادثة (${phone})`;
+    selectWhatsAppConversation(phone, name);
+    setTimeout(() => {
+        document.getElementById('chat-input-text')?.focus();
+    }, 100);
+}
+
 async function loadWhatsAppConversations() {
     try {
         const res = await fetch('/api/whatsapp/conversations');
         const conversations = await res.json();
-        const list = document.getElementById('wa-conversations-list');
-        list.innerHTML = '';
-
-        if (conversations.length === 0) {
-            list.innerHTML = `<p class="p-4 text-xs text-slate-400 text-center">لا توجد محادثات سابقة</p>`;
-            return;
+        allWhatsAppConversations = conversations;
+        
+        const searchVal = document.getElementById('wa-search-input')?.value;
+        if (searchVal) {
+            filterWhatsAppConversations(searchVal);
+        } else {
+            renderWhatsAppConversationsList(conversations);
         }
 
-        conversations.forEach((c, idx) => {
-            const div = document.createElement('div');
-            div.onclick = () => selectWhatsAppConversation(c.phone, c.name);
-            div.className = `p-3.5 hover:bg-slate-100 cursor-pointer transition-colors flex items-center gap-3 ${idx === 0 && !currentActiveChatPhone ? 'bg-slate-100' : ''}`;
-            div.innerHTML = `
-                <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-800 font-bold flex items-center justify-center text-xs flex-shrink-0">
-                    ${c.name.charAt(0)}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex justify-between items-center mb-0.5">
-                        <strong class="text-xs text-slate-800 truncate block">${c.name}</strong>
-                        <span class="text-[10px] text-slate-400 font-mono">${c.timestamp ? c.timestamp.split(' ')[1] || '' : ''}</span>
-                    </div>
-                    <p class="text-[11px] text-slate-500 truncate">${c.last_message}</p>
-                </div>
-            `;
-            list.appendChild(div);
-        });
-
-        // Auto select first conversation
+        // Auto select first conversation if none selected
         if (!currentActiveChatPhone && conversations.length > 0) {
             selectWhatsAppConversation(conversations[0].phone, conversations[0].name);
         }
@@ -2164,44 +2221,96 @@ async function loadWhatsAppConversations() {
     }
 }
 
+function renderChatMessages(messages) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!messages || messages.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-slate-400 text-xs my-8">
+                لا توجد رسائل سابقة في هذه المحادثة. اكتب أول رسالة بالأسفل للبدء!
+            </div>
+        `;
+        return;
+    }
+
+    messages.forEach(m => {
+        const isOutbound = m.direction === 'outbound';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${isOutbound ? 'justify-end' : 'justify-start'}`;
+        const timeStr = m.created_at ? (m.created_at.includes(' ') ? m.created_at.split(' ')[1].slice(0, 5) : m.created_at) : '';
+        msgDiv.innerHTML = `
+            <div class="max-w-[78%] p-3 rounded-2xl text-xs ${isOutbound ? 'bg-emerald-600 text-white rounded-br-none shadow-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm'}">
+                <p class="whitespace-pre-line leading-relaxed">${m.content}</p>
+                <div class="flex justify-end items-center gap-1 mt-1 text-[10px] ${isOutbound ? 'text-emerald-200' : 'text-slate-400'}">
+                    <span>${timeStr}</span>
+                    ${isOutbound ? `<i data-lucide="check-check" class="w-3 h-3 text-emerald-200"></i>` : ''}
+                </div>
+            </div>
+        `;
+        container.appendChild(msgDiv);
+    });
+
+    container.scrollTop = container.scrollHeight;
+    initIcons();
+}
+
 async function selectWhatsAppConversation(phone, name) {
     currentActiveChatPhone = phone;
-    document.getElementById('chat-active-name').textContent = name;
+    document.getElementById('chat-active-name').textContent = name || phone;
     document.getElementById('chat-active-phone').textContent = phone;
-    document.getElementById('chat-active-avatar').textContent = name.charAt(0);
+    document.getElementById('chat-active-avatar').textContent = (name || phone).charAt(0).toUpperCase();
 
     // Direct wa link
     let cleanPhone = phone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.slice(1);
     document.getElementById('chat-direct-wa-link').href = `https://wa.me/${cleanPhone}`;
 
+    // Update active highlight in conversation list
+    renderWhatsAppConversationsList(allWhatsAppConversations);
+
     try {
         const res = await fetch(`/api/whatsapp/conversations/${phone}`);
         const messages = await res.json();
-        const container = document.getElementById('chat-messages-container');
-        container.innerHTML = '';
-
-        messages.forEach(m => {
-            const isOutbound = m.direction === 'outbound';
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `flex ${isOutbound ? 'justify-end' : 'justify-start'}`;
-            msgDiv.innerHTML = `
-                <div class="max-w-[75%] p-3 rounded-2xl text-xs ${isOutbound ? 'bg-emerald-600 text-white rounded-br-none shadow-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm'}">
-                    <p class="whitespace-pre-line">${m.content}</p>
-                    <div class="flex justify-end items-center gap-1 mt-1 text-[10px] ${isOutbound ? 'text-emerald-200' : 'text-slate-400'}">
-                        <span>${m.created_at ? m.created_at.split(' ')[1] || '' : ''}</span>
-                        ${isOutbound ? `<i data-lucide="check-check" class="w-3 h-3 text-emerald-200"></i>` : ''}
-                    </div>
-                </div>
-            `;
-            container.appendChild(msgDiv);
-        });
-
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
-        initIcons();
+        lastChatMessagesCount = messages.length;
+        renderChatMessages(messages);
     } catch (err) {
         console.error("Load chat messages error:", err);
+    }
+}
+
+async function pollWhatsAppLive() {
+    const waView = document.getElementById('view-whatsapp');
+    if (!waView || waView.classList.contains('hidden')) {
+        if (waPollingInterval) { clearInterval(waPollingInterval); waPollingInterval = null; }
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/whatsapp/conversations');
+        const conversations = await res.json();
+        allWhatsAppConversations = conversations;
+
+        // If search input is active, don't overwrite user's filter
+        const searchInput = document.getElementById('wa-search-input');
+        if (searchInput && searchInput.value.trim()) {
+            filterWhatsAppConversations(searchInput.value);
+        } else {
+            renderWhatsAppConversationsList(conversations);
+        }
+
+        // Live refresh active chat messages if phone is selected
+        if (currentActiveChatPhone) {
+            const mRes = await fetch(`/api/whatsapp/conversations/${currentActiveChatPhone}`);
+            const messages = await mRes.json();
+            if (messages.length !== lastChatMessagesCount) {
+                lastChatMessagesCount = messages.length;
+                renderChatMessages(messages);
+            }
+        }
+    } catch (e) {
+        // silent background polling catch
     }
 }
 

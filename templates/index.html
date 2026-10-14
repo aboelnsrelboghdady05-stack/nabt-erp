@@ -900,11 +900,17 @@
                 </div>
 
                 <!-- Live Chat Hub Layout (Two panes: Chats list + Active conversation) -->
-                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-3 overflow-hidden h-[620px]">
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-3 overflow-hidden h-[calc(100vh-180px)] min-h-[600px]">
                     <!-- Conversations list (1 Col) -->
                     <div class="border-l border-slate-200 flex flex-col h-full bg-slate-50/50">
-                        <div class="p-3 border-b border-slate-200">
-                            <input type="text" placeholder="بحث في المحادثات..." class="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-500">
+                        <div class="p-3 border-b border-slate-200 flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <input type="text" id="wa-search-input" oninput="filterWhatsAppConversations(this.value)" placeholder="بحث بالاسم أو الرقم..." class="w-full text-xs pr-8 pl-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-500 transition-all">
+                            </div>
+                            <button onclick="promptNewWhatsAppChat()" title="بدء محادثة جديدة" class="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs flex items-center justify-center flex-shrink-0 shadow-sm transition-all active:scale-95">
+                                <i data-lucide="message-square-plus" class="w-4 h-4"></i>
+                            </button>
                         </div>
                         <div id="wa-conversations-list" class="flex-1 overflow-y-auto divide-y divide-slate-100">
                             <!-- Dynamic conversations -->
@@ -3258,7 +3264,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261014_emp_phone_v14"></script>
+    <script src="/static/js/app.js?v=20261014_wa_full_chat_v15"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {
