@@ -160,23 +160,8 @@ def generate_smart_bot_reply(phone: str, message: str, cursor) -> Optional[str]:
         "أو اكتب سؤالك وسنقوم بخدمتك فوراً ✨"
     )
 
-def dispatch_via_gateway_if_configured(phone: str, message: str):
-    """If UltraMsg or Gateway credentials are set, sends real WhatsApp message over HTTP API"""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT key, value FROM system_settings WHERE key IN ('ultramsg_instance_id', 'ultramsg_token')")
-    settings = dict(cursor.fetchall())
-    conn.close()
-
-    instance_id = settings.get("ultramsg_instance_id") or "instance194389"
-    token = settings.get("ultramsg_token") or "6ryfji0hc0bu26j0"
-    if instance_id == "instance194383":
-        instance_id = "instance194389"
-    if token in ["uhepqqwe0humzezx", "uhepgqwe0humzezx"]:
-        token = "6ryfji0hc0bu26j0"
-
-    if instance_id and token:
-        clean = clean_phone_number(phone)
+def _send_ultramsg_worker(clean: str, message: str, instance_id: str, token: str):
+    try:
         url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
         payload = urllib.parse.urlencode({
             "token": token,
@@ -187,13 +172,20 @@ def dispatch_via_gateway_if_configured(phone: str, message: str):
             "Content-Type": "application/x-www-form-urlencoded",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)"
         }
-        try:
-            req = urllib.request.Request(url, data=payload, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                result = resp.read().decode("utf-8")
-                print(f"UltraMsg dispatch to {clean}: {result}")
-        except Exception as e:
-            print(f"Gateway send error to {clean}: {e}")
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = resp.read().decode("utf-8")
+            print(f"UltraMsg dispatch to {clean}: {result}")
+    except Exception as e:
+        print(f"Gateway send error to {clean}: {e}")
+
+def dispatch_via_gateway_if_configured(phone: str, message: str):
+    """Sends WhatsApp message in background daemon thread without blocking DB transactions"""
+    import threading
+    clean = clean_phone_number(phone)
+    instance_id = "instance194389"
+    token = "6ryfji0hc0bu26j0"
+    threading.Thread(target=_send_ultramsg_worker, args=(clean, message, instance_id, token), daemon=True).start()
 
 @router.get("/status")
 def get_whatsapp_status():

@@ -343,7 +343,6 @@ def create_order(payload: OrderCreateSchema):
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
     """, (payload.customer_phone, payload.customer_name, wa_msg, order_id))
-    dispatch_via_gateway_if_configured(payload.customer_phone, wa_msg)
 
     # 10. Send Automated WhatsApp Florist Task Dispatch
     florist_wa_link = None
@@ -377,13 +376,14 @@ def create_order(payload: OrderCreateSchema):
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
         VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
         """, (assigned_florist['phone'], assigned_florist['name'], florist_msg, order_id))
-        dispatch_via_gateway_if_configured(assigned_florist['phone'], florist_msg)
 
         clean_f_phone = clean_phone_number(assigned_florist['phone'])
         encoded_f_msg = urllib.parse.quote(florist_msg)
         florist_wa_link = f"https://wa.me/{clean_f_phone}?text={encoded_f_msg}"
 
     # If driver assigned, also queue driver alert
+    driver_row = None
+    driver_msg = None
     if payload.driver_id:
         cursor.execute("SELECT name, phone FROM drivers WHERE id = ?", (payload.driver_id,))
         driver_row = cursor.fetchone()
@@ -400,10 +400,17 @@ def create_order(payload: OrderCreateSchema):
             INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
             VALUES (?, ?, 'outbound', 'driver_alert', ?, 'delivered', ?)
             """, (driver_row['phone'], driver_row['name'], driver_msg, order_id))
-            dispatch_via_gateway_if_configured(driver_row['phone'], driver_msg)
 
     conn.commit()
     conn.close()
+
+    # Asynchronous WhatsApp dispatches (after DB commit)
+    if payload.customer_phone:
+        dispatch_via_gateway_if_configured(payload.customer_phone, wa_msg)
+    if assigned_florist and florist_msg:
+        dispatch_via_gateway_if_configured(assigned_florist['phone'], florist_msg)
+    if payload.driver_id and driver_row and driver_msg:
+        dispatch_via_gateway_if_configured(driver_row['phone'], driver_msg)
 
     return {
         "success": True,
@@ -479,12 +486,14 @@ def update_order_status(order_id: int, payload: OrderStatusUpdateSchema):
     if msg:
         cursor.execute("""
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-        VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
         """, (order['customer_phone'], order['customer_name'], msg, order_id))
-        dispatch_via_gateway_if_configured(order['customer_phone'], msg)
 
     conn.commit()
     conn.close()
+
+    if msg and order['customer_phone']:
+        dispatch_via_gateway_if_configured(order['customer_phone'], msg)
+
     return {"success": True, "status": new_status, "whatsapp_notified": bool(msg)}
 
 @router.put("/{order_id}/assign-driver")
@@ -522,7 +531,6 @@ def assign_driver(order_id: int, payload: AssignDriverSchema):
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES (?, ?, 'outbound', 'driver_alert', ?, 'delivered', ?)
     """, (driver['phone'], driver['name'], driver_msg, order_id))
-    dispatch_via_gateway_if_configured(driver['phone'], driver_msg)
 
     # المرحلة الثانية: إشعار العميل باستلام المندوب للطلب
     cust_stage2_msg = (
@@ -537,10 +545,14 @@ def assign_driver(order_id: int, payload: AssignDriverSchema):
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
     """, (order['customer_phone'], order['customer_name'], cust_stage2_msg, order_id))
-    dispatch_via_gateway_if_configured(order['customer_phone'], cust_stage2_msg)
 
     conn.commit()
     conn.close()
+
+    dispatch_via_gateway_if_configured(driver['phone'], driver_msg)
+    if order['customer_phone']:
+        dispatch_via_gateway_if_configured(order['customer_phone'], cust_stage2_msg)
+
     return {"success": True, "driver_name": driver["name"]}
 
 @router.put("/{order_id}/assign-florist")
@@ -602,12 +614,13 @@ def assign_florist(order_id: int, payload: AssignFloristSchema):
     )
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
-    """, (florist['phone'], florist['name'], florist_msg, order_id))
-    dispatch_via_gateway_if_configured(florist['phone'], florist_msg)
+        VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
+        """, (florist['phone'], florist['name'], florist_msg, order_id))
 
     conn.commit()
     conn.close()
+
+    dispatch_via_gateway_if_configured(florist['phone'], florist_msg)
     return {"success": True, "florist_name": florist["name"]}
 
 @router.delete("/{order_id}")
@@ -653,7 +666,7 @@ def accept_order(order_id: int, payload: OrderAcceptSchema):
     VALUES ('0500475452', 'فيصل (الآدمن)', 'inbound', 'order_update', ?, 'delivered', ?)
     """, (accept_msg, order_id))
 
-    # إرسال إشعار فوري للعميل عبر الواتساب من رقم المتجر (قيد التجهيز)
+    cust_preparing_msg = None
     if order['customer_phone']:
         cust_preparing_msg = (
             f"يا هلا فيك ✋🏻\n"
@@ -668,10 +681,13 @@ def accept_order(order_id: int, payload: OrderAcceptSchema):
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
         VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
         """, (order['customer_phone'], order['customer_name'], cust_preparing_msg, order_id))
-        dispatch_via_gateway_if_configured(order['customer_phone'], cust_preparing_msg)
 
     conn.commit()
     conn.close()
+
+    if cust_preparing_msg and order['customer_phone']:
+        dispatch_via_gateway_if_configured(order['customer_phone'], cust_preparing_msg)
+
     return {"success": True, "message": "تم قبول الطلب وبدأ التنسيق بنجاح", "status": "preparing", "acceptance_status": "accepted"}
 
 @router.put("/{order_id}/reject")
@@ -792,10 +808,12 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
         VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
         """, (next_florist['phone'], new_florist_name, florist_msg, order_id))
-        dispatch_via_gateway_if_configured(next_florist['phone'], florist_msg)
 
     conn.commit()
     conn.close()
+
+    if next_florist and florist_msg:
+        dispatch_via_gateway_if_configured(next_florist['phone'], florist_msg)
 
     return {
         "success": True,
