@@ -262,6 +262,20 @@ def init_db():
     if "previous_florist_id" not in columns:
         cursor.execute("ALTER TABLE orders ADD COLUMN previous_florist_id INTEGER")
 
+    # Migration: Add missing columns to drivers if not exists
+    cursor.execute("PRAGMA table_info(drivers)")
+    drv_columns = [row[1] for row in cursor.fetchall()]
+    if "vehicle" not in drv_columns:
+        cursor.execute("ALTER TABLE drivers ADD COLUMN vehicle TEXT DEFAULT 'سيارة مكيفة لنقل الورد'")
+    if "status" not in drv_columns:
+        cursor.execute("ALTER TABLE drivers ADD COLUMN status TEXT DEFAULT 'available'")
+    if "commission_per_order" not in drv_columns:
+        cursor.execute("ALTER TABLE drivers ADD COLUMN commission_per_order REAL DEFAULT 25.0")
+    if "total_delivered" not in drv_columns:
+        cursor.execute("ALTER TABLE drivers ADD COLUMN total_delivered INTEGER DEFAULT 0")
+    if "notes" not in drv_columns:
+        cursor.execute("ALTER TABLE drivers ADD COLUMN notes TEXT")
+
     # Migration: Add username, password, and weekly_off_day to employees
     cursor.execute("PRAGMA table_info(employees)")
     emp_columns = [row[1] for row in cursor.fetchall()]

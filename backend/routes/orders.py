@@ -486,6 +486,7 @@ def update_order_status(order_id: int, payload: OrderStatusUpdateSchema):
     if msg:
         cursor.execute("""
         INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+        VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
         """, (order['customer_phone'], order['customer_name'], msg, order_id))
 
     conn.commit()
@@ -513,7 +514,7 @@ def assign_driver(order_id: int, payload: AssignDriverSchema):
         conn.close()
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    cursor.execute("UPDATE orders SET driver_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (payload.driver_id, order_id))
+    cursor.execute("UPDATE orders SET driver_id = ?, status = 'out_for_delivery', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (payload.driver_id, order_id))
     cursor.execute("UPDATE drivers SET status = 'on_delivery' WHERE id = ?", (payload.driver_id,))
 
     # WhatsApp Driver Dispatch Message

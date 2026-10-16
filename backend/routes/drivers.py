@@ -70,6 +70,11 @@ def create_driver(payload: DriverCreateSchema):
     conn = get_db()
     cursor = conn.cursor()
 
+    cursor.execute("SELECT id FROM drivers WHERE phone = ?", (payload.phone,))
+    if cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="يوجد مندوب مسجل بهذا الهاتف مسبقاً في النظام.")
+
     try:
         cursor.execute("""
         INSERT INTO drivers (name, phone, vehicle, commission_per_order, notes)
@@ -77,9 +82,9 @@ def create_driver(payload: DriverCreateSchema):
         """, (payload.name, payload.phone, payload.vehicle, payload.commission_per_order, payload.notes))
         driver_id = cursor.lastrowid
         conn.commit()
-    except Exception:
+    except Exception as e:
         conn.close()
-        raise HTTPException(status_code=400, detail="Driver with this phone already exists.")
+        raise HTTPException(status_code=400, detail=f"حدث خطأ أثناء حفظ بيانات المندوب: {e}")
 
     conn.close()
     return {"success": True, "id": driver_id}

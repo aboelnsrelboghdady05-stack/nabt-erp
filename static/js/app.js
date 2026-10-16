@@ -1081,6 +1081,11 @@ async function advanceOrderStatus(orderId, currentStatus) {
         return;
     }
 
+    if (currentStatus === 'ready') {
+        openAssignDriverModal(orderId);
+        return;
+    }
+
     try {
         const res = await fetch(`/api/orders/${orderId}/status`, {
             method: 'PUT',
@@ -2824,34 +2829,110 @@ async function confirmDeleteDriver(driverId, driverName, activeOrders) {
     }
 }
 
-async function promptAssignDriver(orderId) {
-    if (allDrivers.length === 0) await loadDrivers();
-    let promptMsg = "اختر رقم المندوب المراد إسناد الطلب له:\n";
-    allDrivers.forEach((d, idx) => {
-        promptMsg += `${idx + 1}. ${d.name} (${d.phone})\n`;
-    });
-    const choice = prompt(promptMsg);
-    if (!choice) return;
+async function openAssignDriverModal(orderId) {
+    try {
+        const orderRes = await fetch(`/api/orders/${orderId}`);
+        const order = await orderRes.json();
+        
+        await loadDrivers();
 
-    const selectedIndex = parseInt(choice) - 1;
-    if (selectedIndex >= 0 && selectedIndex < allDrivers.length) {
-        const driver = allDrivers[selectedIndex];
-        try {
-            const res = await fetch(`/api/orders/${orderId}/assign-driver`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ driver_id: driver.id })
-            });
-            const data = await res.json();
-            if (data.success) {
-                loadOrders();
-                loadDashboardData();
-                alert(`✓ تم إسناد الطلب للمندوب: ${driver.name}`);
-            }
-        } catch (err) {
-            console.error(err);
+        const titleEl = document.getElementById('assign-driver-order-title');
+        const briefEl = document.getElementById('assign-driver-order-brief');
+        const listEl = document.getElementById('assign-driver-list');
+
+        if (titleEl) {
+            titleEl.textContent = `إسناد الطلب #${order.order_number || orderId} لمندوب التوصيل`;
         }
+
+        if (briefEl) {
+            briefEl.innerHTML = `
+                <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
+                    <span class="font-bold text-slate-800">طلب: #${order.order_number}</span>
+                    <span class="text-emerald-700 font-bold">${order.total_amount} ر.س</span>
+                </div>
+                <div class="text-slate-600 space-y-0.5 pt-1">
+                    <div>👤 <strong>العميل:</strong> ${order.customer_name} (${order.customer_phone})</div>
+                    <div>📍 <strong>المستلم:</strong> ${order.recipient_name || 'العميل نفسه'} - ${order.recipient_address || 'عنوان غير محدد'}</div>
+                    <div>🕒 <strong>الموعد:</strong> ${order.delivery_date} ${order.delivery_time_slot || ''}</div>
+                </div>
+            `;
+        }
+
+        if (listEl) {
+            listEl.innerHTML = '';
+            if (!allDrivers || allDrivers.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                        <p class="text-xs text-slate-400">لا يوجد مناديب توصيل مسجلين في النظام حالياً 🚗</p>
+                        <button onclick="closeModal('modal-assign-driver'); openNewDriverModal();" class="text-xs bg-brand-600 hover:bg-brand-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition-all cursor-pointer">
+                            + إضافة مندوب جديد الآن
+                        </button>
+                    </div>
+                `;
+            } else {
+                allDrivers.forEach(d => {
+                    const statusBadge = d.status === 'available'
+                        ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">متاح للتوصيل ✅</span>`
+                        : `<span class="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">في مشوار توصيل 🚗</span>`;
+
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-3 bg-white hover:bg-indigo-50/40 rounded-2xl border border-slate-200 transition-all shadow-sm';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                                <i data-lucide="truck" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h5 class="font-bold text-slate-800 text-xs">${d.name}</h5>
+                                    ${statusBadge}
+                                </div>
+                                <span class="text-[11px] text-slate-400 font-mono block">${d.phone}</span>
+                                <span class="text-[10px] text-slate-500 block">${d.vehicle || 'سيارة مجهزة لنقل الورد'}</span>
+                            </div>
+                        </div>
+                        <button onclick="executeAssignDriver(${orderId}, ${d.id}, '${d.name.replace(/'/g, "\\'")}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1">
+                            <span>إسناد الطلب</span>
+                            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                        </button>
+                    `;
+                    listEl.appendChild(item);
+                });
+            }
+        }
+
+        initIcons();
+        openModal('modal-assign-driver');
+    } catch (err) {
+        console.error("openAssignDriverModal error:", err);
+        alert("تعذر تحميل بيانات الطلب أو المناديب");
     }
+}
+
+async function executeAssignDriver(orderId, driverId, driverName) {
+    try {
+        const res = await fetch(`/api/orders/${orderId}/assign-driver`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ driver_id: driverId })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeModal('modal-assign-driver');
+            await loadOrders();
+            await loadDashboardData();
+            alert(`✓ تم إسناد الطلب للمندوب (${driverName}) بنجاح!\nوتم إرسال تفاصيل الطلب ولوكيشن التوصيل له عبر الواتساب 🚗🌸`);
+        } else {
+            alert(data.detail || "تعذر إسناد الطلب للمندوب");
+        }
+    } catch (err) {
+        console.error("executeAssignDriver error:", err);
+        alert("حدث خطأ في الاتصال بالخادم أثناء إسناد المندوب");
+    }
+}
+
+function promptAssignDriver(orderId) {
+    openAssignDriverModal(orderId);
 }
 
 async function promptAssignFlorist(orderId) {
