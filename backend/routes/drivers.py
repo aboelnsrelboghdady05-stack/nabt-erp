@@ -24,6 +24,7 @@ def get_drivers():
     SELECT d.*,
            (SELECT COUNT(*) FROM orders WHERE driver_id = d.id AND status NOT IN ('delivered', 'cancelled')) as current_active_orders
     FROM drivers d
+    WHERE d.status != 'deleted'
     ORDER BY d.id ASC
     """)
     drivers = [dict(row) for row in cursor.fetchall()]
@@ -70,15 +71,26 @@ def create_driver(payload: DriverCreateSchema):
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id FROM drivers WHERE phone = ?", (payload.phone,))
-    if cursor.fetchone():
-        conn.close()
-        raise HTTPException(status_code=400, detail="يوجد مندوب مسجل بهذا الهاتف مسبقاً في النظام.")
+    cursor.execute("SELECT id, status FROM drivers WHERE phone = ?", (payload.phone,))
+    existing = cursor.fetchone()
+    if existing:
+        if existing['status'] == 'deleted':
+            cursor.execute("""
+            UPDATE drivers
+            SET name = ?, vehicle = ?, commission_per_order = ?, notes = ?, status = 'available'
+            WHERE id = ?
+            """, (payload.name, payload.vehicle, payload.commission_per_order, payload.notes, existing['id']))
+            conn.commit()
+            conn.close()
+            return {"success": True, "id": existing['id'], "message": "تمت استعادة وتحديث بيانات المندوب بنجاح"}
+        else:
+            conn.close()
+            raise HTTPException(status_code=400, detail="يوجد مندوب مسجل بهذا الهاتف مسبقاً في النظام.")
 
     try:
         cursor.execute("""
-        INSERT INTO drivers (name, phone, vehicle, commission_per_order, notes)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO drivers (name, phone, vehicle, commission_per_order, notes, status)
+        VALUES (?, ?, ?, ?, ?, 'available')
         """, (payload.name, payload.phone, payload.vehicle, payload.commission_per_order, payload.notes))
         driver_id = cursor.lastrowid
         conn.commit()
@@ -124,13 +136,10 @@ def delete_driver(driver_id: int):
             detail=f"لا يمكن حذف المندوب حالياً لوجود {active_count} طلبات جارية معه. يرجى إسناد الطلبات لمندوب آخر أولاً."
         )
 
-    # Unlink any previous completed or archived orders
-    cursor.execute("UPDATE orders SET driver_id = NULL WHERE driver_id = ?", (driver_id,))
-
-    # Delete driver
-    cursor.execute("DELETE FROM drivers WHERE id = ?", (driver_id,))
+    # Soft delete: mark driver as deleted without unlinking past completed orders
+    cursor.execute("UPDATE drivers SET status = 'deleted' WHERE id = ?", (driver_id,))
     conn.commit()
     conn.close()
 
-    return {"success": True, "message": f"تم حذف المندوب ({driver_dict['name']}) بنجاح"}
+    return {"success": True, "message": f"تم حذف المندوب ({driver_dict['name']}) بنجاح مع الحفاظ على سجل طلباته السابقة"}
 
