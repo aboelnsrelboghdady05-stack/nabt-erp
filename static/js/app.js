@@ -382,6 +382,9 @@ function switchTab(tabId) {
     if (tabId === 'dashboard') loadDashboardData();
     if (tabId === 'orders') loadOrders();
     if (tabId === 'whatsapp') {
+        if (window.innerWidth < 768 && !currentActiveChatPhone) {
+            backToWhatsAppConversationsList();
+        }
         loadWhatsAppConversations();
         waPollingInterval = setInterval(pollWhatsAppLive, 4000);
     }
@@ -2535,8 +2538,8 @@ async function loadWhatsAppConversations() {
             renderWhatsAppConversationsList(conversations);
         }
 
-        // Auto select first conversation if none selected
-        if (!currentActiveChatPhone && conversations.length > 0) {
+        // Auto select first conversation if none selected (desktop only)
+        if (!currentActiveChatPhone && conversations.length > 0 && window.innerWidth >= 768) {
             selectWhatsAppConversation(conversations[0].phone, conversations[0].name);
         }
     } catch (err) {
@@ -2590,6 +2593,17 @@ async function selectWhatsAppConversation(phone, name) {
     if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.slice(1);
     document.getElementById('chat-direct-wa-link').href = `https://wa.me/${cleanPhone}`;
 
+    // Mobile single-pane switch: hide sidebar, show chat
+    if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('wa-sidebar-panel');
+        const chatPane = document.getElementById('wa-chat-panel');
+        if (sidebar && chatPane) {
+            sidebar.classList.add('hidden');
+            chatPane.classList.remove('hidden');
+            chatPane.classList.add('flex');
+        }
+    }
+
     // Update active highlight in conversation list
     renderWhatsAppConversationsList(allWhatsAppConversations);
 
@@ -2601,6 +2615,19 @@ async function selectWhatsAppConversation(phone, name) {
     } catch (err) {
         console.error("Load chat messages error:", err);
     }
+}
+
+function backToWhatsAppConversationsList() {
+    currentActiveChatPhone = null;
+    const sidebar = document.getElementById('wa-sidebar-panel');
+    const chatPane = document.getElementById('wa-chat-panel');
+    if (sidebar && chatPane) {
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex');
+        chatPane.classList.add('hidden');
+        chatPane.classList.remove('flex');
+    }
+    renderWhatsAppConversationsList(allWhatsAppConversations);
 }
 
 async function pollWhatsAppLive() {
