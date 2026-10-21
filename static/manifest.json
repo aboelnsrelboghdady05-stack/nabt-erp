@@ -1,0 +1,30 @@
+{
+  "name": "نبت للورد والمناسبات | Nabt ERP",
+  "short_name": "نبت للورد",
+  "description": "نظام نبت السحابي لإدارة وتنسيق وتوصيل طلبات الورد والهدايا",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#23261f",
+  "theme_color": "#23261f",
+  "icons": [
+    {
+      "src": "/static/images/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

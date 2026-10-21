@@ -69,6 +69,8 @@ app.include_router(sync_router)
 app.include_router(employees_router)
 app.include_router(creative_tasks_router)
 
+from fastapi.responses import FileResponse
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def serve_home(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
@@ -80,3 +82,16 @@ def serve_login(request: Request):
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "ok", "app": "Nabt Flowers ERP", "version": "1.0.2"}
+
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+@app.get("/apple-touch-icon-180x180.png")
+@app.get("/apple-touch-icon-180x180-precomposed.png")
+def serve_apple_touch_icon():
+    icon_path = os.path.join(static_dir, "images", "apple-touch-icon.png")
+    return FileResponse(icon_path, media_type="image/png")
+
+@app.get("/manifest.json")
+def serve_manifest():
+    manifest_path = os.path.join(static_dir, "manifest.json")
+    return FileResponse(manifest_path, media_type="application/manifest+json")
