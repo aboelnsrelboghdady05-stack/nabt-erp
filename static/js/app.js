@@ -2821,12 +2821,12 @@ async function openInvoicePrintModal(invoiceId) {
                 calculatedNetSubtotal += netItemTotal;
 
                 const tr = document.createElement('tr');
-                tr.className = (idx % 2 === 1) ? 'bg-[#f7f9f5] border-b border-slate-100' : 'bg-white border-b border-slate-100';
+                tr.className = (idx % 2 === 1) ? 'bg-[#f7f9f5] border-b border-slate-200' : 'bg-white border-b border-slate-200';
                 tr.innerHTML = `
-                    <td class="py-2.5 px-3 font-semibold text-slate-800 text-left">${it.product_name}</td>
-                    <td class="py-2.5 px-3 text-center font-mono text-slate-700">${netUnit.toFixed(2)}</td>
-                    <td class="py-2.5 px-3 text-center font-bold text-slate-800">${it.quantity}</td>
-                    <td class="py-2.5 px-3 text-right font-black font-mono text-slate-900">${netItemTotal.toFixed(2)}</td>
+                    <td class="py-3.5 px-4 font-semibold text-slate-800 text-left text-sm">${it.product_name}</td>
+                    <td class="py-3.5 px-4 text-center font-mono text-slate-700 text-sm">${netUnit.toFixed(2)}</td>
+                    <td class="py-3.5 px-4 text-center font-bold text-slate-800 text-sm">${it.quantity}</td>
+                    <td class="py-3.5 px-4 text-right font-black font-mono text-slate-900 text-sm">${netItemTotal.toFixed(2)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2837,12 +2837,12 @@ async function openInvoicePrintModal(invoiceId) {
             const netDelivery = inv.delivery_fee / 1.15;
             calculatedNetSubtotal += netDelivery;
             const tr = document.createElement('tr');
-            tr.className = 'border-b border-slate-100 bg-[#f7f9f5]';
+            tr.className = 'border-b border-slate-200 bg-[#f7f9f5]';
             tr.innerHTML = `
-                <td class="py-2.5 px-3 font-semibold text-slate-800 text-left">توصيل - Delivery - D</td>
-                <td class="py-2.5 px-3 text-center font-mono text-slate-700">${netDelivery.toFixed(2)}</td>
-                <td class="py-2.5 px-3 text-center font-bold text-slate-800">1</td>
-                <td class="py-2.5 px-3 text-right font-black font-mono text-slate-900">${netDelivery.toFixed(2)}</td>
+                <td class="py-3.5 px-4 font-semibold text-slate-800 text-left text-sm">خدمة توصيل ونقل مبرد للورد - Delivery Service</td>
+                <td class="py-3.5 px-4 text-center font-mono text-slate-700 text-sm">${netDelivery.toFixed(2)}</td>
+                <td class="py-3.5 px-4 text-center font-bold text-slate-800 text-sm">1</td>
+                <td class="py-3.5 px-4 text-right font-black font-mono text-slate-900 text-sm">${netDelivery.toFixed(2)}</td>
             `;
             tbody.appendChild(tr);
         }
