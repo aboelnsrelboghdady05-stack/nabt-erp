@@ -819,9 +819,9 @@ async function loadOrders() {
                 ` : ''}
 
                 ${((currentUser && currentUser.role === 'florist') || isManagerRole()) && (o.status === 'preparing' || o.status === 'ready' || !o.completed_image) ? `
-                    <button onclick="openFloristCompleteWorkModal(${o.id}, '${o.order_number}')" class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold px-2.5 py-1.5 rounded-xl shadow-sm flex items-center gap-1 transition-all cursor-pointer">
-                        <i data-lucide="camera" class="w-3.5 h-3.5"></i>
-                        <span>${o.completed_image ? 'تحديث الصورة 📸' : 'رفع صورة الورد 📸'}</span>
+                    <button onclick="openFloristCompleteWorkModal(${o.id}, '${o.order_number}')" class="text-xs ${o.approval_status === 'revision_requested' ? 'bg-rose-600 hover:bg-rose-700 animate-pulse text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'} font-bold px-2.5 py-1.5 rounded-xl shadow-sm flex items-center gap-1 transition-all cursor-pointer">
+                        <i data-lucide="${o.approval_status === 'revision_requested' ? 'refresh-cw' : 'camera'}" class="w-3.5 h-3.5"></i>
+                        <span>${o.approval_status === 'revision_requested' ? 'إرسال التعديل 🔄' : (o.completed_image ? 'تحديث الصورة 📸' : 'رفع صورة الورد 📸')}</span>
                     </button>
                 ` : ''}
 
@@ -912,6 +912,15 @@ async function loadOrders() {
                     </td>
                     <td class="py-3 px-4">
                         ${renderStatusBadge(o.status)}
+                        ${o.approval_status === 'revision_requested' ? `
+                            <div class="mt-2 p-2 bg-rose-50 border-2 border-rose-300 rounded-xl text-rose-900 text-[11px] font-bold shadow-xs">
+                                <div class="flex items-center gap-1 text-rose-700">
+                                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-600 shrink-0"></i>
+                                    <span class="font-black text-rose-950">إرجاع من (${o.approved_by || 'نادر'}):</span>
+                                </div>
+                                <p class="text-rose-900 font-bold mt-1 text-[11px] whitespace-normal bg-white/90 p-1.5 rounded-lg border border-rose-200 leading-snug">«${o.approval_notes || 'يرجى مراجعة التنسيق'}»</p>
+                            </div>
+                        ` : ''}
                         ${o.acceptance_status === 'auto_forwarded' ? `<span class="block text-[9px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-1">🔄 محول تلقائياً</span>` : ''}
                         ${o.approval_status === 'approved' ? `<span class="block text-[9px] text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200 mt-1">👑 معتمد من الإدارة</span>` : ''}
                     </td>
@@ -939,6 +948,16 @@ async function loadOrders() {
                         </div>
                         <div>${renderStatusBadge(o.status)}</div>
                     </div>
+
+                    ${o.approval_status === 'revision_requested' ? `
+                        <div class="p-2.5 bg-rose-50 border-2 border-rose-300 rounded-xl text-rose-900 text-xs shadow-xs space-y-1">
+                            <div class="flex items-center gap-1.5 text-rose-800 font-black">
+                                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0"></i>
+                                <span>⚠️ إرجاع من (${o.approved_by || 'نادر'}):</span>
+                            </div>
+                            <p class="text-rose-950 font-bold bg-white/90 p-2 rounded-lg border border-rose-200 leading-snug">«${o.approval_notes || 'يرجى مراجعة التنسيق'}»</p>
+                        </div>
+                    ` : ''}
 
                     <div class="grid grid-cols-2 gap-2">
                         <div class="bg-white p-2 rounded-xl border border-cream-200/60">
@@ -1157,7 +1176,7 @@ async function rejectOrderByFlorist(orderId) {
     }
 }
 
-function openFloristCompleteWorkModal(orderId, orderNum) {
+async function openFloristCompleteWorkModal(orderId, orderNum) {
     document.getElementById('complete-modal-order-id').value = orderId;
     document.getElementById('complete-modal-order-num').textContent = orderNum || `#${orderId}`;
     const fileInput = document.getElementById('complete-file-input');
@@ -1176,6 +1195,11 @@ function openFloristCompleteWorkModal(orderId, orderNum) {
         statusBox.textContent = '';
     }
 
+    const revBanner = document.getElementById('florist-revision-banner');
+    const revAuthor = document.getElementById('florist-revision-author');
+    const revText = document.getElementById('florist-revision-text');
+    if (revBanner) revBanner.classList.add('hidden');
+
     const submitBtn = document.getElementById('complete-submit-btn');
     if (submitBtn) {
         submitBtn.disabled = false;
@@ -1183,6 +1207,26 @@ function openFloristCompleteWorkModal(orderId, orderNum) {
     }
 
     openModal('modal-florist-complete-work');
+    initIcons();
+
+    // Check if order has revision requested notes from manager
+    try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+            const ord = await res.json();
+            if (ord.approval_status === 'revision_requested') {
+                if (revBanner) revBanner.classList.remove('hidden');
+                if (revAuthor) revAuthor.textContent = ord.approved_by || 'نادر';
+                if (revText) revText.textContent = ord.approval_notes || ord.notes || 'يرجى مراجعة التنسيق وتعديله وإعادة رفع الصورة';
+                if (submitBtn) {
+                    submitBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4"></i><span>إرسال الصورة بعد التعديل 🔄</span>`;
+                }
+                initIcons();
+            }
+        }
+    } catch (e) {
+        console.error("Error fetching order in complete work modal:", e);
+    }
 }
 
 function compressImageFile(file, maxWidth = 1280, quality = 0.85) {
@@ -1862,7 +1906,22 @@ async function openOrderDetailModal(orderId) {
             payBadge.innerHTML = `<span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-3 py-1 rounded-xl text-xs">غير مسدد (آجل) ⚠️</span>`;
         }
 
+        // 7. Manager Revision Notes Box
+        const detailRevBox = document.getElementById('detail-revision-box');
+        const detailRevAuthor = document.getElementById('detail-revision-author');
+        const detailRevText = document.getElementById('detail-revision-note-text');
+        if (detailRevBox) {
+            if (ord.approval_status === 'revision_requested') {
+                detailRevBox.classList.remove('hidden');
+                if (detailRevAuthor) detailRevAuthor.textContent = ord.approved_by || 'نادر';
+                if (detailRevText) detailRevText.textContent = ord.approval_notes || ord.notes || 'يرجى مراجعة التنسيق وتعديله';
+            } else {
+                detailRevBox.classList.add('hidden');
+            }
+        }
+
         openModal('modal-order-detail');
+        initIcons();
     } catch (err) {
         console.error("Open order detail error:", err);
     }

@@ -932,12 +932,41 @@ def approve_completed_order(order_id: int, payload: OrderApproveSchema):
         cursor.execute("""
         UPDATE orders
         SET approval_status = 'revision_requested',
-            notes = COALESCE(notes, '') || ' [ملاحظات التعميد: ' || ? || ']',
+            status = 'preparing',
+            approval_notes = ?,
+            approved_by = ?,
+            notes = COALESCE(notes, '') || ' [ملاحظات التعديل: ' || ? || ']',
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-        """, (payload.notes or "يرجى تعديل التنسيق", order_id))
+        """, (payload.notes or "يرجى تعديل التنسيق", payload.approved_by, payload.notes or "يرجى تعديل التنسيق", order_id))
 
-        msg = f"⚠️ تم طلب تعديل على تنسيق الطلب #{order['order_number']} من قبل ({payload.approved_by}): {payload.notes or 'يرجى مراجعة التنسيق'}"
+        msg = f"⚠️ تم إرجاع الطلب #{order['order_number']} بملاحظات تعديل من قبل ({payload.approved_by}): {payload.notes or 'يرجى مراجعة التنسيق'}"
+
+        # إشعار منسق الورد المعين عبر الواتساب فوراً
+        if order['florist_id']:
+            cursor.execute("SELECT name, phone FROM employees WHERE id = ?", (order['florist_id'],))
+            florist = cursor.fetchone()
+            if florist and florist['phone']:
+                florist_alert = (
+                    f"⚠️ تنبيه من الإدارة ({payload.approved_by})\n"
+                    f"مرحباً يا فنان {florist['name']} 🌸\n"
+                    f"تم إرجاع الطلب #{order['order_number']} لوجود ملاحظات تعديل:\n"
+                    f"📝 «{payload.notes or 'يرجى مراجعة التنسيق'}»\n\n"
+                    f"يرجى فتح الطلب بالسيستم، وتعديل التنسيق ثم رفع الصورة الجديدة! 💐"
+                )
+                cursor.execute("""
+                INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+                VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
+                """, (florist['phone'], florist['name'], florist_alert, order_id))
+                conn.commit()
+                conn.close()
+                dispatch_via_gateway_if_configured(florist['phone'], florist_alert)
+                return {
+                    "success": True,
+                    "action": payload.action,
+                    "approved_by": payload.approved_by,
+                    "message": msg
+                }
 
     conn.commit()
     conn.close()

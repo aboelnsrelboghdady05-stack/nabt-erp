@@ -261,6 +261,8 @@ def init_db():
         cursor.execute("ALTER TABLE orders ADD COLUMN approved_at TIMESTAMP")
     if "previous_florist_id" not in columns:
         cursor.execute("ALTER TABLE orders ADD COLUMN previous_florist_id INTEGER")
+    if "approval_notes" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN approval_notes TEXT")
 
     # Migration: Add missing columns to drivers if not exists
     cursor.execute("PRAGMA table_info(drivers)")

@@ -1951,6 +1951,18 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Manager Revision Note Banner in Order Details -->
+                        <div id="detail-revision-box" class="hidden p-3.5 bg-rose-50 border-2 border-rose-300 rounded-xl text-xs space-y-1.5 shadow-sm">
+                            <div class="flex items-center gap-1.5 text-rose-800">
+                                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0"></i>
+                                <span class="font-black text-rose-950 text-xs">⚠️ ملاحظات تعديل التنسيق من الإدارة:</span>
+                                <span id="detail-revision-author" class="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-md font-bold"></span>
+                            </div>
+                            <div class="bg-white/90 p-2.5 rounded-xl border border-rose-200">
+                                <p id="detail-revision-note-text" class="text-rose-950 font-bold text-xs whitespace-pre-wrap leading-relaxed"></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1992,6 +2004,18 @@
             <form onsubmit="handleFloristSubmitCompletedWork(event)" class="p-5 space-y-4">
                 <input type="hidden" id="complete-modal-order-id" value="">
                 
+                <!-- Revision Note Banner for Florist in Upload Modal -->
+                <div id="florist-revision-banner" class="hidden bg-rose-50 border-2 border-rose-300 p-3.5 rounded-2xl text-xs space-y-1.5 shadow-sm">
+                    <div class="flex items-center gap-1.5 text-rose-800">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0"></i>
+                        <span class="font-black text-rose-950">⚠️ ملاحظة تعديل من الإدارة:</span>
+                        <span id="florist-revision-author" class="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-md font-bold"></span>
+                    </div>
+                    <div class="bg-white/90 p-2.5 rounded-xl border border-rose-200">
+                        <p id="florist-revision-text" class="text-rose-950 font-bold text-xs whitespace-pre-wrap leading-relaxed"></p>
+                    </div>
+                </div>
+
                 <div class="bg-purple-50/60 border border-purple-200 p-3 rounded-2xl text-xs text-purple-900 space-y-1">
                     <p class="font-bold flex items-center gap-1.5">
                         <i data-lucide="camera" class="w-4 h-4 text-purple-600"></i>
@@ -3305,7 +3329,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261016_driver_modal_v21"></script>
+    <script src="/static/js/app.js?v=20261021_revision_notes_v22"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {
