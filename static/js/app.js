@@ -120,6 +120,18 @@ function isManagerRole(role) {
     return ['general_manager', 'operations_manager', 'branch_manager', 'admin', 'manager'].includes(r);
 }
 
+function isFaisalUser() {
+    if (!currentUser) return false;
+    const uname = (currentUser.username || '').toLowerCase();
+    const name = (currentUser.name || '').toLowerCase();
+    const role = (currentUser.role || '').toLowerCase();
+    return uname === 'faisal' || 
+           uname.includes('faisal') || 
+           name.includes('فيصل') || 
+           currentUser.id === 2 || 
+           role === 'operations_manager';
+}
+
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
     startLiveClock();
@@ -305,6 +317,12 @@ function switchTab(tabId) {
     // Florist Protection: Cannot access Invoices or Expenses
     if (currentUser && currentUser.role === 'florist' && (tabId === 'invoices' || tabId === 'expenses')) {
         tabId = 'orders';
+    }
+
+    // WhatsApp Hub & Connection Protection: Faisal ONLY
+    if (tabId === 'whatsapp' && !isFaisalUser()) {
+        alert("عذراً! قسم ومركز الواتس اب مخصص لحساب (فيصل) فقط.");
+        tabId = 'dashboard';
     }
 
     currentActiveTab = tabId;
@@ -813,6 +831,31 @@ function updateUserInterface() {
         } else {
             clearOrdersBtn.classList.add('hidden');
             clearOrdersBtn.classList.remove('flex');
+        }
+    }
+
+    // WhatsApp Hub & Connection Button: Faisal ONLY per owner request
+    const navWhatsApp = document.getElementById('nav-whatsapp');
+    const topWhatsAppBtn = document.getElementById('top-whatsapp-btn');
+    const mobileBottomWhatsApp = document.getElementById('mobile-bottom-whatsapp');
+
+    if (isFaisalUser()) {
+        if (navWhatsApp) navWhatsApp.classList.remove('hidden');
+        if (topWhatsAppBtn) {
+            topWhatsAppBtn.classList.remove('hidden');
+            topWhatsAppBtn.classList.add('sm:flex');
+        }
+        if (mobileBottomWhatsApp) mobileBottomWhatsApp.classList.remove('hidden');
+    } else {
+        if (navWhatsApp) navWhatsApp.classList.add('hidden');
+        if (topWhatsAppBtn) {
+            topWhatsAppBtn.classList.add('hidden');
+            topWhatsAppBtn.classList.remove('sm:flex');
+        }
+        if (mobileBottomWhatsApp) mobileBottomWhatsApp.classList.add('hidden');
+
+        if (currentActiveTab === 'whatsapp') {
+            switchTab('dashboard');
         }
     }
 
@@ -2362,6 +2405,10 @@ async function confirmWaCodeConnection() {
 let waQrPollInterval = null;
 
 async function openWhatsAppModal() {
+    if (!isFaisalUser()) {
+        alert("عذراً! خاصية ربط وإعدادات الواتس اب مخصصة لمدير العمليات (فيصل) فقط.");
+        return;
+    }
     try {
         const res = await fetch('/api/whatsapp/qr');
         const data = await res.json();
@@ -3529,6 +3576,10 @@ async function toggleBotStatus() {
 }
 
 async function openGatewaySettingsModal() {
+    if (!isFaisalUser()) {
+        alert("عذراً! خاصية إعدادات وربط الواتس اب مخصصة لمدير العمليات (فيصل) فقط.");
+        return;
+    }
     try {
         const res = await fetch('/api/whatsapp/bot-settings');
         const settings = await res.json();
