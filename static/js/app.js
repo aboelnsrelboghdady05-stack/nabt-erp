@@ -20,35 +20,66 @@ function getLocalDateString(d = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
+// Dedicated Gregorian Date Formatter (ضمان عرض التاريخ الميلادي دائماً وبكل دقة في كل أنحاء الموقع)
+const GREGORIAN_ARABIC_MONTHS = [
+    'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+];
+
+const GREGORIAN_ARABIC_DAYS = [
+    'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'
+];
+
+function formatGregorianDate(dateInput, includeWeekday = true) {
+    if (!dateInput) return '';
+    let d = (dateInput instanceof Date) ? dateInput : new Date(String(dateInput).replace(' ', 'T'));
+    if (isNaN(d.getTime())) return String(dateInput);
+
+    const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
+    if (lang === 'en') {
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        if (includeWeekday) options.weekday = 'long';
+        return d.toLocaleDateString('en-US', options);
+    }
+    if (lang === 'bn') {
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        if (includeWeekday) options.weekday = 'long';
+        return d.toLocaleDateString('bn-BD', options);
+    }
+
+    const day = d.getDate();
+    const month = GREGORIAN_ARABIC_MONTHS[d.getMonth()];
+    const year = d.getFullYear();
+    if (includeWeekday) {
+        return `${GREGORIAN_ARABIC_DAYS[d.getDay()]}، ${day} ${month} ${year} م`;
+    }
+    return `${day} ${month} ${year} م`;
+}
+
 let liveClockInterval = null;
 function updateLiveDateTime() {
     const now = new Date();
     const dateEl = document.getElementById('current-date-display');
     const timeEl = document.getElementById('current-time-display');
 
-    const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
-    let locale = 'ar-SA';
-    if (lang === 'en') locale = 'en-US';
-    else if (lang === 'bn') locale = 'bn-BD';
-
     if (dateEl) {
-        const dateOptions = {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        };
-        dateEl.textContent = now.toLocaleDateString(locale, dateOptions);
+        dateEl.textContent = formatGregorianDate(now, true);
     }
 
     if (timeEl) {
-        const timeOptions = {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        };
-        timeEl.textContent = now.toLocaleTimeString(locale, timeOptions);
+        const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
+        const hours = now.getHours();
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        if (lang === 'en' || lang === 'bn') {
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const formattedHours = String(hours % 12 || 12).padStart(2, '0');
+            timeEl.textContent = `${formattedHours}:${minutes}:${seconds} ${period}`;
+        } else {
+            const period = hours >= 12 ? 'م' : 'ص';
+            const formattedHours = String(hours % 12 || 12).padStart(2, '0');
+            timeEl.textContent = `${formattedHours}:${minutes}:${seconds} ${period}`;
+        }
     }
 }
 
@@ -1762,14 +1793,19 @@ function formatAppDateTime(isoString) {
     try {
         const d = new Date(isoString.replace(' ', 'T'));
         if (isNaN(d.getTime())) return isoString;
-        return d.toLocaleString('ar-SA', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        });
+
+        const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
+        const hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        if (lang === 'en' || lang === 'bn') {
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const formattedHours = hours % 12 || 12;
+            return `${formatGregorianDate(d, false)} (${formattedHours}:${minutes} ${period})`;
+        } else {
+            const period = hours >= 12 ? 'م' : 'ص';
+            const formattedHours = hours % 12 || 12;
+            return `${formatGregorianDate(d, false)} (${formattedHours}:${minutes} ${period})`;
+        }
     } catch (e) {
         return isoString;
     }
