@@ -20,6 +20,23 @@ function getLocalDateString(d = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
+// Server Time Synchronization & Official Saudi Time (Asia/Riyadh) Engine
+let serverTimeOffset = 0;
+
+function syncServerTime() {
+    fetch('/api/dashboard/stats')
+        .then(res => {
+            const dateHeader = res.headers.get('Date');
+            if (dateHeader) {
+                const serverTime = new Date(dateHeader).getTime();
+                if (!isNaN(serverTime)) {
+                    serverTimeOffset = serverTime - Date.now();
+                }
+            }
+        })
+        .catch(() => {});
+}
+
 // Dedicated Gregorian Date Formatter (ضمان عرض التاريخ الميلادي دائماً وبكل دقة في كل أنحاء الموقع)
 const GREGORIAN_ARABIC_MONTHS = [
     'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -30,6 +47,44 @@ const GREGORIAN_ARABIC_DAYS = [
     'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'
 ];
 
+function getRiyadhDateParts(date = new Date()) {
+    try {
+        const d = new Date(date.getTime() + serverTimeOffset);
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Riyadh',
+            hour12: false,
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric'
+        });
+        const parts = formatter.formatToParts(d);
+        const map = {};
+        parts.forEach(p => map[p.type] = p.value);
+        return {
+            year: parseInt(map.year, 10),
+            month: parseInt(map.month, 10) - 1,
+            day: parseInt(map.day, 10),
+            hours: parseInt(map.hour, 10) % 24,
+            minutes: parseInt(map.minute, 10),
+            seconds: parseInt(map.second, 10),
+            dateObj: d
+        };
+    } catch (e) {
+        return {
+            year: date.getFullYear(),
+            month: date.getMonth(),
+            day: date.getDate(),
+            hours: date.getHours(),
+            minutes: date.getMinutes(),
+            seconds: date.getSeconds(),
+            dateObj: date
+        };
+    }
+}
+
 function formatGregorianDate(dateInput, includeWeekday = true) {
     if (!dateInput) return '';
     let d = (dateInput instanceof Date) ? dateInput : new Date(String(dateInput).replace(' ', 'T'));
@@ -37,54 +92,51 @@ function formatGregorianDate(dateInput, includeWeekday = true) {
 
     const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
     if (lang === 'en') {
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Riyadh' };
         if (includeWeekday) options.weekday = 'long';
         return d.toLocaleDateString('en-US', options);
     }
     if (lang === 'bn') {
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Riyadh' };
         if (includeWeekday) options.weekday = 'long';
         return d.toLocaleDateString('bn-BD', options);
     }
 
-    const day = d.getDate();
-    const month = GREGORIAN_ARABIC_MONTHS[d.getMonth()];
-    const year = d.getFullYear();
+    const parts = getRiyadhDateParts(d);
+    const day = parts.day;
+    const month = GREGORIAN_ARABIC_MONTHS[parts.month];
+    const year = parts.year;
     if (includeWeekday) {
-        return `${GREGORIAN_ARABIC_DAYS[d.getDay()]}، ${day} ${month} ${year} م`;
+        return `${GREGORIAN_ARABIC_DAYS[parts.dateObj.getDay()]}، ${day} ${month} ${year} م`;
     }
     return `${day} ${month} ${year} م`;
 }
 
 let liveClockInterval = null;
 function updateLiveDateTime() {
-    const now = new Date();
+    const parts = getRiyadhDateParts(new Date());
     const dateEl = document.getElementById('current-date-display');
     const timeEl = document.getElementById('current-time-display');
 
     if (dateEl) {
-        dateEl.textContent = formatGregorianDate(now, true);
+        dateEl.textContent = formatGregorianDate(parts.dateObj, true);
     }
 
     if (timeEl) {
         const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
-        const hours = now.getHours();
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        if (lang === 'en' || lang === 'bn') {
-            const period = hours >= 12 ? 'PM' : 'AM';
-            const formattedHours = String(hours % 12 || 12).padStart(2, '0');
-            timeEl.textContent = `${formattedHours}:${minutes}:${seconds} ${period}`;
-        } else {
-            const period = hours >= 12 ? 'م' : 'ص';
-            const formattedHours = String(hours % 12 || 12).padStart(2, '0');
-            timeEl.textContent = `${formattedHours}:${minutes}:${seconds} ${period}`;
-        }
+        const hours12 = parts.hours % 12 || 12;
+        const formattedHours = String(hours12).padStart(2, '0');
+        const formattedMinutes = String(parts.minutes).padStart(2, '0');
+        const formattedSeconds = String(parts.seconds).padStart(2, '0');
+        const period = parts.hours >= 12 ? (lang === 'ar' ? 'م' : 'PM') : (lang === 'ar' ? 'ص' : 'AM');
+        
+        timeEl.innerHTML = `<span class="font-mono font-bold">${formattedHours}:${formattedMinutes}:${formattedSeconds}</span> <span class="text-[11px] font-sans font-black text-olive-700">${period}</span>`;
     }
 }
 
 function startLiveClock() {
     if (liveClockInterval) clearInterval(liveClockInterval);
+    syncServerTime();
     updateLiveDateTime();
     liveClockInterval = setInterval(updateLiveDateTime, 1000);
 }
@@ -130,6 +182,13 @@ function isFaisalUser() {
            name.includes('فيصل') || 
            currentUser.id === 2 || 
            role === 'operations_manager';
+}
+
+function canCreateOrders() {
+    if (!currentUser) return false;
+    const role = (currentUser.role || '').toLowerCase();
+    if (role === 'florist' || role.includes('florist')) return false;
+    return isManagerRole(role);
 }
 
 // Initialize on load
@@ -837,24 +896,40 @@ function updateUserInterface() {
         }
     }
 
-    // WhatsApp Hub & Connection Button: Faisal ONLY per owner request
+    // New Order Buttons: Only Managers (Yasser, Faisal, Nader), completely hidden for Florists
+    const btnTopNewOrder = document.getElementById('btn-top-new-order');
+    const btnOrdersNewOrder = document.getElementById('btn-orders-new-order');
+    const allowOrders = canCreateOrders();
+
+    if (allowOrders) {
+        if (btnTopNewOrder) {
+            btnTopNewOrder.classList.remove('hidden');
+            btnTopNewOrder.classList.add('flex');
+        }
+        if (btnOrdersNewOrder) {
+            btnOrdersNewOrder.classList.remove('hidden');
+            btnOrdersNewOrder.classList.add('flex');
+        }
+    } else {
+        if (btnTopNewOrder) {
+            btnTopNewOrder.classList.add('hidden');
+            btnTopNewOrder.classList.remove('flex');
+        }
+        if (btnOrdersNewOrder) {
+            btnOrdersNewOrder.classList.add('hidden');
+            btnOrdersNewOrder.classList.remove('flex');
+        }
+    }
+
+    // WhatsApp Hub: Faisal ONLY per owner request
     const navWhatsApp = document.getElementById('nav-whatsapp');
-    const topWhatsAppBtn = document.getElementById('top-whatsapp-btn');
     const mobileBottomWhatsApp = document.getElementById('mobile-bottom-whatsapp');
 
     if (isFaisalUser()) {
         if (navWhatsApp) navWhatsApp.classList.remove('hidden');
-        if (topWhatsAppBtn) {
-            topWhatsAppBtn.classList.remove('hidden');
-            topWhatsAppBtn.classList.add('sm:flex');
-        }
         if (mobileBottomWhatsApp) mobileBottomWhatsApp.classList.remove('hidden');
     } else {
         if (navWhatsApp) navWhatsApp.classList.add('hidden');
-        if (topWhatsAppBtn) {
-            topWhatsAppBtn.classList.add('hidden');
-            topWhatsAppBtn.classList.remove('sm:flex');
-        }
         if (mobileBottomWhatsApp) mobileBottomWhatsApp.classList.add('hidden');
 
         if (currentActiveTab === 'whatsapp') {
@@ -1750,6 +1825,11 @@ function setOrderDeliveryMode(mode) {
 
 // 3. NEW ORDER MODAL & CREATION
 async function openNewOrderModal() {
+    if (!canCreateOrders()) {
+        alert("عذراً! صلاحية إضافة طلب جديد محصورة على الإدارة (ياسر، فيصل، نادر) فقط 🌸");
+        return;
+    }
+
     const today = getLocalDateString();
     document.getElementById('order-delivery-date').value = today;
     setOrderDeliveryMode('delivery');

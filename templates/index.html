@@ -504,53 +504,42 @@
 
         <!-- Top Navbar -->
         <header id="top-header" class="h-16 shrink-0 bg-white/90 backdrop-blur-md border-b border-cream-200/80 flex items-center justify-between px-2.5 sm:px-4 md:px-6 z-10 shadow-xs min-w-0 w-full max-w-full">
-            <div class="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0">
+            <div class="flex items-center gap-2 md:gap-3 min-w-0">
                 <!-- Mobile Hamburger Toggle Button -->
                 <button onclick="toggleMobileSidebar()" class="lg:hidden p-2 rounded-xl text-olive-800 hover:bg-cream-100 border border-cream-300 focus:outline-none shrink-0" title="القائمة الرئيسية">
                     <i data-lucide="menu" class="w-5 h-5"></i>
                 </button>
 
-                <span id="current-tab-title" class="text-sm sm:text-base md:text-xl font-bold text-olive-900 flex items-center gap-1.5 md:gap-2 truncate max-w-[130px] sm:max-w-none">
+                <span id="current-tab-title" class="text-sm sm:text-base md:text-lg font-bold text-olive-900 flex items-center gap-1.5 md:gap-2 shrink-0">
                     <i data-lucide="layout-dashboard" class="w-4 h-4 md:w-5 md:h-5 text-terracotta-600 shrink-0"></i>
                     <span>لوحة التحكم</span>
                 </span>
                 
-                <!-- Live Automatic Real-time Clock & Date Badge (تحديث تلقائي حي للتاريخ والوقت) -->
-                <div id="live-datetime-badge" class="hidden sm:inline-flex items-center gap-2 bg-cream-100/90 text-olive-900 px-3 py-1.5 rounded-full border border-cream-300/80 text-xs shadow-2xs font-semibold">
-                    <span class="flex items-center gap-1.5 font-bold text-olive-800">
+                <!-- Live Automatic Real-time Clock & Date Badge (تحديث تلقائي حي للتاريخ والوقت بتوقيت الرياض الرسمي) -->
+                <div id="live-datetime-badge" class="hidden sm:inline-flex items-center gap-2 bg-cream-100/90 text-olive-900 px-3 py-1.5 rounded-full border border-cream-300/80 text-xs shadow-2xs font-semibold shrink-0 whitespace-nowrap">
+                    <span class="flex items-center gap-1.5 font-bold text-olive-800 whitespace-nowrap">
                         <i data-lucide="calendar" class="w-3.5 h-3.5 text-terracotta-600 shrink-0"></i>
                         <span id="current-date-display">...</span>
                     </span>
                     <span class="text-cream-300 font-normal">|</span>
-                    <span class="flex items-center gap-1 font-mono font-black text-olive-950">
+                    <span class="flex items-center gap-1.5 font-mono font-black text-olive-950 whitespace-nowrap" dir="ltr">
                         <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
-                        <span id="current-time-display">--:--:--</span>
+                        <span id="current-time-display" class="whitespace-nowrap inline-flex items-center gap-1">--:--:--</span>
                     </span>
                 </div>
             </div>
 
             <!-- Quick Action Buttons & Admin Profile -->
-            <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2.5 shrink-0">
-                <!-- Admin New Order & Florist Dispatch Button (10% Accent Terracotta Rose) -->
-                <button onclick="openNewOrderModal()" class="flex items-center gap-1 bg-gradient-to-r from-terracotta-600 to-terracotta-500 hover:from-terracotta-700 hover:to-terracotta-600 active:scale-95 text-white font-bold p-2 sm:px-3.5 sm:py-2 rounded-xl text-xs transition-all shadow-md shadow-terracotta-600/25 cursor-pointer" title="طلب جديد">
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <!-- Admin New Order Button (ياسر، فيصل، نادر فقط) -->
+                <button onclick="openNewOrderModal()" id="btn-top-new-order" class="hidden items-center gap-1.5 bg-gradient-to-r from-terracotta-600 to-terracotta-500 hover:from-terracotta-700 hover:to-terracotta-600 active:scale-95 text-white font-bold px-3 py-2 rounded-xl text-xs transition-all shadow-md shadow-terracotta-600/25 cursor-pointer shrink-0" title="طلب جديد">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                    <span class="hidden md:inline" data-i18n="btn_new_order_short">طلب جديد</span>
-                </button>
-
-                <!-- Live Simulate Invoice from Accounting Button -->
-                <button onclick="triggerSimulateAccountingInvoice()" class="hidden md:flex items-center gap-1.5 bg-cream-100 hover:bg-cream-200 border border-cream-300 text-olive-900 font-bold px-3 py-2 rounded-xl text-xs transition-all active:scale-95 cursor-pointer">
-                    <i data-lucide="zap" class="w-3.5 h-3.5 text-terracotta-600"></i>
-                    <span class="hidden lg:inline" data-i18n="simulate_inv">محاكاة فاتورة الحسابات</span>
-                </button>
-
-                <button onclick="openWhatsAppModal()" id="top-whatsapp-btn" class="hidden sm:flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer">
-                    <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
-                    <span data-i18n="whatsapp_btn">الواتس اب</span>
+                    <span data-i18n="btn_new_order_short">طلب جديد 🌸</span>
                 </button>
 
                 <!-- Language Selector Dropdown (العربية / English / اردو) -->
                 <div class="relative">
-                    <button onclick="toggleLangDropdown()" id="current-lang-btn" class="flex items-center gap-1 px-2 py-1.5 sm:px-2.5 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-olive-900 transition-all text-xs font-bold shadow-xs cursor-pointer">
+                    <button onclick="toggleLangDropdown()" id="current-lang-btn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-olive-900 transition-all text-xs font-bold shadow-xs cursor-pointer">
                         <i data-lucide="globe" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-terracotta-600"></i>
                         <span id="current-lang-label" class="hidden sm:inline">العربية</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 text-olive-500"></i>
@@ -934,7 +923,7 @@
                             <input type="text" id="order-search-input" oninput="debounceOrdersSearch()" data-i18n-ph="order_search_ph" placeholder="بحث برقم الطلب أو اسم العميل أو الهاتف..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-cream-50 border border-cream-200 rounded-xl focus:outline-none focus:border-olive-600">
                             <i data-lucide="search" class="w-3.5 h-3.5 text-olive-400 absolute left-2.5 top-2.5"></i>
                         </div>
-                        <button onclick="openNewOrderModal()" class="bg-terracotta-600 hover:bg-terracotta-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0">
+                        <button onclick="openNewOrderModal()" id="btn-orders-new-order" class="hidden bg-terracotta-600 hover:bg-terracotta-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0">
                             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                             <span data-i18n="btn_add_order">طلب جديد</span>
                         </button>
