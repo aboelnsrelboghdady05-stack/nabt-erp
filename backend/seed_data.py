@@ -286,7 +286,7 @@ def seed_database():
         "auto_confirm_msg": "شكرًا لأنك اخترت نبت | Nabt\nاستلمنا طلبك رقم #{order_number} بنجاح!\nقيمة الطلب: {total_amount} ر.س\nحالة السداد: ({payment_status})\nتاريخ التوصيل: {delivery_date}\nموعد التوصيل: {delivery_time_slot}\nنسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐",
         "auto_preparing_msg": "طلبكم الجميل رقم #{order_number} الآن بأيدي منسقينا المحترفين في نبت 🌿\nيتم تجهيزه بأجمل الورود الطازجة بكل عناية وحب ❤️",
         "auto_driver_msg": "طلبكم رقم #{order_number} أصبح الآن مع المندوب",
-        "auto_delivered_msg": "سلمنا طلبك رقم #{order_number} بنجاح 💐🎉\nشكراً لأنك اخترت نبت | Nabt",
+        "auto_delivered_msg": "سلمنا طلبك 🫱🏻‍🫲🏼\n.\n.\nرقم #{order_number} بنجاح\n.\nشكراً لأنك اخترت نبت | Nabt",
         "driver_dispatch_template": "مرحباً يا بطل {driver_name} 🚗\nلديك طلب توصيل جديد من نبت 🌸\nرقم الطلب: #{order_number}\nالمستلم: {recipient_name}\nجوال المستلم: {recipient_phone}\nالعنوان: {recipient_address}\nالموقع: {location_url}\nموعد التسليم: {delivery_date} ({time_slot})",
         "florist_dispatch_template": "🌸 مهمة تنسيق ورد جديد\nمرحباً يا فنان {florist_name}\nتم إسناد طلب جديد إليك من الإدارة للتجهيز:\n• رقم الطلب: #{order_number}\n• تفاصيل الطلب: {items_summary}\n• 🎨 ألوان الورد والتغليف: {flower_colors}\n• كرت الإهداء: \"{card_message}\"\n• موعد التسليم: {delivery_date} \n• وقت التسليم({delivery_time_slot})\n• ملاحظات التجهيز: {notes}\n• 📸 صورة (مساندة) مرجعية: مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!\n\nشد حيلك وأبدأ التجهيز وأكد لنا إذا جهز! 💐"
     }

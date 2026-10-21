@@ -474,7 +474,14 @@ def update_order_status(order_id: int, payload: OrderStatusUpdateSchema):
         )
     elif new_status == "delivered":
         # المرحلة الثالثة: استلام الطلب
-        msg = f"سلمنا طلبك رقم #{order['order_number']} بنجاح 💐🎉\nشكراً لأنك اخترت نبت | Nabt"
+        msg = (
+            f"سلمنا طلبك 🫱🏻‍🫲🏼\n"
+            f".\n"
+            f".\n"
+            f"رقم #{order['order_number']} بنجاح\n"
+            f".\n"
+            f"شكراً لأنك اخترت نبت | Nabt"
+        )
         # Update driver stats
         if order['driver_id']:
             cursor.execute("UPDATE drivers SET total_delivered = total_delivered + 1, status = 'available' WHERE id = ?", (order['driver_id'],))

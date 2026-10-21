@@ -329,7 +329,7 @@ def init_db():
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_driver_msg', ?)", 
         ("طلبكم رقم #{order_number} أصبح الآن مع المندوب",))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('auto_delivered_msg', ?)", 
-        ("سلمنا طلبك رقم #{order_number} بنجاح 💐🎉\nشكراً لأنك اخترت نبت | Nabt",))
+        ("سلمنا طلبك 🫱🏻‍🫲🏼\n.\n.\nرقم #{order_number} بنجاح\n.\nشكراً لأنك اخترت نبت | Nabt",))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('florist_dispatch_template', ?)", 
         ("🌸 مهمة تنسيق ورد جديد\nمرحباً يا فنان {florist_name}\nتم إسناد طلب جديد إليك من الإدارة للتجهيز:\n• رقم الطلب: #{order_number}\n• تفاصيل الطلب: {items_summary}\n• 🎨 ألوان الورد والتغليف: {flower_colors}\n• كرت الإهداء: \"{card_message}\"\n• موعد التسليم: {delivery_date} \n• وقت التسليم({delivery_time_slot})\n• ملاحظات التجهيز: {notes}\n• 📸 صورة (مساندة) مرجعية: مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!\n\nشد حيلك وأبدأ التجهيز وأكد لنا إذا جهز! 💐",))
 
