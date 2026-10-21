@@ -631,6 +631,24 @@ def assign_florist(order_id: int, payload: AssignFloristSchema):
     dispatch_via_gateway_if_configured(florist['phone'], florist_msg)
     return {"success": True, "florist_name": florist["name"]}
 
+@router.delete("/all")
+def clear_all_orders():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM payments")
+    cursor.execute("DELETE FROM invoices")
+    cursor.execute("DELETE FROM order_items")
+    cursor.execute("DELETE FROM orders")
+    cursor.execute("DELETE FROM whatsapp_messages WHERE related_order_id IS NOT NULL")
+    cursor.execute("UPDATE drivers SET total_delivered = 0, status = 'available' WHERE status != 'deleted'")
+    cursor.execute("UPDATE employees SET active_orders_count = 0")
+    cursor.execute("UPDATE customers SET orders_count = 0, total_spent = 0.0")
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('orders', 'order_items', 'invoices', 'payments')")
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('clear_all_orders_v1', '1')")
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "تم حذف كافة الطلبات وتصفير الفواتير بنجاح"}
+
 @router.delete("/{order_id}")
 def cancel_or_delete_order(order_id: int):
     conn = get_db()

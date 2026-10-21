@@ -804,7 +804,45 @@ function updateUserInterface() {
             dashUrgentTableContainer.classList.remove('lg:col-span-3');
         }
     }
+
+    const clearOrdersBtn = document.getElementById('btn-clear-all-orders');
+    if (clearOrdersBtn) {
+        if (isManagerRole(currentUser.role)) {
+            clearOrdersBtn.classList.remove('hidden');
+            clearOrdersBtn.classList.add('flex');
+        } else {
+            clearOrdersBtn.classList.add('hidden');
+            clearOrdersBtn.classList.remove('flex');
+        }
+    }
+
     initIcons();
+}
+
+async function confirmClearAllOrders() {
+    if (!isManagerRole()) {
+        alert("عذراً! صلاحية مسح الطلبات محصورة على المديرين فقط.");
+        return;
+    }
+    const ans = prompt("تنبيه أمان: هل تريد بالتأكيد حذف كافة الطلبات وتصفير الفواتير من السيستم؟\nللتأكيد اكتب كلمة (حذف) ثم اضغط موافق:");
+    if (ans !== "حذف") {
+        return;
+    }
+    try {
+        const res = await fetch('/api/orders/all', { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(data.message || "تم مسح جميع الطلبات بنجاح وتصفير السجل");
+            await loadOrders();
+            await loadDashboardData();
+            if (typeof loadDrivers === 'function') await loadDrivers();
+        } else {
+            alert(data.detail || "تعذر مسح الطلبات");
+        }
+    } catch (err) {
+        console.error("Clear all orders error:", err);
+        alert("حدث خطأ أثناء محاولة مسح الطلبات");
+    }
 }
 
 // 2. ORDERS LOGIC

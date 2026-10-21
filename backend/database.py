@@ -389,6 +389,20 @@ def init_db():
     )
     """)
 
+    # 15. One-time Cleanup: Clear all existing sample/test orders upon owner request
+    cursor.execute("SELECT value FROM system_settings WHERE key = 'clear_all_orders_v1'")
+    if not cursor.fetchone():
+        cursor.execute("DELETE FROM payments")
+        cursor.execute("DELETE FROM invoices")
+        cursor.execute("DELETE FROM order_items")
+        cursor.execute("DELETE FROM orders")
+        cursor.execute("DELETE FROM whatsapp_messages WHERE related_order_id IS NOT NULL")
+        cursor.execute("UPDATE drivers SET total_delivered = 0, status = 'available' WHERE status != 'deleted'")
+        cursor.execute("UPDATE employees SET active_orders_count = 0")
+        cursor.execute("UPDATE customers SET orders_count = 0, total_spent = 0.0")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('orders', 'order_items', 'invoices', 'payments')")
+        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('clear_all_orders_v1', '1')")
+
     conn.commit()
     conn.close()
 
