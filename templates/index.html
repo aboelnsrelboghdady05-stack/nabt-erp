@@ -135,9 +135,10 @@
         }
 
         /* High-Definition A4 Print formatting */
+        /* High-Definition A4 Print formatting */
         @page {
             size: A4 portrait;
-            margin: 8mm 10mm 8mm 10mm;
+            margin: 6mm 8mm;
         }
 
         @media print {
@@ -160,13 +161,12 @@
                 position: static !important;
                 width: 100% !important;
                 max-width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
+                height: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 border: none !important;
                 box-shadow: none !important;
-                background: transparent !important;
+                background: #ffffff !important;
                 overflow: visible !important;
                 backdrop-filter: none !important;
                 z-index: auto !important;
@@ -177,14 +177,13 @@
                 position: static !important;
                 width: 100% !important;
                 max-width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
+                height: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 border: none !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
-                background: transparent !important;
+                background: #ffffff !important;
                 overflow: visible !important;
             }
 
@@ -197,12 +196,16 @@
                 flex-direction: column !important;
                 justify-content: space-between !important;
                 width: 100% !important;
-                min-height: 275mm !important; /* Standard A4 printable height */
+                height: 282mm !important;
+                max-height: 284mm !important;
                 box-sizing: border-box !important;
-                padding: 0 !important;
-                margin: 0 !important;
+                padding: 6mm 8mm !important;
+                margin: 0 auto !important;
                 background: #ffffff !important;
-                overflow: visible !important;
+                border: 2px solid #3f4437 !important;
+                border-radius: 12px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
                 color-adjust: exact !important;
@@ -217,24 +220,18 @@
             .print-grid-2 {
                 display: grid !important;
                 grid-template-columns: 1.15fr 0.85fr !important;
-                gap: 1.25rem !important;
-            }
-
-            .print-bg-banner {
-                background-color: #b5baa5 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+                gap: 1rem !important;
             }
 
             .print-bg-table-head {
-                background-color: #9da38e !important;
+                background-color: #3f4437 !important;
                 color: #ffffff !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
 
             .print-bg-total {
-                background-color: #949a84 !important;
+                background-color: #3f4437 !important;
                 color: #ffffff !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
@@ -2475,48 +2472,51 @@
                 </div>
             </div>
 
-            <div id="printable-modal" class="p-6 sm:p-8 overflow-y-auto space-y-5 text-slate-800 bg-white" dir="ltr">
-                <!-- TOP HEADER: SAGE GREEN BANNER (Bill From NABT) -->
-                <div class="print-bg-banner rounded-2xl p-5 sm:p-6 text-slate-900 flex flex-col md:flex-row justify-between gap-5" style="background-color: #b5baa5;">
+            <div id="printable-modal" class="p-6 sm:p-8 overflow-y-auto space-y-4 text-slate-800 bg-white border-2 border-[#3f4437] rounded-2xl shadow-sm m-2 sm:m-4" dir="ltr">
+                <!-- TOP BRAND ACCENT BAR -->
+                <div class="h-2 w-full bg-[#3f4437] rounded-t-lg -mt-6 sm:-mt-8 -mx-6 sm:-mx-8 mb-3"></div>
+
+                <!-- TOP HEADER: ELEGANT CORPORATE HEADER -->
+                <div class="border-b-2 border-[#3f4437]/20 pb-4 flex flex-col md:flex-row justify-between gap-4">
                     <!-- Left: Logo & Invoice Number/Date -->
-                    <div class="flex flex-col justify-between space-y-3">
+                    <div class="flex flex-col justify-between space-y-2">
                         <div class="mb-1">
                             <img src="/static/images/nabt_invoice_logo_transparent.png" alt="NABT" class="h-16 w-auto object-contain">
                         </div>
 
-                        <div class="space-y-1.5">
-                            <div class="inline-block bg-white/70 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-slate-800">
+                        <div class="space-y-1">
+                            <div class="inline-block bg-[#3f4437] text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider shadow-2xs">
                                 Simplified Tax Invoice • فاتورة ضريبية مبسطة
                             </div>
                             <div>
-                                <span class="text-[11px] uppercase tracking-wider block text-slate-700 font-bold">INVOICE NO:</span>
-                                <h3 class="text-2xl font-black text-slate-950 font-mono tracking-tight">#<span id="print-inv-num">01517</span></h3>
+                                <span class="text-[11px] uppercase tracking-wider block text-slate-500 font-bold">INVOICE NO:</span>
+                                <h3 class="text-2xl font-black text-slate-900 font-mono tracking-tight">#<span id="print-inv-num">01517</span></h3>
                             </div>
                             <div>
-                                <span class="text-[11px] uppercase tracking-wider block text-slate-700 font-bold">INVOICE DATE / تاريخ الإصدار:</span>
-                                <p id="print-inv-date" class="text-sm font-bold text-slate-950 font-mono">11/10/2026</p>
+                                <span class="text-[11px] uppercase tracking-wider block text-slate-500 font-bold">INVOICE DATE / تاريخ الإصدار:</span>
+                                <p id="print-inv-date" class="text-sm font-bold text-slate-900 font-mono">11/10/2026</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Right: Bill From Details & Total Badge -->
-                    <div class="text-right text-xs text-slate-900 space-y-1 leading-relaxed">
-                        <h4 class="text-sm font-black text-slate-950 mb-1">Bill From: NABT | مؤسسة نبت ورد للتجارة</h4>
-                        <p><span class="font-bold">CR / السجل التجاري :</span> 7003404956</p>
-                        <p><span class="font-bold">VAT REG / الرقم الضريبي :</span> 311062320900003</p>
-                        <p><span class="font-bold">ADDRESS / المقر :</span> Riyadh, Almalqa , 13213 - المملكة العربية السعودية</p>
-                        <p><span class="font-bold">PHONE / الهاتف :</span> +966 50 047 5452</p>
-                        <p><span class="font-bold">EMAIL / البريد :</span> nabtward.sa@gmail.com</p>
+                    <div class="text-right text-xs text-slate-700 space-y-1 leading-relaxed">
+                        <h4 class="text-sm font-black text-[#3f4437] mb-1">Bill From: NABT | مؤسسة نبت ورد للتجارة</h4>
+                        <p><span class="font-bold text-slate-900">CR / السجل التجاري :</span> 7003404956</p>
+                        <p><span class="font-bold text-slate-900">VAT REG / الرقم الضريبي :</span> 311062320900003</p>
+                        <p><span class="font-bold text-slate-900">ADDRESS / المقر :</span> Riyadh, Almalqa , 13213 - المملكة العربية السعودية</p>
+                        <p><span class="font-bold text-slate-900">PHONE / الهاتف :</span> +966 50 047 5452</p>
+                        <p><span class="font-bold text-slate-900">EMAIL / البريد :</span> nabtward.sa@gmail.com</p>
 
-                        <div class="pt-2 text-[11px] border-t border-slate-800/20 mt-1">
-                            <p class="font-black uppercase tracking-wider text-slate-950">BANK DETAILS / الحساب البنكي :</p>
-                            <p><span class="font-bold">BANK NAME :</span> AlRajhi Bank (مصرف الراجحي)</p>
-                            <p><span class="font-bold">IBAN :</span> <span class="font-mono font-bold">SA42 8000 0504 6080 1002 4926</span></p>
+                        <div class="pt-2 text-[11px] border-t border-slate-200 mt-1">
+                            <p class="font-black uppercase tracking-wider text-[#3f4437]">BANK DETAILS / الحساب البنكي :</p>
+                            <p><span class="font-bold text-slate-900">BANK NAME :</span> AlRajhi Bank (مصرف الراجحي)</p>
+                            <p><span class="font-bold text-slate-900">IBAN :</span> <span class="font-mono font-bold text-slate-900">SA42 8000 0504 6080 1002 4926</span></p>
                         </div>
 
-                        <!-- Dark Slate Box for Grand Total -->
+                        <!-- Grand Total Badge -->
                         <div class="pt-2 flex justify-end">
-                            <div class="bg-[#2a3632] text-white font-black px-5 py-2 rounded-xl text-base shadow-sm flex items-center gap-1.5 font-mono">
+                            <div class="bg-[#3f4437] text-white font-black px-4 py-1.5 rounded-xl text-base shadow-sm flex items-center gap-1.5 font-mono">
                                 <span class="text-sm">﷼</span>
                                 <span id="print-header-total" class="text-lg">0.00</span>
                             </div>
@@ -2527,12 +2527,12 @@
                 <!-- ITEMS TABLE (Item, Unit Price, Quantity, Subtotal) -->
                 <div class="overflow-x-auto my-2">
                     <table class="w-full text-xs sm:text-sm border-collapse">
-                        <thead class="print-bg-table-head" style="background-color: #9da38e; color: white;">
+                        <thead class="print-bg-table-head bg-[#3f4437] text-white" style="background-color: #3f4437; color: white;">
                             <tr>
-                                <th class="py-3 px-4 font-bold text-left rounded-l-xl">Item / الصنف</th>
-                                <th class="py-3 px-4 font-bold text-center">Unit Price (Net) / سعر الوحدة</th>
-                                <th class="py-3 px-4 font-bold text-center">Quantity / الكمية</th>
-                                <th class="py-3 px-4 font-bold text-right rounded-r-xl">Subtotal / المجموع</th>
+                                <th class="py-2.5 px-3.5 font-bold text-left rounded-l-lg">Item / الصنف</th>
+                                <th class="py-2.5 px-3.5 font-bold text-center">Unit Price (Net) / سعر الوحدة</th>
+                                <th class="py-2.5 px-3.5 font-bold text-center">Quantity / الكمية</th>
+                                <th class="py-2.5 px-3.5 font-bold text-right rounded-r-lg">Subtotal / المجموع</th>
                             </tr>
                         </thead>
                         <tbody id="print-items-tbody" class="divide-y divide-slate-100 text-slate-800">
@@ -2542,11 +2542,11 @@
                 </div>
 
                 <!-- LOWER SECTION: BILL TO + ZATCA QR + TOTALS -->
-                <div class="print-grid-2 grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                <div class="print-grid-2 grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                     <!-- Left: Bill To + Official ZATCA QR -->
                     <div class="space-y-3 flex flex-col justify-between">
                         <div>
-                            <h4 class="text-xs font-black text-slate-950 uppercase tracking-wider mb-1.5">Bill To / بيانات العميل والتوصيل:</h4>
+                            <h4 class="text-xs font-black text-[#3f4437] uppercase tracking-wider mb-1.5">Bill To / بيانات العميل والتوصيل:</h4>
                             <div class="space-y-1.5 text-xs text-slate-800 bg-slate-50/90 p-3.5 rounded-2xl border border-slate-200">
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
@@ -2560,12 +2560,12 @@
                                 </div>
                                 <div class="pt-1.5 border-t border-slate-200/80 grid grid-cols-2 gap-2">
                                     <div>
-                                        <span class="text-olive-700 font-bold block text-[10px]">RECIPIENT / اسم المستلم:</span>
-                                        <strong id="print-rec-name" class="text-olive-900 font-black text-xs sm:text-sm">-</strong>
+                                        <span class="text-[#3f4437] font-bold block text-[10px]">RECIPIENT / اسم المستلم:</span>
+                                        <strong id="print-rec-name" class="text-slate-900 font-black text-xs sm:text-sm">-</strong>
                                     </div>
                                     <div>
-                                        <span class="text-olive-700 font-bold block text-[10px]">RECIPIENT PHONE / جوال المستلم:</span>
-                                        <span id="print-rec-phone" class="font-mono font-bold text-olive-900">-</span>
+                                        <span class="text-[#3f4437] font-bold block text-[10px]">RECIPIENT PHONE / جوال المستلم:</span>
+                                        <span id="print-rec-phone" class="font-mono font-bold text-slate-900">-</span>
                                     </div>
                                 </div>
                                 <div class="pt-1.5 border-t border-slate-200/80">
@@ -2581,7 +2581,7 @@
 
                         <!-- ZATCA QR Code & Verification Badge -->
                         <div class="flex items-center gap-3 pt-1">
-                            <img id="print-zatca-qr" src="" alt="ZATCA QR" class="w-24 h-24 border border-slate-300 rounded-xl p-1 bg-white shadow-2xs shrink-0">
+                            <img id="print-zatca-qr" src="" alt="ZATCA QR" class="w-22 h-22 border border-slate-300 rounded-xl p-1 bg-white shadow-2xs shrink-0">
                             <div class="text-[10px] text-slate-500 space-y-0.5">
                                 <span class="font-black text-slate-800 block text-xs">ZATCA VERIFIED QR</span>
                                 <span class="block">فاتورة ضريبية مبسطة إلكترونية معتمدة</span>
@@ -2592,7 +2592,7 @@
 
                     <!-- Right: Totals Calculation Summary -->
                     <div class="flex flex-col justify-between">
-                        <div class="space-y-2 text-xs sm:text-sm bg-white p-3 rounded-2xl border border-slate-200">
+                        <div class="space-y-2 text-xs sm:text-sm bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
                             <div class="flex justify-between items-center py-1.5 border-b border-slate-100 text-slate-600">
                                 <span class="font-bold">Item Total (Excl. VAT) / المجموع قبل الضريبة</span>
                                 <span class="font-mono font-bold text-slate-800">﷼ <span id="print-subtotal">0.00</span></span>
@@ -2606,8 +2606,8 @@
                                 <span class="font-mono font-bold text-slate-800">﷼ <span id="print-tax">0.00</span></span>
                             </div>
 
-                            <!-- Total Bar (Sage Green) -->
-                            <div class="print-bg-total flex justify-between items-center p-3 rounded-xl font-black text-sm text-white" style="background-color: #949a84;">
+                            <!-- Total Bar (Brand Olive) -->
+                            <div class="print-bg-total flex justify-between items-center p-3 rounded-xl font-black text-sm text-white bg-[#3f4437]" style="background-color: #3f4437;">
                                 <span class="uppercase tracking-wider">TOTAL / الإجمالي النهائي</span>
                                 <span class="font-mono text-base font-black">﷼ <span id="print-grand-total">0.00</span></span>
                             </div>
