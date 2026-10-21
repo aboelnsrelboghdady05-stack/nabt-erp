@@ -157,18 +157,38 @@
             }
         }
 
-        /* Mobile responsiveness improvements */
+        /* Mobile responsiveness & smooth native scrolling */
         html, body {
             width: 100%;
             max-width: 100vw;
             overflow-x: hidden !important;
             position: relative;
             -webkit-overflow-scrolling: touch;
+            height: 100%;
+            height: 100dvh;
         }
 
         #main-container {
             max-width: 100vw;
             overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            scroll-behavior: smooth;
+            /* Generous padding-bottom so user can scroll completely past floating bottom bar and safe area */
+            padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 7rem) !important;
+        }
+
+        /* Safe area support for iOS notches, home bars, and dynamic island */
+        @supports (padding-top: env(safe-area-inset-top)) {
+            #top-header {
+                padding-top: env(safe-area-inset-top);
+                height: calc(4rem + env(safe-area-inset-top));
+            }
+            #mobile-bottom-nav {
+                padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+                height: calc(3.8rem + env(safe-area-inset-bottom));
+            }
         }
 
         .mobile-card {
@@ -402,7 +422,7 @@
         </div>
 
         <!-- Top Navbar -->
-        <header class="h-16 bg-white/90 backdrop-blur-md border-b border-cream-200/80 flex items-center justify-between px-2.5 sm:px-4 md:px-6 z-10 shadow-xs min-w-0 w-full max-w-full">
+        <header id="top-header" class="h-16 shrink-0 bg-white/90 backdrop-blur-md border-b border-cream-200/80 flex items-center justify-between px-2.5 sm:px-4 md:px-6 z-10 shadow-xs min-w-0 w-full max-w-full">
             <div class="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0">
                 <!-- Mobile Hamburger Toggle Button -->
                 <button onclick="toggleMobileSidebar()" class="lg:hidden p-2 rounded-xl text-olive-800 hover:bg-cream-100 border border-cream-300 focus:outline-none shrink-0" title="القائمة الرئيسية">
@@ -3369,7 +3389,7 @@
     </div>
 
     <!-- Mobile Bottom Navigation Bar (Floating, Touch-Friendly, Native App Feel) -->
-    <nav class="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-cream-200 z-30 px-3 py-2 flex items-center justify-around shadow-lg shadow-olive-950/10">
+    <nav id="mobile-bottom-nav" class="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-cream-200 z-30 px-3 py-2 flex items-center justify-around shadow-lg shadow-olive-950/10">
         <button onclick="switchTab('dashboard')" class="flex flex-col items-center gap-0.5 text-olive-800 hover:text-terracotta-600 focus:outline-none transition-colors">
             <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold" data-i18n="bottom_nav_home">الرئيسية</span>
@@ -3392,7 +3412,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261021_gregorian_v24"></script>
+    <script src="/static/js/app.js?v=20261021_mobile_scroll_v25"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {

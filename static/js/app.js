@@ -328,6 +328,13 @@ function switchTab(tabId) {
         activeNav.classList.remove('text-cream-200/80', 'hover:bg-olive-800', 'hover:text-white');
     }
 
+    // Always scroll smoothly to top when switching sections
+    const mainContainer = document.getElementById('main-container');
+    if (mainContainer) {
+        mainContainer.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+
     // Update header title
     const titles = {
         dashboard: { title: (typeof t === 'function' ? t('nav_dashboard', 'لوحة التحكم') : 'لوحة التحكم'), icon: 'layout-dashboard' },
