@@ -2849,10 +2849,19 @@ async function openInvoicePrintModalByOrder(orderId) {
 }
 
 // 6. DRIVERS LOGISTICS
+function updateDriversNavBadge() {
+    const badge = document.getElementById('badge-nav-drivers');
+    if (badge) {
+        const count = Array.isArray(allDrivers) ? allDrivers.length : 0;
+        badge.textContent = count;
+    }
+}
+
 async function loadDrivers() {
     try {
         const res = await fetch('/api/drivers');
         allDrivers = await res.json();
+        updateDriversNavBadge();
     } catch (err) {
         console.error("Load drivers list error:", err);
     }
@@ -2871,6 +2880,20 @@ async function loadDriversView() {
         } else {
             addDriverBtn.classList.add('hidden');
         }
+    }
+
+    if (!allDrivers || allDrivers.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                    <i data-lucide="truck" class="w-8 h-8"></i>
+                </div>
+                <h4 class="font-bold text-slate-700 text-base">لا يوجد مناديب مسجلين حالياً</h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">تم إزالة كافة المناديب، أو لم يتم تسجيل أي مندوب بعد. يمكنك الضغط على "إضافة مندوب جديد" لإضافة مناديب وتعيين عمولاتهم.</p>
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
     }
 
     allDrivers.forEach(d => {
