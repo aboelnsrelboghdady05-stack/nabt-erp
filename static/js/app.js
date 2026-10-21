@@ -912,17 +912,33 @@ async function loadOrders() {
                     </td>
                     <td class="py-3 px-4">
                         ${renderStatusBadge(o.status)}
-                        ${o.approval_status === 'revision_requested' ? `
-                            <div class="mt-2 p-2 bg-rose-50 border-2 border-rose-300 rounded-xl text-rose-900 text-[11px] font-bold shadow-xs">
-                                <div class="flex items-center gap-1 text-rose-700">
-                                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-600 shrink-0"></i>
-                                    <span class="font-black text-rose-950">إرجاع من (${o.approved_by || 'نادر'}):</span>
-                                </div>
-                                <p class="text-rose-900 font-bold mt-1 text-[11px] whitespace-normal bg-white/90 p-1.5 rounded-lg border border-rose-200 leading-snug">«${o.approval_notes || 'يرجى مراجعة التنسيق'}»</p>
+                        ${o.approval_status === 'approved' ? `
+                            <div class="mt-1.5 flex items-center gap-1 flex-wrap">
+                                <span class="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs">
+                                    <span>تم التعميد 👑</span>
+                                </span>
+                                <button onclick="openNoteViewModal('${o.order_number}', 'ملاحظات التعميد والموافقة', '${o.approved_by || 'الإدارة'}', '${(o.approval_notes || 'تم التعميد واعتماد التنسيق بنجاح بدون ملاحظات ✅').replace(/'/g, "\\'")}', 'approved')" class="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-1.5 py-0.5 rounded-md border border-emerald-300 flex items-center gap-0.5 transition-all cursor-pointer shadow-2xs" title="عرض ملاحظة التعميد">
+                                    <i data-lucide="file-text" class="w-3 h-3 text-emerald-700"></i>
+                                    <span>الملاحظة 📝</span>
+                                </button>
                             </div>
                         ` : ''}
+                        ${o.approval_status === 'revision_requested' ? `
+                            <div class="mt-1.5 flex items-center gap-1 flex-wrap">
+                                <span class="inline-flex items-center gap-1 text-[10px] bg-rose-50 text-rose-800 border border-rose-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs">
+                                    <span>رجوع الطلب ⚠️</span>
+                                </span>
+                                <button onclick="openNoteViewModal('${o.order_number}', 'ملاحظات إرجاع الطلب والتعديل', '${o.approved_by || 'نادر'}', '${(o.approval_notes || o.notes || 'يرجى مراجعة التنسيق وتعديله وإعادة رفع الصورة').replace(/'/g, "\\'")}', 'revision')" class="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-900 font-black px-1.5 py-0.5 rounded-md border border-rose-300 flex items-center gap-0.5 transition-all cursor-pointer shadow-2xs animate-pulse" title="عرض ملاحظات الإرجاع">
+                                    <i data-lucide="alert-triangle" class="w-3 h-3 text-rose-600"></i>
+                                    <span>الملاحظة 📝</span>
+                                </button>
+                            </div>
+                            <div class="mt-1 p-1.5 bg-rose-50/70 border border-rose-200 rounded-lg text-[10px] text-rose-900 font-medium line-clamp-2" title="${o.approval_notes || 'ملاحظات التعديل'}">
+                                «${o.approval_notes || 'يرجى مراجعة التنسيق'}»
+                            </div>
+                        ` : ''}
+                        ${o.completed_image && o.approval_status === 'pending' ? `<span class="block text-[9px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-1">⏳ بانتظار التعميد</span>` : ''}
                         ${o.acceptance_status === 'auto_forwarded' ? `<span class="block text-[9px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-1">🔄 محول تلقائياً</span>` : ''}
-                        ${o.approval_status === 'approved' ? `<span class="block text-[9px] text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200 mt-1">👑 معتمد من الإدارة</span>` : ''}
                     </td>
                     <td class="py-3 px-4 text-center">
                         <div class="flex items-center justify-center gap-1 flex-wrap">
@@ -949,13 +965,33 @@ async function loadOrders() {
                         <div>${renderStatusBadge(o.status)}</div>
                     </div>
 
+                    ${o.approval_status === 'approved' ? `
+                        <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl text-xs text-emerald-950">
+                            <span class="font-bold flex items-center gap-1">
+                                <span>تم التعميد 👑</span>
+                                <span class="text-[10px] font-normal text-emerald-700">(${o.approved_by || 'الإدارة'})</span>
+                            </span>
+                            <button onclick="openNoteViewModal('${o.order_number}', 'ملاحظات التعميد والموافقة', '${o.approved_by || 'الإدارة'}', '${(o.approval_notes || 'تم التعميد واعتماد التنسيق بنجاح بدون ملاحظات ✅').replace(/'/g, "\\'")}', 'approved')" class="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1 cursor-pointer transition-all shadow-2xs">
+                                <i data-lucide="file-text" class="w-3 h-3 text-emerald-700"></i>
+                                <span>الملاحظة 📝</span>
+                            </button>
+                        </div>
+                    ` : ''}
+
                     ${o.approval_status === 'revision_requested' ? `
-                        <div class="p-2.5 bg-rose-50 border-2 border-rose-300 rounded-xl text-rose-900 text-xs shadow-xs space-y-1">
-                            <div class="flex items-center gap-1.5 text-rose-800 font-black">
-                                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0"></i>
-                                <span>⚠️ إرجاع من (${o.approved_by || 'نادر'}):</span>
+                        <div class="bg-rose-50 border-2 border-rose-300 p-2.5 rounded-xl text-xs text-rose-950 space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <span class="font-black flex items-center gap-1 text-rose-800">
+                                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-600"></i>
+                                    <span>رجوع الطلب ⚠️</span>
+                                    <span class="text-[10px] bg-rose-100 px-1.5 py-0.5 rounded text-rose-800 font-bold">(${o.approved_by || 'نادر'})</span>
+                                </span>
+                                <button onclick="openNoteViewModal('${o.order_number}', 'ملاحظات إرجاع الطلب والتعديل', '${o.approved_by || 'نادر'}', '${(o.approval_notes || o.notes || 'يرجى مراجعة التنسيق وتعديله وإعادة رفع الصورة').replace(/'/g, "\\'")}', 'revision')" class="text-[10px] bg-rose-200 hover:bg-rose-300 text-rose-950 font-black px-2 py-0.5 rounded-lg border border-rose-300 flex items-center gap-1 cursor-pointer animate-pulse shadow-2xs">
+                                    <i data-lucide="message-square" class="w-3 h-3 text-rose-700"></i>
+                                    <span>الملاحظة 📝</span>
+                                </button>
                             </div>
-                            <p class="text-rose-950 font-bold bg-white/90 p-2 rounded-lg border border-rose-200 leading-snug">«${o.approval_notes || 'يرجى مراجعة التنسيق'}»</p>
+                            <p class="text-[11px] font-bold text-rose-900 bg-white/90 p-1.5 rounded-lg border border-rose-200 leading-snug">«${o.approval_notes || 'يرجى مراجعة التنسيق'}»</p>
                         </div>
                     ` : ''}
 
@@ -1513,6 +1549,32 @@ async function submitOrderApprovalDecision(action) {
     }
 }
 
+// Function to open Note View Modal (ملاحظات التعميد والإرجاع)
+function openNoteViewModal(orderNum, title, author, noteText, type = 'revision') {
+    const iconWrap = document.getElementById('modal-view-note-icon-wrap');
+    const icon = document.getElementById('modal-view-note-icon');
+    const titleEl = document.getElementById('modal-view-note-title');
+    const orderNumEl = document.getElementById('modal-view-note-order-num');
+    const authorEl = document.getElementById('modal-view-note-author');
+    const noteTextEl = document.getElementById('modal-view-note-text');
+
+    if (titleEl) titleEl.textContent = title || 'ملاحظة الطلب';
+    if (orderNumEl) orderNumEl.textContent = orderNum ? `طلب #${orderNum}` : '';
+    if (authorEl) authorEl.textContent = author || 'الإدارة';
+    if (noteTextEl) noteTextEl.textContent = noteText || 'لا توجد ملاحظة إضافية مسجلة';
+
+    if (type === 'revision' || type === 'revision_requested') {
+        if (iconWrap) iconWrap.className = 'w-9 h-9 rounded-xl flex items-center justify-center bg-rose-100 text-rose-700 shadow-xs';
+        if (icon) icon.setAttribute('data-lucide', 'alert-triangle');
+    } else {
+        if (iconWrap) iconWrap.className = 'w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-700 shadow-xs';
+        if (icon) icon.setAttribute('data-lucide', 'check-circle-2');
+    }
+
+    openModal('modal-view-note');
+    initIcons();
+}
+
 // Store Pickup vs Delivery Mode Handler
 function setOrderDeliveryMode(mode) {
     const btnPickup = document.getElementById('btn-delivery-mode-pickup');
@@ -1869,16 +1931,30 @@ async function openOrderDetailModal(orderId) {
                     compUploadBtn.textContent = 'تغيير الصورة 📸';
                     compUploadBtn.onclick = () => openFloristCompleteWorkModal(ord.id, ord.order_number);
                 }
+                const compNoteBtn = document.getElementById('detail-approval-note-btn');
                 if (compStatusBadge) {
                     if (ord.approval_status === 'approved') {
-                        compStatusBadge.textContent = `معتمد من (${ord.approved_by || 'الإدارة'}) ✅`;
+                        compStatusBadge.textContent = `تم التعميد 👑 (${ord.approved_by || 'الإدارة'})`;
                         compStatusBadge.className = 'text-[10px] text-emerald-700 font-bold';
+                        if (compNoteBtn) {
+                            compNoteBtn.classList.remove('hidden');
+                            compNoteBtn.className = 'text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-md font-bold flex items-center gap-1 cursor-pointer';
+                            compNoteBtn.innerHTML = `<i data-lucide="file-text" class="w-3 h-3 text-emerald-700"></i><span>الملاحظة 📝</span>`;
+                            compNoteBtn.onclick = () => openNoteViewModal(ord.order_number, 'ملاحظات التعميد والموافقة', ord.approved_by || 'الإدارة', ord.approval_notes || 'تم التعميد واعتماد التنسيق بنجاح بدون ملاحظات ✅', 'approved');
+                        }
                     } else if (ord.approval_status === 'revision_requested') {
-                        compStatusBadge.textContent = 'مطلوب تعديل ⚠️';
+                        compStatusBadge.textContent = 'رجوع الطلب ⚠️';
                         compStatusBadge.className = 'text-[10px] text-rose-700 font-bold';
+                        if (compNoteBtn) {
+                            compNoteBtn.classList.remove('hidden');
+                            compNoteBtn.className = 'text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-900 border border-rose-300 px-2 py-0.5 rounded-md font-bold flex items-center gap-1 cursor-pointer animate-pulse';
+                            compNoteBtn.innerHTML = `<i data-lucide="alert-triangle" class="w-3 h-3 text-rose-600"></i><span>الملاحظة 📝</span>`;
+                            compNoteBtn.onclick = () => openNoteViewModal(ord.order_number, 'ملاحظات إرجاع الطلب والتعديل', ord.approved_by || 'نادر', ord.approval_notes || ord.notes || 'يرجى مراجعة التنسيق وتعديله وإعادة رفع الصورة', 'revision');
+                        }
                     } else {
                         compStatusBadge.textContent = 'بانتظار التعميد ⏳';
                         compStatusBadge.className = 'text-[10px] text-amber-700 font-bold';
+                        if (compNoteBtn) compNoteBtn.classList.add('hidden');
                     }
                 }
             } else {
@@ -1891,6 +1967,8 @@ async function openOrderDetailModal(orderId) {
                     compStatusBadge.textContent = 'لم تُرفع بعد';
                     compStatusBadge.className = 'text-[10px] text-slate-400 font-medium';
                 }
+                const compNoteBtn = document.getElementById('detail-approval-note-btn');
+                if (compNoteBtn) compNoteBtn.classList.add('hidden');
             }
         }
 

@@ -1940,7 +1940,12 @@
                         <div id="detail-completed-photo-box" class="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs flex items-center justify-between">
                             <div>
                                 <span class="font-bold text-purple-900 block">صورة الورد المنجز:</span>
-                                <span id="detail-approval-status-badge" class="text-[10px] text-purple-700 font-bold">بانتظار التعميد</span>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    <span id="detail-approval-status-badge" class="text-[10px] text-purple-700 font-bold">بانتظار التعميد</span>
+                                    <button id="detail-approval-note-btn" type="button" class="hidden text-[10px] px-2 py-0.5 rounded-md font-bold border transition-all cursor-pointer">
+                                        الملاحظة 📝
+                                    </button>
+                                </div>
                             </div>
                             <div class="flex items-center gap-1.5">
                                 <button id="detail-completed-btn" type="button" class="bg-purple-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs hover:bg-purple-800 transition-all cursor-pointer">
@@ -2124,6 +2129,48 @@
                         <span>تعميد واعتماد الطلب ✅</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: VIEW APPROVAL / REVISION NOTE (عرض ملاحظات التعميد والإرجاع) -->
+    <div id="modal-view-note" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[80] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-cream-200 overflow-hidden transform transition-all animate-scale-up">
+            <!-- Header -->
+            <div id="modal-view-note-header" class="p-4 bg-gradient-to-r from-slate-50 to-cream-100 border-b border-cream-200 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div id="modal-view-note-icon-wrap" class="w-9 h-9 rounded-xl flex items-center justify-center bg-rose-100 text-rose-700 shadow-xs">
+                        <i id="modal-view-note-icon" data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 id="modal-view-note-title" class="font-black text-sm text-slate-900">ملاحظة الطلب</h3>
+                        <p id="modal-view-note-order-num" class="text-[11px] font-mono text-slate-500 font-bold"></p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-view-note')" class="w-8 h-8 rounded-full bg-cream-200 hover:bg-cream-300 flex items-center justify-center text-slate-600 transition-colors cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-5 space-y-3.5">
+                <div class="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="text-slate-500 font-medium">المسؤول عن القرار:</span>
+                    <span id="modal-view-note-author" class="font-black text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs"></span>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">نص الملاحظة المكتوبة:</label>
+                    <div class="bg-amber-50/60 border border-amber-200 p-3.5 rounded-2xl shadow-2xs">
+                        <p id="modal-view-note-text" class="text-slate-900 font-bold text-sm whitespace-pre-wrap leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button type="button" onclick="closeModal('modal-view-note')" class="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-black text-white shadow-md transition-all cursor-pointer">
+                    إغلاق النافذة
+                </button>
             </div>
         </div>
     </div>
@@ -3329,7 +3376,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261021_revision_notes_v22"></script>
+    <script src="/static/js/app.js?v=20261021_note_modal_v23"></script>
     <script>
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {

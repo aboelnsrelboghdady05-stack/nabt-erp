@@ -922,10 +922,11 @@ def approve_completed_order(order_id: int, payload: OrderApproveSchema):
         SET approval_status = 'approved',
             approved_by = ?,
             approved_at = CURRENT_TIMESTAMP,
+            approval_notes = ?,
             status = 'ready',
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-        """, (payload.approved_by, order_id))
+        """, (payload.approved_by, payload.notes or "تم التعميد والموافقة على التنسيق بنجاح ✅", order_id))
 
         msg = f"✨ تم تعميد واعتماد الطلب #{order['order_number']} بنجاح بواسطة ({payload.approved_by})! الطلب الآن جاهز ومتاح للتواصل مع المناديب للتوصيل 🚗"
     else:
