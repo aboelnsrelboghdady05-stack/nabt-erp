@@ -3116,28 +3116,31 @@ async function openInvoicePrintModal(invoiceId) {
                 calculatedNetSubtotal += netItemTotal;
 
                 const tr = document.createElement('tr');
-                tr.className = (idx % 2 === 1) ? 'bg-[#f7f9f5] border-b border-slate-200' : 'bg-white border-b border-slate-200';
+                tr.className = 'border-b border-slate-200';
                 tr.innerHTML = `
-                    <td class="py-3.5 px-4 font-semibold text-slate-800 text-left text-sm">${it.product_name}</td>
-                    <td class="py-3.5 px-4 text-center font-mono text-slate-700 text-sm">${netUnit.toFixed(2)}</td>
-                    <td class="py-3.5 px-4 text-center font-bold text-slate-800 text-sm">${it.quantity}</td>
-                    <td class="py-3.5 px-4 text-right font-black font-mono text-slate-900 text-sm">${netItemTotal.toFixed(2)}</td>
+                    <td class="py-3.5 px-4 font-bold text-slate-900 text-left text-xs sm:text-sm">${it.product_name}</td>
+                    <td class="py-3.5 px-4 text-center font-mono font-medium text-slate-800 text-xs sm:text-sm">${netUnit.toFixed(2)}</td>
+                    <td class="py-3.5 px-4 text-center font-bold text-slate-800 text-xs sm:text-sm">${it.quantity}</td>
+                    <td class="py-3.5 px-4 text-right font-black font-mono text-slate-900 text-xs sm:text-sm">${netItemTotal.toFixed(2)}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // If order has delivery fee, render delivery fee as an item line (e.g., توصيل - Delivery - D 30.43)
+        // If order has delivery fee, render delivery fee as an item line
         if (inv.delivery_fee && inv.delivery_fee > 0) {
             const netDelivery = inv.delivery_fee / 1.15;
             calculatedNetSubtotal += netDelivery;
             const tr = document.createElement('tr');
-            tr.className = 'border-b border-slate-200 bg-[#f7f9f5]';
+            tr.className = 'border-b border-slate-200';
             tr.innerHTML = `
-                <td class="py-3.5 px-4 font-semibold text-slate-800 text-left text-sm">خدمة توصيل ونقل مبرد للورد - Delivery Service</td>
-                <td class="py-3.5 px-4 text-center font-mono text-slate-700 text-sm">${netDelivery.toFixed(2)}</td>
-                <td class="py-3.5 px-4 text-center font-bold text-slate-800 text-sm">1</td>
-                <td class="py-3.5 px-4 text-right font-black font-mono text-slate-900 text-sm">${netDelivery.toFixed(2)}</td>
+                <td class="py-3.5 px-4 font-bold text-slate-900 text-left text-xs sm:text-sm">
+                    <div>- خدمة توصيل ونقل مبرد للورد</div>
+                    <div class="text-[11px] text-slate-500 font-normal">Delivery Service</div>
+                </td>
+                <td class="py-3.5 px-4 text-center font-mono font-medium text-slate-800 text-xs sm:text-sm">${netDelivery.toFixed(2)}</td>
+                <td class="py-3.5 px-4 text-center font-bold text-slate-800 text-xs sm:text-sm">1</td>
+                <td class="py-3.5 px-4 text-right font-black font-mono text-slate-900 text-xs sm:text-sm">${netDelivery.toFixed(2)}</td>
             `;
             tbody.appendChild(tr);
         }
@@ -3151,11 +3154,20 @@ async function openInvoicePrintModal(invoiceId) {
         const remainingAmount = Math.max(0, grandTotal - paidAmount);
 
         document.getElementById('print-subtotal').textContent = netBaseTotal.toFixed(2);
-        document.getElementById('print-discount').textContent = discountAmount > 0 ? `-${discountAmount.toFixed(2)}` : `-0.00`;
+        document.getElementById('print-discount').textContent = discountAmount > 0 ? `${discountAmount.toFixed(2)}-` : `0.00-`;
         document.getElementById('print-tax').textContent = vatAmount.toFixed(2);
         document.getElementById('print-grand-total').textContent = grandTotal.toFixed(2);
-        document.getElementById('print-paid-amt').textContent = `-${paidAmount.toFixed(2)}`;
-        document.getElementById('print-remaining-amt').textContent = remainingAmount.toFixed(2);
+        document.getElementById('print-paid-amt').textContent = `${paidAmount.toFixed(2)}-`;
+
+        const remRow = document.getElementById('print-remaining-row');
+        if (remRow) {
+            if (remainingAmount <= 0) {
+                remRow.classList.add('hidden');
+            } else {
+                remRow.classList.remove('hidden');
+                document.getElementById('print-remaining-amt').textContent = remainingAmount.toFixed(2);
+            }
+        }
 
         // 6. QR Code
         const qrEl = document.getElementById('print-zatca-qr');
