@@ -823,7 +823,7 @@ def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: O
     # 1. Alert Yasser (General Manager)
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0500000001', 'ياسر (المدير العام)', 'outbound', 'florist_alert', ?, 'delivered', ?)
+    VALUES ('0544338827', 'ياسر (المدير العام)', 'outbound', 'florist_alert', ?, 'delivered', ?)
     """, (alert_text, order_id))
 
     # 2. Alert Faisal (Operations Manager)
@@ -1089,7 +1089,7 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
     )
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0500000001', 'ياسر (المدير العام)', 'outbound', 'order_update', ?, 'delivered', ?)
+    VALUES ('0544338827', 'ياسر (المدير العام)', 'outbound', 'order_update', ?, 'delivered', ?)
     """, (mgmt_log_alert, order_id))
 
     cursor.execute("""

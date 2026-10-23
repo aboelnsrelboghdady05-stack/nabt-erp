@@ -116,7 +116,7 @@ def create_purchase_request(payload: PurchaseCreateSchema):
     cursor.execute("SELECT name, phone FROM employees WHERE role = 'general_manager' OR name LIKE '%ياسر%' LIMIT 1")
     gm_emp = cursor.fetchone()
     yasser_name = gm_emp['name'] if gm_emp else 'ياسر (المدير العام)'
-    yasser_phone = gm_emp['phone'] if gm_emp else '0500000001'
+    yasser_phone = gm_emp['phone'] if gm_emp else '0544338827'
 
     urgency_text = payload.urgency
     if urgency_text in ("urgent", "عاجل جداً اليوم"):
@@ -194,7 +194,7 @@ def endorse_purchase_request(request_id: int, payload: PurchaseEndorseSchema):
     cursor.execute("SELECT name, phone FROM employees WHERE role = 'general_manager' OR name LIKE '%ياسر%' LIMIT 1")
     gm_emp = cursor.fetchone()
     yasser_name = gm_emp['name'] if gm_emp else 'ياسر (المدير العام)'
-    yasser_phone = gm_emp['phone'] if gm_emp else '0500000001'
+    yasser_phone = gm_emp['phone'] if gm_emp else '0544338827'
 
     amt_val = float(req.get('estimated_amount') or 0.0)
     amt_disp = f"{amt_val:,.2f} ريال" if amt_val > 0 else "غير محدد"

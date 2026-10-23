@@ -6,7 +6,7 @@ from database import get_db
 router = APIRouter(prefix="/api/auth", tags=["Authentication & Password Management"])
 
 class LoginRequest(BaseModel):
-    identifier: str  # username, phone, or name (e.g. 'yasser', '0500000001', 'ياسر')
+    identifier: str  # username, phone, or name (e.g. 'yasser', '0544338827', 'ياسر')
     password: str
 
 class ChangePasswordRequest(BaseModel):

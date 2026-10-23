@@ -302,7 +302,7 @@ def init_db():
 
     # Ensure the 5 designated team users exist with their exact credentials and weekly off days
     users_to_ensure = [
-        ("ياسر (المدير العام)", "0500000001", "general_manager", "yasser", "123456", "إدارة عامة وإشراف", "الجمعة"),
+        ("ياسر (المدير العام)", "0544338827", "general_manager", "yasser", "123456", "إدارة عامة وإشراف", "الجمعة"),
         ("فيصل (مدير تشغيلي)", "0500475452", "operations_manager", "faisal", "123456", "إدارة تشغيلية وتنسيق", "السبت"),
         ("نادر (مدير فرع)", "0502220002", "branch_manager", "nader", "123456", "إدارة الفرع والطلبات", "الأحد"),
         ("عمر (منسق ورد)", "0533688697", "florist", "omar", "123456", "تنسيق باقات وتغليف", "الثلاثاء"),
