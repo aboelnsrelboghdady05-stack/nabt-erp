@@ -47,9 +47,35 @@ const GREGORIAN_ARABIC_DAYS = [
     'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'
 ];
 
-function getRiyadhDateParts(date = new Date()) {
+const GREGORIAN_WEEKDAY_MAP = {
+    'Sun': 'الأحد',
+    'Mon': 'الإثنين',
+    'Tue': 'الثلاثاء',
+    'Wed': 'الأربعاء',
+    'Thu': 'الخميس',
+    'Fri': 'الجمعة',
+    'Sat': 'السبت'
+};
+
+function parseUtcDate(isoString) {
+    if (!isoString) return null;
+    let s = String(isoString).trim().replace(' ', 'T');
+    if (!s.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(s)) {
+        s += 'Z';
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function getRiyadhDateParts(date = new Date(), applyServerOffset = false) {
     try {
-        const d = new Date(date.getTime() + serverTimeOffset);
+        let d;
+        if (date instanceof Date) {
+            d = date;
+        } else {
+            d = parseUtcDate(date) || new Date(date);
+        }
+        const targetDate = applyServerOffset ? new Date(d.getTime() + serverTimeOffset) : d;
         const formatter = new Intl.DateTimeFormat('en-US', {
             timeZone: 'Asia/Riyadh',
             hour12: false,
@@ -58,9 +84,10 @@ function getRiyadhDateParts(date = new Date()) {
             day: 'numeric',
             hour: 'numeric',
             minute: 'numeric',
-            second: 'numeric'
+            second: 'numeric',
+            weekday: 'short'
         });
-        const parts = formatter.formatToParts(d);
+        const parts = formatter.formatToParts(targetDate);
         const map = {};
         parts.forEach(p => map[p.type] = p.value);
         return {
@@ -70,25 +97,28 @@ function getRiyadhDateParts(date = new Date()) {
             hours: parseInt(map.hour, 10) % 24,
             minutes: parseInt(map.minute, 10),
             seconds: parseInt(map.second, 10),
-            dateObj: d
+            weekday: map.weekday,
+            dateObj: targetDate
         };
     } catch (e) {
+        const d = (date instanceof Date) ? date : new Date(date);
         return {
-            year: date.getFullYear(),
-            month: date.getMonth(),
-            day: date.getDate(),
-            hours: date.getHours(),
-            minutes: date.getMinutes(),
-            seconds: date.getSeconds(),
-            dateObj: date
+            year: d.getFullYear(),
+            month: d.getMonth(),
+            day: d.getDate(),
+            hours: d.getHours(),
+            minutes: d.getMinutes(),
+            seconds: d.getSeconds(),
+            weekday: 'Sun',
+            dateObj: d
         };
     }
 }
 
 function formatGregorianDate(dateInput, includeWeekday = true) {
     if (!dateInput) return '';
-    let d = (dateInput instanceof Date) ? dateInput : new Date(String(dateInput).replace(' ', 'T'));
-    if (isNaN(d.getTime())) return String(dateInput);
+    let d = (dateInput instanceof Date) ? dateInput : parseUtcDate(dateInput);
+    if (!d || isNaN(d.getTime())) return String(dateInput);
 
     const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
     if (lang === 'en') {
@@ -102,19 +132,20 @@ function formatGregorianDate(dateInput, includeWeekday = true) {
         return d.toLocaleDateString('bn-BD', options);
     }
 
-    const parts = getRiyadhDateParts(d);
+    const parts = getRiyadhDateParts(d, false);
     const day = parts.day;
     const month = GREGORIAN_ARABIC_MONTHS[parts.month];
     const year = parts.year;
+    const dayName = GREGORIAN_WEEKDAY_MAP[parts.weekday] || GREGORIAN_ARABIC_DAYS[parts.dateObj.getDay()] || '';
     if (includeWeekday) {
-        return `${GREGORIAN_ARABIC_DAYS[parts.dateObj.getDay()]}، ${day} ${month} ${year} م`;
+        return `${dayName}، ${day} ${month} ${year} م`;
     }
     return `${day} ${month} ${year} م`;
 }
 
 let liveClockInterval = null;
 function updateLiveDateTime() {
-    const parts = getRiyadhDateParts(new Date());
+    const parts = getRiyadhDateParts(new Date(), true);
     const dateEl = document.getElementById('current-date-display');
     const timeEl = document.getElementById('current-time-display');
 
@@ -1962,21 +1993,21 @@ function viewReferenceImageModal(imgUrl, orderNum) {
 function formatAppDateTime(isoString) {
     if (!isoString) return null;
     try {
-        const d = new Date(isoString.replace(' ', 'T'));
-        if (isNaN(d.getTime())) return isoString;
+        const d = parseUtcDate(isoString);
+        if (!d) return isoString;
 
         const lang = (typeof currentLang !== 'undefined' && currentLang) ? currentLang : 'ar';
-        const hours = d.getHours();
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        if (lang === 'en' || lang === 'bn') {
-            const period = hours >= 12 ? 'PM' : 'AM';
-            const formattedHours = hours % 12 || 12;
-            return `${formatGregorianDate(d, false)} (${formattedHours}:${minutes} ${period})`;
-        } else {
-            const period = hours >= 12 ? 'م' : 'ص';
-            const formattedHours = hours % 12 || 12;
-            return `${formatGregorianDate(d, false)} (${formattedHours}:${minutes} ${period})`;
-        }
+        const parts = getRiyadhDateParts(d, false);
+        const hours12 = parts.hours % 12 || 12;
+        const formattedHours = hours12;
+        const minutes = String(parts.minutes).padStart(2, '0');
+
+        const period = parts.hours >= 12
+            ? ((lang === 'en' || lang === 'bn') ? 'PM' : 'م')
+            : ((lang === 'en' || lang === 'bn') ? 'AM' : 'ص');
+
+        const dateStr = formatGregorianDate(d, false);
+        return `${dateStr} (${formattedHours}:${minutes} ${period})`;
     } catch (e) {
         return isoString;
     }
@@ -1985,16 +2016,25 @@ function formatAppDateTime(isoString) {
 function calculateDurationText(startIso, endIso) {
     if (!startIso || !endIso) return null;
     try {
-        const s = new Date(startIso.replace(' ', 'T')).getTime();
-        const e = new Date(endIso.replace(' ', 'T')).getTime();
+        const sDate = parseUtcDate(startIso);
+        const eDate = parseUtcDate(endIso);
+        if (!sDate || !eDate) return null;
+        const s = sDate.getTime();
+        const e = eDate.getTime();
         if (isNaN(s) || isNaN(e) || e < s) return null;
         const diffMs = e - s;
         const diffMinutes = Math.floor(diffMs / 60000);
+        if (diffMinutes < 1) {
+            return `أقل من دقيقة`;
+        }
         if (diffMinutes < 60) {
             return `${diffMinutes} دقيقة`;
         }
         const hours = Math.floor(diffMinutes / 60);
         const mins = diffMinutes % 60;
+        if (mins === 0) {
+            return `${hours} ساعة`;
+        }
         return `${hours} ساعة و ${mins} دقيقة`;
     } catch (e) {
         return null;
