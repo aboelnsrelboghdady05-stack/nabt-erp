@@ -69,6 +69,20 @@ app.include_router(sync_router)
 app.include_router(employees_router)
 app.include_router(creative_tasks_router)
 
+import asyncio
+
+@app.on_event("startup")
+async def start_florist_sla_checker():
+    async def loop():
+        while True:
+            try:
+                from routes.orders import check_and_process_florist_timeouts
+                check_and_process_florist_timeouts()
+            except Exception as e:
+                print(f"[Florist SLA Check Error]: {e}")
+            await asyncio.sleep(10)
+    asyncio.create_task(loop())
+
 from fastapi.responses import FileResponse
 
 @app.api_route("/", methods=["GET", "HEAD"])

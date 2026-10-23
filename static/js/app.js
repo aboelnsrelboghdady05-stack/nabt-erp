@@ -163,6 +163,105 @@ function updateLiveDateTime() {
         
         timeEl.innerHTML = `<span class="font-mono font-bold">${formattedHours}:${formattedMinutes}:${formattedSeconds}</span> <span class="text-[11px] font-sans font-black text-olive-700">${period}</span>`;
     }
+
+    try {
+        updateFloristSlaCounters();
+    } catch (e) {}
+}
+
+function updateFloristSlaCounters() {
+    const containers = document.querySelectorAll('.florist-sla-container');
+    if (!containers || containers.length === 0) return;
+    const now = Date.now();
+    let needsReload = false;
+
+    containers.forEach(el => {
+        const ts = parseInt(el.getAttribute('data-assigned-ts'), 10);
+        if (isNaN(ts)) return;
+        const elapsed = Math.max(0, Math.floor((now - ts) / 1000));
+        const timeEl = el.querySelector('.florist-sla-time');
+        const badgeEl = el.querySelector('.florist-sla-badge');
+        const labelEl = el.querySelector('.florist-sla-label');
+
+        if (elapsed < 180) {
+            const rem = 180 - elapsed;
+            const mm = String(Math.floor(rem / 60)).padStart(2, '0');
+            const ss = String(rem % 60).padStart(2, '0');
+            if (timeEl) timeEl.textContent = `${mm}:${ss}`;
+        } else if (elapsed < 360) {
+            const rem = 360 - elapsed;
+            const mm = String(Math.floor(rem / 60)).padStart(2, '0');
+            const ss = String(rem % 60).padStart(2, '0');
+            if (badgeEl && !badgeEl.classList.contains('bg-rose-100')) {
+                badgeEl.className = 'florist-sla-badge inline-flex items-center gap-1 text-[10px] bg-rose-100 text-rose-950 border border-rose-400 font-black px-2 py-0.5 rounded-lg shadow-2xs animate-pulse';
+            }
+            if (labelEl) labelEl.textContent = '⚠️ تنبيه ثانٍ! تحويل بعد:';
+            if (timeEl) timeEl.textContent = `${mm}:${ss}`;
+        } else {
+            if (labelEl) labelEl.textContent = '🔄 جاري التحويل التلقائي...';
+            if (timeEl) timeEl.textContent = '';
+            needsReload = true;
+        }
+    });
+
+    if (needsReload && !window._slaReloadCooldown) {
+        window._slaReloadCooldown = true;
+        setTimeout(() => {
+            window._slaReloadCooldown = false;
+            if (currentActiveTab === 'orders') loadOrders();
+            else if (currentActiveTab === 'dashboard') loadDashboardData();
+        }, 3000);
+    }
+}
+
+function getFloristAcceptanceSlaHtml(o) {
+    if (!o.florist_id || o.status !== 'new' || o.acceptance_status === 'accepted') {
+        return '';
+    }
+    const assignedTimeStr = o.florist_assigned_at || o.received_at || o.created_at;
+    const assignedDate = parseUtcDate(assignedTimeStr);
+    if (!assignedDate) return '';
+
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - assignedDate.getTime()) / 1000));
+    
+    // Step 1: within first 3 minutes (0 - 179s)
+    if (elapsedSeconds < 180) {
+        const remaining = 180 - elapsedSeconds;
+        const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const ss = String(remaining % 60).padStart(2, '0');
+        return `
+            <div class="florist-sla-container mt-1" data-order-id="${o.id}" data-assigned-ts="${assignedDate.getTime()}">
+                <span class="florist-sla-badge inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-900 border border-amber-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs" title="مهلة قبول الطلب قبل التنبيه الثاني (3 دقائق)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                    <span class="florist-sla-label">مهلة القبول:</span>
+                    <span class="florist-sla-time font-mono">${mm}:${ss}</span>
+                </span>
+            </div>
+        `;
+    }
+    // Step 2: between 3 and 6 minutes (180 - 359s) - Second Alert Active!
+    if (elapsedSeconds < 360) {
+        const remaining = 360 - elapsedSeconds;
+        const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const ss = String(remaining % 60).padStart(2, '0');
+        return `
+            <div class="florist-sla-container mt-1" data-order-id="${o.id}" data-assigned-ts="${assignedDate.getTime()}">
+                <span class="florist-sla-badge inline-flex items-center gap-1 text-[10px] bg-rose-100 text-rose-950 border border-rose-400 font-black px-2 py-0.5 rounded-lg shadow-2xs animate-pulse" title="تنبيه ثانٍ! سيتم تحويل الطلب تلقائياً لمنسق آخر">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                    <span class="florist-sla-label">⚠️ تنبيه ثانٍ! تحويل بعد:</span>
+                    <span class="florist-sla-time font-mono">${mm}:${ss}</span>
+                </span>
+            </div>
+        `;
+    }
+    // Step 3: 6 minutes or more (Auto-Forwarding)
+    return `
+        <div class="florist-sla-container mt-1" data-order-id="${o.id}" data-assigned-ts="${assignedDate.getTime()}">
+            <span class="inline-flex items-center gap-1 text-[10px] bg-purple-100 text-purple-900 border border-purple-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs">
+                <span>🔄 جاري التحويل التلقائي للبديل...</span>
+            </span>
+        </div>
+    `;
 }
 
 function startLiveClock() {
@@ -1123,6 +1222,7 @@ async function loadOrders() {
                             ? `<span class="inline-flex items-center gap-1 font-semibold text-purple-800 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200 text-xs"><i data-lucide="flower" class="w-3.5 h-3.5 text-purple-600"></i> ${o.florist_name}</span>`
                             : `<button onclick="promptAssignFlorist(${o.id})" class="text-[11px] text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md font-bold cursor-pointer">تعيين منسق +</button>`
                         }
+                        ${getFloristAcceptanceSlaHtml(o)}
                     </td>
                     <td class="py-3 px-4">
                         ${o.driver_name 
@@ -1284,6 +1384,7 @@ async function loadOrders() {
                         ${o.acceptance_status === 'auto_forwarded' ? `<span class="text-[9px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">🔄 محول تلقائياً</span>` : ''}
                         ${o.approval_status === 'approved' ? `<span class="text-[9px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">👑 معتمد</span>` : ''}
                     </div>
+                    ${getFloristAcceptanceSlaHtml(o)}
 
                     <div class="pt-2 border-t border-cream-200/70 flex flex-wrap items-center justify-between gap-1.5">
                         <div class="flex items-center gap-1 flex-wrap">

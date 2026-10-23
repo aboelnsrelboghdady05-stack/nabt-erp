@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Optional
 from database import get_db
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import json
 import os
 import shutil
@@ -125,6 +125,11 @@ def get_orders(
     search: Optional[str] = None,
     florist_id: Optional[int] = None
 ):
+    try:
+        check_and_process_florist_timeouts()
+    except Exception as e:
+        print(f"[Timeout Check Warning]: {e}")
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -251,14 +256,16 @@ def create_order(payload: OrderCreateSchema):
     florist_id = assigned_florist['id'] if assigned_florist else None
 
     # 4. Insert Order
+    assigned_at_val = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if florist_id else None
     cursor.execute("""
     INSERT INTO orders (
         order_number, customer_id, customer_name, customer_phone,
         recipient_name, recipient_phone, recipient_address, location_url,
         card_message, reference_image, flower_colors, delivery_date, delivery_time_slot, driver_id, florist_id,
         status, subtotal, delivery_fee, discount, tax, total_amount,
-        payment_status, payment_method, notes, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        payment_status, payment_method, notes, received_at,
+        florist_assigned_at, florist_reminder_count
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 0)
     """, (
         order_number, customer_id, payload.customer_name, payload.customer_phone,
         payload.recipient_name or payload.customer_name,
@@ -266,7 +273,8 @@ def create_order(payload: OrderCreateSchema):
         payload.recipient_address, payload.location_url,
         payload.card_message, payload.reference_image, payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
         payload.driver_id, florist_id, subtotal, payload.delivery_fee, payload.discount, tax, total_amount,
-        payload.payment_status, payload.payment_method, payload.notes
+        payload.payment_status, payload.payment_method, payload.notes,
+        assigned_at_val
     ))
     order_id = cursor.lastrowid
 
@@ -590,7 +598,16 @@ def assign_florist(order_id: int, payload: AssignFloristSchema):
         conn.close()
         raise HTTPException(status_code=400, detail=f"عذراً! {unavail_reason} يرجى اختيار منسق متواجد ومتاح للعمل في هذا اليوم.")
 
-    cursor.execute("UPDATE orders SET florist_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (payload.florist_id, order_id))
+    cursor.execute("""
+    UPDATE orders 
+    SET florist_id = ?, 
+        florist_assigned_at = CURRENT_TIMESTAMP, 
+        florist_reminder_count = 0, 
+        florist_reminded_at = NULL, 
+        acceptance_status = 'pending',
+        updated_at = CURRENT_TIMESTAMP 
+    WHERE id = ?
+    """, (payload.florist_id, order_id))
 
     # Fetch items for items_summary
     cursor.execute("SELECT product_name, quantity FROM order_items WHERE order_id = ?", (order_id,))
@@ -716,19 +733,35 @@ def accept_order(order_id: int, payload: OrderAcceptSchema):
 
     return {"success": True, "message": "تم قبول الطلب وبدأ التنسيق بنجاح", "status": "preparing", "acceptance_status": "accepted"}
 
-@router.put("/{order_id}/reject")
-def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
-    conn = get_db()
+def parse_db_utc(dt_str):
+    if not dt_str:
+        return None
+    s = str(dt_str).strip().replace("T", " ")
+    if "." in s:
+        s = s.split(".")[0]
+    s = s.split("+")[0].split("Z")[0].strip()
+    try:
+        dt = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+        return dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: Optional[str] = None, conn=None) -> Optional[dict]:
+    close_at_end = False
+    if conn is None:
+        conn = get_db()
+        close_at_end = True
     cursor = conn.cursor()
 
     cursor.execute("SELECT o.*, e.name as current_florist_name, e.phone as current_florist_phone FROM orders o LEFT JOIN employees e ON o.florist_id = e.id WHERE o.id = ?", (order_id,))
     order = cursor.fetchone()
     if not order:
-        conn.close()
-        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+        if close_at_end:
+            conn.close()
+        return None
 
     orig_florist_id = order['florist_id']
-    orig_florist_name = payload.florist_name or order['current_florist_name'] or "عمر"
+    orig_name = orig_florist_name or order['current_florist_name'] or "عمر"
 
     from routes.employees import check_employee_availability_on_date
     delivery_date = order['delivery_date'] or date.today().strftime("%Y-%m-%d")
@@ -752,10 +785,10 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
     next_florist = None
     # If orig is Omar, prefer Rico; if orig is Rico, prefer Omar
     for cand_dict in available_candidates:
-        if "عمر" in orig_florist_name and "ريكو" in cand_dict['name']:
+        if "عمر" in orig_name and "ريكو" in cand_dict['name']:
             next_florist = cand_dict
             break
-        elif "ريكو" in orig_florist_name and "عمر" in cand_dict['name']:
+        elif "ريكو" in orig_name and "عمر" in cand_dict['name']:
             next_florist = cand_dict
             break
     if not next_florist and available_candidates:
@@ -770,17 +803,20 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
     SET acceptance_status = 'auto_forwarded',
         previous_florist_id = ?,
         florist_id = ?,
+        florist_assigned_at = CURRENT_TIMESTAMP,
+        florist_reminder_count = 0,
+        florist_reminded_at = NULL,
         rejected_at = CURRENT_TIMESTAMP,
         rejection_reason = ?,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-    """, (orig_florist_id, new_florist_id, payload.reason, order_id))
+    """, (orig_florist_id, new_florist_id, reason, order_id))
 
     # Send Notification / WhatsApp Alert to All 3 Managers (Yasser, Faisal, Nader)
     alert_text = (
         f"🚨 إشعار عاجل لإدارة نبت (ياسر / فيصل / نادر)!\n"
-        f"المنسق ({orig_florist_name}) لم يقبل الطلب رقم #{order['order_number']}.\n"
-        f"السبب: {payload.reason}\n"
+        f"المنسق ({orig_name}) لم يقبل الطلب رقم #{order['order_number']}.\n"
+        f"السبب: {reason}\n"
         f"🔄 تم تحويل الطلب تلقائياً إلى المنسق البديل: ({new_florist_name}) لمباشرته فوراً!"
     )
 
@@ -803,6 +839,7 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
     """, (alert_text, order_id))
 
     # 4. Dispatch to new florist (Rico or Omar)
+    florist_msg = None
     if next_florist:
         cursor.execute("SELECT product_name, quantity FROM order_items WHERE order_id = ?", (order_id,))
         o_items = cursor.fetchall()
@@ -817,7 +854,7 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
         ref_text = "مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!" if order['reference_image'] else "بدون صورة (تنسيق نبت القياسي)"
 
         florist_msg = (
-            f"🌸 مهمة تنسيق ورد جديد\n"
+            f"🌸 مهمة تنسيق ورد جديد (محول تلقائياً)\n"
             f"مرحباً يا فنان {new_florist_name}\n"
             f"تم إسناد طلب جديد إليك من الإدارة للتجهيز:\n"
             f"• رقم الطلب: #{order['order_number']}\n"
@@ -826,7 +863,7 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
             f"• كرت الإهداء: \"{card_text}\"\n"
             f"• موعد التسليم: {order['delivery_date']} \n"
             f"• وقت التسليم({clean_slot})\n"
-            f"• ملاحظات التجهيز: {notes_text} (محول بعد تعذر {orig_florist_name})\n"
+            f"• ملاحظات التجهيز: {notes_text} (محول بعد تعذر {orig_name})\n"
             f"• 📸 صورة (مساندة) مرجعية: {ref_text}\n\n"
             f"شد حيلك وأبدأ التجهيز وأكد لنا إذا جهز! 💐"
         )
@@ -836,17 +873,135 @@ def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
         """, (next_florist['phone'], new_florist_name, florist_msg, order_id))
 
     conn.commit()
-    conn.close()
 
     if next_florist and florist_msg:
         dispatch_via_gateway_if_configured(next_florist['phone'], florist_msg)
 
-    return {
+    res = {
         "success": True,
-        "message": f"لم يتم قبول الطلب من {orig_florist_name} وتم إرسال إشعار للمدراء (ياسر، فيصل، نادر) وتحويل الطلب تلقائياً إلى ({new_florist_name}) 🌸",
+        "message": f"لم يتم قبول الطلب من {orig_name} وتم إرسال إشعار للمدراء (ياسر، فيصل، نادر) وتحويل الطلب تلقائياً إلى ({new_florist_name}) 🌸",
         "new_florist_name": new_florist_name,
         "alert_text": alert_text
     }
+    if close_at_end:
+        conn.close()
+    return res
+
+def check_and_process_florist_timeouts():
+    conn = get_db()
+    cursor = conn.cursor()
+    now_utc = datetime.now(timezone.utc)
+
+    cursor.execute("""
+        SELECT o.*, e.name as current_florist_name, e.phone as current_florist_phone
+        FROM orders o
+        JOIN employees e ON o.florist_id = e.id
+        WHERE o.status = 'new'
+          AND (o.acceptance_status IS NULL OR o.acceptance_status != 'accepted')
+          AND o.florist_id IS NOT NULL
+    """)
+    orders = cursor.fetchall()
+    actions_taken = []
+
+    for row in orders:
+        ord_dict = dict(row)
+        order_id = ord_dict['id']
+        assigned_time_str = ord_dict.get('florist_assigned_at') or ord_dict.get('received_at') or ord_dict.get('created_at')
+        assigned_dt = parse_db_utc(assigned_time_str)
+        if not assigned_dt:
+            continue
+
+        elapsed_sec = (now_utc - assigned_dt).total_seconds()
+        reminded_at_str = ord_dict.get('florist_reminded_at')
+        reminded_dt = parse_db_utc(reminded_at_str) if reminded_at_str else None
+        reminder_count = ord_dict.get('florist_reminder_count') or 0
+
+        # Condition 2: 3 minutes after 2nd reminder (or 6 minutes total without acceptance) -> Auto-Forward to next florist!
+        should_forward = False
+        if reminder_count >= 1:
+            if reminded_dt and (now_utc - reminded_dt).total_seconds() >= 180:
+                should_forward = True
+            elif elapsed_sec >= 360:
+                should_forward = True
+        elif elapsed_sec >= 360:
+            should_forward = True
+
+        if should_forward:
+            reason = "عدم قبول الطلب وتجاوز مهلة الـ 6 دقائق (التنبيه الأول والتنبيه الثاني)"
+            fwd_res = perform_florist_autoforward(order_id, reason, ord_dict.get('current_florist_name'), conn=conn)
+            if fwd_res:
+                actions_taken.append({
+                    "order_id": order_id,
+                    "action": "auto_forwarded",
+                    "details": fwd_res
+                })
+            continue
+
+        # Condition 1: 3 minutes elapsed since assignment and 2nd reminder not yet sent -> Send Second Alert to florist!
+        if elapsed_sec >= 180 and reminder_count == 0:
+            cursor.execute("SELECT product_name, quantity FROM order_items WHERE order_id = ?", (order_id,))
+            o_items = cursor.fetchall()
+            items_summary = " + ".join([f"{it['quantity']}x {it['product_name']}" for it in o_items]) if o_items else "تنسيق ورد"
+            clean_slot = (ord_dict.get('delivery_time_slot') or "مسائي (4ع - 8م)").strip()
+            if clean_slot.startswith("(") and clean_slot.endswith(")"):
+                clean_slot = clean_slot[1:-1].strip()
+
+            reminder_msg = (
+                f"⚠️ تنبيه عاجل وتذكير ثانٍ يا فنان {ord_dict['current_florist_name']} 🌸\n"
+                f"لديك طلب جديد رقم #{ord_dict['order_number']} بانتظار قبولك منذ 3 دقائق!\n"
+                f"• تفاصيل الطلب: {items_summary}\n"
+                f"• موعد التسليم: {ord_dict['delivery_date']} ({clean_slot})\n\n"
+                f"⏳ متبقي 3 دقائق فقط لقبول الطلب عبر السيستم قبل أن يتم تحويله تلقائياً لمنسق آخر وإشعار إدارة نبت! 💐"
+            )
+
+            # Insert WhatsApp message for florist
+            cursor.execute("""
+            INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+            VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
+            """, (ord_dict['current_florist_phone'], ord_dict['current_florist_name'], reminder_msg, order_id))
+
+            # Operational alert for Faisal (Operations Manager)
+            manager_notice = (
+                f"⚠️ متابعة مهام: تم إرسال التنبيه الثاني للمنسق ({ord_dict['current_florist_name']}) "
+                f"للطلب #{ord_dict['order_number']} لمرور 3 دقائق دون قبول. المهلة المتبقية للتحويل التلقائي: 3 دقائق."
+            )
+            cursor.execute("""
+            INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+            VALUES ('0500475452', 'فيصل (مدير تشغيلي)', 'outbound', 'florist_alert', ?, 'delivered', ?)
+            """, (manager_notice, order_id))
+
+            cursor.execute("""
+            UPDATE orders
+            SET florist_reminder_count = 1,
+                florist_reminded_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """, (order_id,))
+            conn.commit()
+
+            if ord_dict.get('current_florist_phone'):
+                dispatch_via_gateway_if_configured(ord_dict['current_florist_phone'], reminder_msg)
+
+            actions_taken.append({
+                "order_id": order_id,
+                "action": "second_reminder_sent",
+                "florist": ord_dict['current_florist_name']
+            })
+
+    conn.close()
+    return actions_taken
+
+@router.post("/check-florist-timeouts")
+def trigger_check_florist_timeouts():
+    actions = check_and_process_florist_timeouts()
+    return {"success": True, "actions_taken": actions}
+
+@router.put("/{order_id}/reject")
+def reject_and_autoforward_order(order_id: int, payload: OrderRejectSchema):
+    res = perform_florist_autoforward(order_id, payload.reason or "المنسق مشغول بطلبات حالية", payload.florist_name)
+    if not res:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    return res
 
 # ========================================================
 # WORKFLOW: FLORIST COMPLETE WORK + PHOTO UPLOAD

@@ -263,6 +263,18 @@ def init_db():
         cursor.execute("ALTER TABLE orders ADD COLUMN previous_florist_id INTEGER")
     if "approval_notes" not in columns:
         cursor.execute("ALTER TABLE orders ADD COLUMN approval_notes TEXT")
+    if "florist_assigned_at" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN florist_assigned_at TIMESTAMP")
+    if "florist_reminded_at" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN florist_reminded_at TIMESTAMP")
+    if "florist_reminder_count" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN florist_reminder_count INTEGER DEFAULT 0")
+
+    # Backfill florist_assigned_at for existing orders assigned to florists
+    try:
+        cursor.execute("UPDATE orders SET florist_assigned_at = COALESCE(received_at, created_at) WHERE florist_id IS NOT NULL AND florist_assigned_at IS NULL")
+    except Exception:
+        pass
 
     # Migration: Add missing columns to drivers if not exists
     cursor.execute("PRAGMA table_info(drivers)")
