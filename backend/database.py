@@ -330,21 +330,7 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, 'on_duty', ?)
             """, (uname_full, uphone, urole, ulogin, upwd, uspec, uoffday))
 
-    # Ensure current approved drivers exist and are protected against loss or container resets
-    drivers_to_ensure = [
-        ("محمد المندوب", "0551112233", "سيارة مجهزة", 25.0),
-        ("سعد مندوب الرياض", "0599988877", "سيارة تويوتا مكيفة", 25.0)
-    ]
-    for d_name, d_phone, d_veh, d_comm in drivers_to_ensure:
-        cursor.execute("SELECT id, status FROM drivers WHERE phone = ? OR name = ?", (d_phone, d_name))
-        existing_drv = cursor.fetchone()
-        if not existing_drv:
-            cursor.execute("""
-            INSERT INTO drivers (name, phone, vehicle, commission_per_order, status)
-            VALUES (?, ?, ?, ?, 'available')
-            """, (d_name, d_phone, d_veh, d_comm))
-        elif existing_drv['status'] == 'deleted':
-            cursor.execute("UPDATE drivers SET status = 'available' WHERE id = ?", (existing_drv['id'],))
+    # Drivers Table: Completely dynamic, user adds and deletes freely without any forced defaults
 
     # Ensure Store WhatsApp Sender Phone is Faisal's connected number (+966500475452) and UltraMsg Gateway
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('whatsapp_phone', '+966500475452')")

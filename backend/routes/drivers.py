@@ -132,25 +132,15 @@ def delete_driver(driver_id: int):
         conn.close()
         raise HTTPException(status_code=404, detail="المندوب غير موجود")
 
-    driver_dict = dict(driver)
+    driver_name = driver['name']
 
-    # Check if driver has active orders
-    cursor.execute("""
-    SELECT COUNT(*) FROM orders 
-    WHERE driver_id = ? AND status NOT IN ('delivered', 'cancelled')
-    """, (driver_id,))
-    active_count = cursor.fetchone()[0]
-    if active_count > 0:
-        conn.close()
-        raise HTTPException(
-            status_code=400, 
-            detail=f"لا يمكن حذف المندوب حالياً لوجود {active_count} طلبات جارية معه. يرجى إسناد الطلبات لمندوب آخر أولاً."
-        )
+    # Unlink any orders that were assigned to this driver so orders remain safe
+    cursor.execute("UPDATE orders SET driver_id = NULL WHERE driver_id = ?", (driver_id,))
 
-    # Soft delete: mark driver as deleted without unlinking past completed orders
-    cursor.execute("UPDATE drivers SET status = 'deleted' WHERE id = ?", (driver_id,))
+    # Complete clean deletion from drivers table
+    cursor.execute("DELETE FROM drivers WHERE id = ?", (driver_id,))
     conn.commit()
     conn.close()
 
-    return {"success": True, "message": f"تم حذف المندوب ({driver_dict['name']}) بنجاح مع الحفاظ على سجل طلباته السابقة"}
+    return {"success": True, "message": f"تم حذف المندوب ({driver_name}) نهائياً من السيستم بنجاح ✅"}
 
