@@ -1790,7 +1790,7 @@ async function handleFloristSubmitCompletedWork(event) {
         if (data.success) {
             closeModal('modal-florist-complete-work');
             closeModal('modal-order-detail');
-            alert("📸 تم رفع صورة الورد وحفظها بنجاح في السيستم!\nتم إرسال إشعار للمسؤولين (ياسر، فيصل، نادر) لاعتماد وتعَميد الطلب ✨");
+            alert(data.message || "📸 تم رفع صورة الورد بنجاح!\nتم إرسال إشعار تعميد فوري إلى مدير الفرع (نادر) عبر الواتساب للموافقة 🌸");
             loadOrders();
             loadDashboardData();
         } else {

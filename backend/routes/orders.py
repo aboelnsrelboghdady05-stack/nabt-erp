@@ -1051,33 +1051,61 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
     WHERE id = ?
     """, (final_image_url, order_id))
 
-    # Send Notification for Approval to All 3 Managers (Yasser, Faisal, Nader)
-    approval_alert = (
-        f"📸 انتهى المنسق من تجهيز وتنسيق الطلب #{order['order_number']} وقام برفع صورة المنتج الفعلي!\n"
-        f"الطلب بانتظار التعميد والاعتماد من (ياسر / فيصل / نادر) قبل تسليمه للمندوب 🚗✨"
+    # Send Notification for Approval specifically to Nader (Branch Manager) as requested
+    florist_name = "منسق الورد"
+    if order['florist_id']:
+        cursor.execute("SELECT name FROM employees WHERE id = ?", (order['florist_id'],))
+        f_emp = cursor.fetchone()
+        if f_emp:
+            florist_name = f_emp[0]
+    elif payload.florist_name:
+        florist_name = payload.florist_name
+
+    # Look up Nader (Branch Manager) dynamically
+    cursor.execute("SELECT name, phone FROM employees WHERE role = 'branch_manager' OR name LIKE '%نادر%' LIMIT 1")
+    nader_emp = cursor.fetchone()
+    nader_name = nader_emp['name'] if nader_emp else 'نادر (مدير فرع)'
+    nader_phone = nader_emp['phone'] if nader_emp else '0502220002'
+
+    nader_approval_alert = (
+        f"🌸 إشعار تعميد طلب جديد يا {nader_name}!\n"
+        f"انتهى المنسق ({florist_name}) من تجهيز وتنسيق الطلب وتم رفع صورة الورد الفعلية:\n"
+        f"• رقم الطلب: #{order['order_number']}\n"
+        f"• العميل: {order['customer_name']}\n"
+        f"• موعد التسليم: {order['delivery_date']} ({order['delivery_time_slot'] or 'الافتراضي'})\n"
+        f"• حالة الطلب: بانتظار تعميدك واعتمادك في السيستم 👑\n\n"
+        f"يرجى مراجعة صورة التنسيق في لوحة التحكم وتعميد الطلب لتسليمه للمندوب 🚗✨"
     )
 
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+    VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
+    """, (nader_phone, nader_name, nader_approval_alert, order_id))
+
+    # Also log for Yasser & Faisal in the system
+    mgmt_log_alert = (
+        f"📸 انتهى المنسق ({florist_name}) من تجهيز الطلب #{order['order_number']} وقام برفع صورة المنتج الفعلي!\n"
+        f"تم إرسال إشعار التعميد لمدير الفرع ({nader_name}) لاعتماده قبل التسليم للمندوب 🚗✨"
+    )
+    cursor.execute("""
+    INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES ('0500000001', 'ياسر (المدير العام)', 'outbound', 'order_update', ?, 'delivered', ?)
-    """, (approval_alert, order_id))
+    """, (mgmt_log_alert, order_id))
 
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
     VALUES ('0500475452', 'فيصل (مدير تشغيلي)', 'outbound', 'order_update', ?, 'delivered', ?)
-    """, (approval_alert, order_id))
-
-    cursor.execute("""
-    INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0502220002', 'نادر (مدير فرع)', 'outbound', 'order_update', ?, 'delivered', ?)
-    """, (approval_alert, order_id))
+    """, (mgmt_log_alert, order_id))
 
     conn.commit()
     conn.close()
 
+    # Dispatch dedicated WhatsApp to Nader
+    dispatch_via_gateway_if_configured(nader_phone, nader_approval_alert)
+
     return {
         "success": True,
-        "message": "تم رفع صورة الورد بنجاح، وتم إرسال طلب التعميد إلى المدراء (ياسر، فيصل، نادر) للموافقة",
+        "message": f"تم رفع صورة الورد بنجاح، وتم إرسال إشعار التعميد إلى ({nader_name}) عبر الواتساب للموافقة 🌸",
         "completed_image": final_image_url
     }
 

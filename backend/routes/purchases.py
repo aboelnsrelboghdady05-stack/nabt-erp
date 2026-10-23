@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from database import get_db
 from datetime import datetime, date
+from routes.whatsapp import dispatch_via_gateway_if_configured
 
 router = APIRouter(prefix="/api/purchases", tags=["Purchase Requests"])
 
@@ -110,14 +111,52 @@ def create_purchase_request(payload: PurchaseCreateSchema):
     ))
 
     new_id = cursor.lastrowid
+
+    # Look up General Manager (Yasser) dynamically
+    cursor.execute("SELECT name, phone FROM employees WHERE role = 'general_manager' OR name LIKE '%ياسر%' LIMIT 1")
+    gm_emp = cursor.fetchone()
+    yasser_name = gm_emp['name'] if gm_emp else 'ياسر (المدير العام)'
+    yasser_phone = gm_emp['phone'] if gm_emp else '0500000001'
+
+    urgency_text = payload.urgency
+    if urgency_text in ("urgent", "عاجل جداً اليوم"):
+        urgency_text = "عاجل جداً اليوم ⚡"
+    elif urgency_text in ("normal", "عادي غداً"):
+        urgency_text = "عادي غداً ⏳"
+
+    amt_str = f"{amt:,.2f} ريال" if amt > 0 else "غير محدد"
+
+    # WhatsApp message to Yasser asking for approval/endorsement
+    yasser_purchase_msg = (
+        f"👑 إشعار طلب مشتريات جديد يحتاج تعميدك يا {yasser_name}!\n"
+        f"تم رفع طلب مشتريات جديد بالنظام وبانتظار تعميدك واعتمادك:\n"
+        f"• رقم الطلب: #{request_number}\n"
+        f"• الصنف / المادة: {payload.item_name.strip()}\n"
+        f"• التصنيف: {cat}\n"
+        f"• الكمية: {qty}\n"
+        f"• التكلفة التقديرية: {amt_str}\n"
+        f"• درجة الأهمية: {urgency_text}\n"
+        f"• مقدّم الطلب: {payload.requested_by_name} ({payload.requested_by_role})\n"
+        f"• سبب الشراء: {payload.reason or 'لا توجد ملاحظات إضافية'}\n\n"
+        f"يرجى الدخول على السيستم لمراجعة الطلب وتعميده والموافقة عليه 📝✨"
+    )
+
+    cursor.execute("""
+    INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status)
+    VALUES (?, ?, 'outbound', 'purchase_alert', ?, 'delivered')
+    """, (yasser_phone, yasser_name, yasser_purchase_msg))
+
     conn.commit()
     conn.close()
+
+    # Dispatch WhatsApp to Yasser
+    dispatch_via_gateway_if_configured(yasser_phone, yasser_purchase_msg)
 
     return {
         "success": True,
         "id": new_id,
         "request_number": request_number,
-        "message": f"تم إنشاء طلب الشراء رقم {request_number} بنجاح وبانتظار التعميد"
+        "message": f"تم إنشاء طلب الشراء رقم {request_number} بنجاح، وتم إرسال إشعار تعميد للمدير العام (ياسر) بالواتساب 👑"
     }
 
 @router.put("/{request_id}/endorse")
@@ -151,12 +190,37 @@ def endorse_purchase_request(request_id: int, payload: PurchaseEndorseSchema):
         payload.endorsement_notes, request_id
     ))
 
+    # Notify General Manager (Yasser) of branch manager endorsement
+    cursor.execute("SELECT name, phone FROM employees WHERE role = 'general_manager' OR name LIKE '%ياسر%' LIMIT 1")
+    gm_emp = cursor.fetchone()
+    yasser_name = gm_emp['name'] if gm_emp else 'ياسر (المدير العام)'
+    yasser_phone = gm_emp['phone'] if gm_emp else '0500000001'
+
+    amt_val = float(req.get('estimated_amount') or 0.0)
+    amt_disp = f"{amt_val:,.2f} ريال" if amt_val > 0 else "غير محدد"
+
+    yasser_endorsed_msg = (
+        f"👑 إشعار تعميد طلب مشتريات يا {yasser_name}!\n"
+        f"تم تعميد طلب الشراء #{req['request_number']} بواسطة ({payload.endorsed_by_name}) وبانتظار موافقتك النهائية وصرف المبلغ:\n"
+        f"• الصنف: {req['item_name']}\n"
+        f"• التكلفة التقديرية: {amt_disp}\n"
+        f"• ملاحظات التعميد: {payload.endorsement_notes or 'تم التعميد والموافقة المبدئية بنجاح'}\n\n"
+        f"الطلب متاح الآن في السيستم للاعتماد النهائي والصرف ✍️"
+    )
+
+    cursor.execute("""
+    INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status)
+    VALUES (?, ?, 'outbound', 'purchase_alert', ?, 'delivered')
+    """, (yasser_phone, yasser_name, yasser_endorsed_msg))
+
     conn.commit()
     conn.close()
 
+    dispatch_via_gateway_if_configured(yasser_phone, yasser_endorsed_msg)
+
     return {
         "success": True,
-        "message": f"تم تعميد طلب الشراء {req['request_number']} بنجاح وتم تحويله للمدير العام (ياسر) للموافقة النهائية"
+        "message": f"تم تعميد طلب الشراء {req['request_number']} بنجاح وتم إشعار المدير العام (ياسر) بالواتساب للموافقة النهائية"
     }
 
 @router.put("/{request_id}/approve")
