@@ -3333,14 +3333,19 @@ async function handleCreateDriver(event) {
         const data = await res.json();
         if (data.success) {
             closeModal('modal-new-driver');
+            document.getElementById('driver-name-input').value = '';
+            document.getElementById('driver-phone-input').value = '';
+            document.getElementById('driver-vehicle-input').value = 'سيارة مكيفة ومجهزة لنقل الورد';
+            document.getElementById('driver-commission-input').value = '25';
             await loadDriversView();
             await loadDrivers();
-            alert("تمت إضافة المندوب بنجاح");
+            alert(data.message || "تمت إضافة المندوب بنجاح ✅");
         } else {
-            alert(data.detail || "حدث خطأ");
+            alert(data.detail || "حدث خطأ أثناء حفظ بيانات المندوب");
         }
     } catch (err) {
         console.error(err);
+        alert("تعذر الاتصال بالخادم لحفظ بيانات المندوب");
     }
 }
 

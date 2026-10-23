@@ -71,15 +71,26 @@ def create_driver(payload: DriverCreateSchema):
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, status FROM drivers WHERE phone = ?", (payload.phone,))
+    raw_phone = "".join(payload.phone.split())
+    if raw_phone.startswith("+966"):
+        clean_phone = "0" + raw_phone[4:]
+    elif raw_phone.startswith("966"):
+        clean_phone = "0" + raw_phone[3:]
+    else:
+        clean_phone = raw_phone
+
+    clean_name = payload.name.strip()
+    clean_vehicle = (payload.vehicle or "سيارة مكيفة لنقل الورد").strip()
+
+    cursor.execute("SELECT id, status FROM drivers WHERE phone = ? OR phone = ?", (clean_phone, payload.phone))
     existing = cursor.fetchone()
     if existing:
         if existing['status'] == 'deleted':
             cursor.execute("""
             UPDATE drivers
-            SET name = ?, vehicle = ?, commission_per_order = ?, notes = ?, status = 'available'
+            SET name = ?, phone = ?, vehicle = ?, commission_per_order = ?, notes = ?, status = 'available'
             WHERE id = ?
-            """, (payload.name, payload.vehicle, payload.commission_per_order, payload.notes, existing['id']))
+            """, (clean_name, clean_phone, clean_vehicle, payload.commission_per_order, payload.notes, existing['id']))
             conn.commit()
             conn.close()
             return {"success": True, "id": existing['id'], "message": "تمت استعادة وتحديث بيانات المندوب بنجاح"}
@@ -91,7 +102,7 @@ def create_driver(payload: DriverCreateSchema):
         cursor.execute("""
         INSERT INTO drivers (name, phone, vehicle, commission_per_order, notes, status)
         VALUES (?, ?, ?, ?, ?, 'available')
-        """, (payload.name, payload.phone, payload.vehicle, payload.commission_per_order, payload.notes))
+        """, (clean_name, clean_phone, clean_vehicle, payload.commission_per_order, payload.notes))
         driver_id = cursor.lastrowid
         conn.commit()
     except Exception as e:
@@ -99,7 +110,7 @@ def create_driver(payload: DriverCreateSchema):
         raise HTTPException(status_code=400, detail=f"حدث خطأ أثناء حفظ بيانات المندوب: {e}")
 
     conn.close()
-    return {"success": True, "id": driver_id}
+    return {"success": True, "id": driver_id, "message": "تمت إضافة المندوب بنجاح"}
 
 @router.put("/{driver_id}/status")
 def update_driver_status(driver_id: int, payload: DriverStatusUpdateSchema):

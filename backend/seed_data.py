@@ -38,18 +38,7 @@ def seed_database():
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """, p)
 
-    # 2. Seed Drivers (المناديب)
-    drivers = [
-        ("أحمد عبد الله المنصور", "0501234567", "تويوتا يارس مكيفة مجهزة لحفظ برودة الورد", "available", 25.0, 0, "سريع وملتزم بالمواعيد في شمال الرياض"),
-        ("خالد فهد العتيبي", "0559876543", "هيونداي إلنترا مكيفة", "available", 25.0, 0, "متخصص في توصيل الحفلات وشرق الرياض"),
-        ("ياسر محمد الشمري", "0543219876", "كيا سيراتو مكيفة", "available", 25.0, 0, "تغطية غرب وجنوب الرياض")
-    ]
-    for d in drivers:
-        cursor.execute("""
-        INSERT INTO drivers (name, phone, vehicle, status, commission_per_order, total_delivered, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, d)
-
+    # 2. Drivers Table: Do NOT seed dummy drivers (drivers are managed via ERP)
     conn.commit()
     conn.close()
     return
