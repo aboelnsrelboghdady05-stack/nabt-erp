@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "🌸 تشغيل نظام نبت لإدارة محلات الورد والمناسبات (Nabt Flowers ERP)..."
+echo "🌸 تشغيل نظام نبت (Nabt ERP)..."
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 

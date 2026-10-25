@@ -105,7 +105,7 @@ def generate_smart_bot_reply(phone: str, message: str, cursor) -> Optional[str]:
     location_keywords = ["موقع", "وينكم", "وين انتم", "فرع", "مكانكم", "لوكيشن", "فاتحين", "دوام", "ساعات", "تقفلون"]
     if any(k in text for k in location_keywords):
         return (
-            "📍 معرض نبت للزهور والمناسبات:\n"
+            "📍 معرض نبت:\n"
             "الرياض - حي النخيل - طريق الملك عبد العزيز.\n\n"
             "⏰ أوقات العمل والدوام:\n"
             "يومياً من الساعة 9:00 صباحاً وحتى 11:00 مساءً.\n"
@@ -151,7 +151,7 @@ def generate_smart_bot_reply(phone: str, message: str, cursor) -> Optional[str]:
 
     # 6. Default Greeting (ترحيب عام)
     return (
-        "أهلاً وسهلاً بك في نبت للزهور والمناسبات 🌸💐\n"
+        "أهلاً وسهلاً بك في نبت 🌸💐\n"
         "يسعدنا مساعدتك! يمكنك سؤالي عن:\n"
         "1️⃣ الاستفسار عن حالة طلبك (اكتب: 'وين وصل طلبي')\n"
         "2️⃣ باقات الورد والأسعار (اكتب: 'الأسعار' أو 'الكتالوج')\n"
@@ -197,7 +197,7 @@ def get_whatsapp_status():
 
     status = settings.get("whatsapp_status", "connected")
     phone = settings.get("whatsapp_phone", "+966500475452")
-    store_name = settings.get("store_name", "نبت للزهور والمناسبات 🌸")
+    store_name = settings.get("store_name", "نبت")
     bot_enabled = settings.get("bot_enabled", "0") == "1"
 
     instance_id = settings.get("ultramsg_instance_id") or "instance194389"

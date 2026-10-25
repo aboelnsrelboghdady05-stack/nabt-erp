@@ -99,7 +99,7 @@ def get_invoice_detail(invoice_id: int):
     # Generate or return ZATCA QR code
     timestamp = invoice["created_at"] or datetime.now().isoformat()
     invoice["qr_image"] = generate_zatca_tlv_qr(
-        seller_name="نبت للزهور والمناسبات",
+        seller_name="نبت",
         vat_no="300987654300003",
         timestamp=str(timestamp),
         total_amount=f"{invoice['total_amount']:.2f}",

@@ -271,7 +271,7 @@ def seed_database():
     settings = {
         "whatsapp_status": "connected",
         "whatsapp_phone": "+966501110001",
-        "store_name": "نبت للزهور والمناسبات 🌸",
+        "store_name": "نبت",
         "auto_confirm_msg": "شكرًا لأنك اخترت نبت | Nabt\nاستلمنا طلبك رقم #{order_number} بنجاح!\nقيمة الطلب: {total_amount} ر.س\nحالة السداد: ({payment_status})\nتاريخ التوصيل: {delivery_date}\nموعد التوصيل: {delivery_time_slot}\nنسعى دائمًا بأن نكون جزء من لحظاتك الجميلة 💐",
         "auto_preparing_msg": "طلبكم الجميل رقم #{order_number} الآن بأيدي منسقينا المحترفين في نبت 🌿\nيتم تجهيزه بأجمل الورود الطازجة بكل عناية وحب ❤️",
         "auto_driver_msg": "طلبكم رقم #{order_number} أصبح الآن مع المندوب",
