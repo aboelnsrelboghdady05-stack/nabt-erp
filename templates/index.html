@@ -481,7 +481,7 @@
                 <button onclick="openAccountingSyncModal()" id="nav-sync" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-peach-200 bg-olive-950/60 border border-peach-300/20 hover:bg-olive-800 transition-all mt-2">
                     <span class="flex items-center gap-3">
                         <i data-lucide="link-2" class="w-4 h-4 text-peach-300"></i>
-                        <span data-i18n="nav_sync">ربط الحسابات (Webhook)</span>
+                        <span data-i18n="nav_sync">ربط فواتير دفترة (Daftra)</span>
                     </span>
                     <span class="w-2 h-2 rounded-full bg-peach-300 animate-pulse"></span>
                 </button>
@@ -655,8 +655,9 @@
                             <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
                             <span data-i18n="btn_simulate_now">تجربة استقبال فاتورة الآن</span>
                         </button>
-                        <button onclick="openAccountingSyncModal()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-cream-100 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer" data-i18n="btn_webhook_link">
-                            رابط الـ Webhook
+                        <button onclick="openAccountingSyncModal()" class="bg-peach-300 hover:bg-peach-200 text-olive-950 text-xs font-black px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+                            <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
+                            <span>ربط وإعدادات دفترة 📥</span>
                         </button>
                     </div>
                 </div>

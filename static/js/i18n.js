@@ -23,7 +23,7 @@ const i18nTranslations = {
         nav_products: 'كتالوج الورد والهدايا',
         nav_employees: 'الموظفين والإجازات',
         nav_creative_tasks: 'مهام مشاريع نبت الإبداعية',
-        nav_sync: 'ربط الحسابات (Webhook)',
+        nav_sync: 'ربط فواتير دفترة (Daftra)',
         
         // Badges & Statuses
         badge_connected: 'متصل',
