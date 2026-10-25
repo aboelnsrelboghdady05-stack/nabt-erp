@@ -218,6 +218,39 @@ function getFloristAcceptanceSlaHtml(o) {
     if (!o.florist_id || o.status !== 'new' || o.acceptance_status === 'accepted') {
         return '';
     }
+
+    // Check if future scheduled order
+    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    if (o.acceptance_status === 'scheduled' || (o.delivery_date && o.delivery_date > todayStr)) {
+        return `
+            <div class="mt-1">
+                <span class="inline-flex items-center gap-1 text-[10px] bg-sky-50 text-sky-800 border border-sky-200 font-bold px-2 py-0.5 rounded-lg shadow-2xs" title="طلب مجدول لتاريخ قادم">
+                    <span>📅 مجدول (${o.delivery_date || 'تاريخ لاحق'})</span>
+                </span>
+            </div>
+        `;
+    }
+
+    if (o.acceptance_status === 'auto_forwarded') {
+        return `
+            <div class="mt-1">
+                <span class="inline-flex items-center gap-1 text-[10px] bg-purple-50 text-purple-800 border border-purple-200 font-bold px-2 py-0.5 rounded-lg shadow-2xs" title="تم التحويل التلقائي للمنسق البديل">
+                    <span>🔄 محول للمنسق البديل</span>
+                </span>
+            </div>
+        `;
+    }
+
+    if (o.acceptance_status === 'escalated_to_management') {
+        return `
+            <div class="mt-1">
+                <span class="inline-flex items-center gap-1 text-[10px] bg-rose-50 text-rose-800 border border-rose-200 font-bold px-2 py-0.5 rounded-lg shadow-2xs" title="يتطلب متابعة مباشرة من الإدارة">
+                    <span>⚠️ متابعة الإدارة يدوياً</span>
+                </span>
+            </div>
+        `;
+    }
+
     const assignedTimeStr = o.florist_assigned_at || o.received_at || o.created_at;
     const assignedDate = parseUtcDate(assignedTimeStr);
     if (!assignedDate) return '';

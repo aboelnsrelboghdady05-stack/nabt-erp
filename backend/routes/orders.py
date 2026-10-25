@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Optional
 from database import get_db
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 import json
 import os
 import shutil
@@ -338,6 +338,9 @@ def create_order(payload: OrderCreateSchema):
     ref_imgs_json = json.dumps(ref_imgs, ensure_ascii=False) if ref_imgs else None
 
     # 4. Insert Order
+    today_ksa = (datetime.now(timezone.utc) + timedelta(hours=3)).strftime("%Y-%m-%d")
+    is_future_order = bool(payload.delivery_date and payload.delivery_date > today_ksa)
+    initial_acceptance = 'scheduled' if is_future_order else 'pending'
     assigned_at_val = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if florist_id else None
     cursor.execute("""
     INSERT INTO orders (
@@ -347,8 +350,8 @@ def create_order(payload: OrderCreateSchema):
         flower_colors, delivery_date, delivery_time_slot, driver_id, florist_id,
         status, subtotal, delivery_fee, discount, tax, total_amount,
         payment_status, payment_method, notes, received_at,
-        florist_assigned_at, florist_reminder_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 0)
+        florist_assigned_at, florist_reminder_count, acceptance_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 0, ?)
     """, (
         order_number, customer_id, payload.customer_name, payload.customer_phone,
         payload.recipient_name or payload.customer_name,
@@ -359,7 +362,7 @@ def create_order(payload: OrderCreateSchema):
         payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
         payload.driver_id, florist_id, subtotal, payload.delivery_fee, payload.discount, tax, total_amount,
         payload.payment_status, payload.payment_method, payload.notes,
-        assigned_at_val
+        assigned_at_val, initial_acceptance
     ))
     order_id = cursor.lastrowid
 
@@ -861,6 +864,33 @@ def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: O
     orig_florist_id = order['florist_id']
     orig_name = orig_florist_name or order['current_florist_name'] or "عمر"
 
+    # Prevent infinite loop: if order has already been auto-forwarded once, escalate to management and stop!
+    if order['acceptance_status'] in ['auto_forwarded', 'escalated_to_management']:
+        cursor.execute("""
+        UPDATE orders
+        SET acceptance_status = 'escalated_to_management',
+            florist_reminder_count = 99,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """, (order_id,))
+        management_notice = (
+            f"⚠️ متابعة إدارية نهائية: الطلب رقم #{order['order_number']} لم يتم قبوله من المنسق البديل ({orig_name}).\n"
+            f"تم إيقاف التحويل التلقائي لتجنب التكرار، والطلب بانتظار توجيه الإدارة المباشر."
+        )
+        for mgr_phone, mgr_name in [('0544338827', 'ياسر (المدير العام)'), ('0500475452', 'فيصل (مدير تشغيلي)'), ('0554346405', 'نادر (مدير فرع)')]:
+            cursor.execute("""
+            INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+            VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
+            """, (mgr_phone, mgr_name, management_notice, order_id))
+        conn.commit()
+        if close_at_end:
+            conn.close()
+        return {
+            "success": True,
+            "message": f"تم تحويل الطلب مسبقاً وتصعيده لإدارة نبت لمتابعته يدوياً",
+            "escalated": True
+        }
+
     from routes.employees import check_employee_availability_on_date
     delivery_date = order['delivery_date'] or date.today().strftime("%Y-%m-%d")
 
@@ -989,15 +1019,18 @@ def check_and_process_florist_timeouts():
     conn = get_db()
     cursor = conn.cursor()
     now_utc = datetime.now(timezone.utc)
+    today_str = (now_utc + timedelta(hours=3)).strftime("%Y-%m-%d")
 
+    # Only process today's pending orders! Future scheduled orders (delivery_date > today) are completely excluded.
     cursor.execute("""
         SELECT o.*, e.name as current_florist_name, e.phone as current_florist_phone
         FROM orders o
         JOIN employees e ON o.florist_id = e.id
         WHERE o.status = 'new'
-          AND (o.acceptance_status IS NULL OR o.acceptance_status != 'accepted')
+          AND (o.acceptance_status IS NULL OR o.acceptance_status = 'pending')
           AND o.florist_id IS NOT NULL
-    """)
+          AND (o.delivery_date IS NULL OR o.delivery_date <= ?)
+    """, (today_str,))
     orders = cursor.fetchall()
     actions_taken = []
 
