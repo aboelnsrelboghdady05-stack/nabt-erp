@@ -702,6 +702,7 @@ def assign_florist(order_id: int, payload: AssignFloristSchema):
     cursor.execute("""
     UPDATE orders 
     SET florist_id = ?, 
+        previous_florist_id = NULL,
         florist_assigned_at = CURRENT_TIMESTAMP, 
         florist_reminder_count = 0, 
         florist_reminded_at = NULL, 
@@ -864,31 +865,14 @@ def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: O
     orig_florist_id = order['florist_id']
     orig_name = orig_florist_name or order['current_florist_name'] or "عمر"
 
-    # Prevent infinite loop: if order has already been auto-forwarded once, escalate to management and stop!
-    if order['acceptance_status'] in ['auto_forwarded', 'escalated_to_management']:
-        cursor.execute("""
-        UPDATE orders
-        SET acceptance_status = 'escalated_to_management',
-            florist_reminder_count = 99,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-        """, (order_id,))
-        management_notice = (
-            f"⚠️ متابعة إدارية نهائية: الطلب رقم #{order['order_number']} لم يتم قبوله من المنسق البديل ({orig_name}).\n"
-            f"تم إيقاف التحويل التلقائي لتجنب التكرار، والطلب بانتظار توجيه الإدارة المباشر."
-        )
-        for mgr_phone, mgr_name in [('0544338827', 'ياسر (المدير العام)'), ('0500475452', 'فيصل (مدير تشغيلي)'), ('0554346405', 'نادر (مدير فرع)')]:
-            cursor.execute("""
-            INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-            VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
-            """, (mgr_phone, mgr_name, management_notice, order_id))
-        conn.commit()
+    # Prevent repeated transfers: if order has already been auto-forwarded once, keep with current florist and stop!
+    if order['acceptance_status'] in ['auto_forwarded', 'escalated_to_management'] or order.get('previous_florist_id'):
         if close_at_end:
             conn.close()
         return {
             "success": True,
-            "message": f"تم تحويل الطلب مسبقاً وتصعيده لإدارة نبت لمتابعته يدوياً",
-            "escalated": True
+            "message": "تم تحويل الطلب مسبقاً للمنسق البديل ويبقى معه بشكل نهائي دون تحويل إضافي",
+            "stopped": True
         }
 
     from routes.employees import check_employee_availability_on_date
@@ -925,15 +909,15 @@ def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: O
     new_florist_id = next_florist['id'] if next_florist else None
     new_florist_name = next_florist['name'] if next_florist else "منسق احتياطي"
 
-    # Update order with rejection history and auto-forward to next florist
+    # Update order with rejection history and auto-forward to next florist permanently
     cursor.execute("""
     UPDATE orders
     SET acceptance_status = 'auto_forwarded',
         previous_florist_id = ?,
         florist_id = ?,
         florist_assigned_at = CURRENT_TIMESTAMP,
-        florist_reminder_count = 0,
-        florist_reminded_at = NULL,
+        florist_reminder_count = 99,
+        florist_reminded_at = CURRENT_TIMESTAMP,
         rejected_at = CURRENT_TIMESTAMP,
         rejection_reason = ?,
         updated_at = CURRENT_TIMESTAMP
@@ -945,7 +929,7 @@ def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: O
         f"🚨 إشعار عاجل لإدارة نبت (ياسر / فيصل / نادر)!\n"
         f"المنسق ({orig_name}) لم يقبل الطلب رقم #{order['order_number']}.\n"
         f"السبب: {reason}\n"
-        f"🔄 تم تحويل الطلب تلقائياً إلى المنسق البديل: ({new_florist_name}) لمباشرته فوراً!"
+        f"🔄 تم تحويل الطلب نهائياً إلى المنسق البديل: ({new_florist_name}) لمباشرته فوراً ويبقى معه دون أي تنقل آخر!"
     )
 
     # 1. Alert Yasser (General Manager)
@@ -1021,13 +1005,16 @@ def check_and_process_florist_timeouts():
     now_utc = datetime.now(timezone.utc)
     today_str = (now_utc + timedelta(hours=3)).strftime("%Y-%m-%d")
 
-    # Only process today's pending orders! Future scheduled orders (delivery_date > today) are completely excluded.
+    # Only process today's pending orders that have NEVER been auto-forwarded before!
+    # Once forwarded to the substitute florist, it remains with them permanently without any further transfers or ping-pongs.
     cursor.execute("""
         SELECT o.*, e.name as current_florist_name, e.phone as current_florist_phone
         FROM orders o
         JOIN employees e ON o.florist_id = e.id
         WHERE o.status = 'new'
           AND (o.acceptance_status IS NULL OR o.acceptance_status = 'pending')
+          AND o.previous_florist_id IS NULL
+          AND (o.florist_reminder_count IS NULL OR o.florist_reminder_count < 90)
           AND o.florist_id IS NOT NULL
           AND (o.delivery_date IS NULL OR o.delivery_date <= ?)
     """, (today_str,))
@@ -1078,11 +1065,11 @@ def check_and_process_florist_timeouts():
                 clean_slot = clean_slot[1:-1].strip()
 
             reminder_msg = (
-                f"⚠️ تنبيه عاجل وتذكير ثانٍ يا فنان {ord_dict['current_florist_name']} 🌸\n"
+                f"⚠️ تنبيه عاجل وتذكير يا فنان {ord_dict['current_florist_name']} 🌸\n"
                 f"لديك طلب جديد رقم #{ord_dict['order_number']} بانتظار قبولك منذ 5 دقائق!\n"
                 f"• تفاصيل الطلب: {items_summary}\n"
                 f"• موعد التسليم: {ord_dict['delivery_date']} ({clean_slot})\n\n"
-                f"⏳ متبقي 5 دقائق فقط لقبول الطلب عبر السيستم قبل أن يتم تحويله تلقائياً لمنسق آخر وإشعار إدارة نبت! 💐"
+                f"⏳ متبقي 5 دقائق فقط لقبول الطلب عبر السيستم قبل أن يتم تحويله تلقائياً للمنسق البديل وإشعار إدارة نبت! 💐"
             )
 
             # Insert WhatsApp message for florist
@@ -1093,7 +1080,7 @@ def check_and_process_florist_timeouts():
 
             # Operational alert for Faisal (Operations Manager)
             manager_notice = (
-                f"⚠️ متابعة مهام: تم إرسال التنبيه الثاني للمنسق ({ord_dict['current_florist_name']}) "
+                f"⚠️ متابعة مهام: تم إرسال تذكير للمنسق ({ord_dict['current_florist_name']}) "
                 f"للطلب #{ord_dict['order_number']} لمرور 5 دقائق دون قبول. المهلة المتبقية للتحويل التلقائي: 5 دقائق."
             )
             cursor.execute("""
