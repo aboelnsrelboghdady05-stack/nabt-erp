@@ -650,21 +650,30 @@ async function loadDashboardData() {
         if (urgentMobile) urgentMobile.innerHTML = '';
 
         if (data.urgent_orders.length === 0) {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 text-xs">لا توجد طلبات معلقة لليوم، كل الطلبات مكتملة 🌸</td></tr>`;
-            if (urgentMobile) urgentMobile.innerHTML = `<div class="p-4 bg-white rounded-xl border border-cream-200 text-center text-slate-400 text-xs">لا توجد طلبات معلقة لليوم، كل الطلبات مكتملة 🌸</div>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 text-xs">لا توجد طلبات جارية معلقة حالياً 🌸</td></tr>`;
+            if (urgentMobile) urgentMobile.innerHTML = `<div class="p-4 bg-white rounded-xl border border-cream-200 text-center text-slate-400 text-xs">لا توجد طلبات جارية معلقة حالياً 🌸</div>`;
         } else {
             data.urgent_orders.forEach(o => {
+                const typeBadge = o.order_type === 'large_event'
+                    ? `<span class="inline-block mr-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-800 rounded font-bold border border-purple-200">طلب خاص ✨${o.event_name ? ` (${o.event_name})` : ''}</span>`
+                    : `<span class="inline-block mr-1 px-1.5 py-0.5 text-[10px] bg-emerald-50 text-emerald-800 rounded font-medium border border-emerald-100">طلب يومي 🌸</span>`;
+
+                const deliveryDateDisplay = o.delivery_date ? `${o.delivery_date}${o.delivery_time_slot ? ' (' + o.delivery_time_slot + ')' : ''}` : (o.delivery_time_slot || 'اليوم');
+
                 // Desktop row
                 if (tbody) {
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-slate-50 transition-colors text-xs';
                     tr.innerHTML = `
-                        <td class="py-2.5 px-3 font-bold text-slate-800">${o.order_number}</td>
+                        <td class="py-2.5 px-3 font-bold text-slate-800">
+                            <div>${o.order_number}</div>
+                            <div class="mt-0.5">${typeBadge}</div>
+                        </td>
                         <td class="py-2.5 px-3">
                             <strong class="text-slate-800">${o.customer_name}</strong>
                             ${o.recipient_name && o.recipient_name !== o.customer_name ? `<span class="block text-[11px] text-slate-500">لـ: ${o.recipient_name}</span>` : ''}
                         </td>
-                        <td class="py-2.5 px-3 font-medium text-slate-600">${o.delivery_time_slot || 'اليوم'}</td>
+                        <td class="py-2.5 px-3 font-medium text-slate-600">${deliveryDateDisplay}</td>
                         <td class="py-2.5 px-3 font-medium text-slate-700">${o.driver_name || '<span class="text-amber-600">غير معين</span>'}</td>
                         <td class="py-2.5 px-3 font-black text-slate-900">${currentUser && currentUser.role === 'florist' ? '-' : `${o.total_amount} ر.س`}</td>
                         <td class="py-2.5 px-3">${renderStatusBadge(o.status)}</td>
@@ -683,7 +692,10 @@ async function loadDashboardData() {
                     card.className = 'mobile-card bg-cream-50/70 p-3.5 rounded-2xl border border-cream-200 shadow-xs space-y-2';
                     card.innerHTML = `
                         <div class="flex items-center justify-between border-b border-cream-200/60 pb-2">
-                            <span class="font-bold text-xs text-olive-900">${o.order_number}</span>
+                            <div>
+                                <span class="font-bold text-xs text-olive-900">${o.order_number}</span>
+                                <div class="mt-0.5">${typeBadge}</div>
+                            </div>
                             <div>${renderStatusBadge(o.status)}</div>
                         </div>
                         <div class="text-xs">
@@ -691,7 +703,7 @@ async function loadDashboardData() {
                             ${o.recipient_name && o.recipient_name !== o.customer_name ? `<span class="text-[11px] text-slate-500 block">لـ: ${o.recipient_name}</span>` : ''}
                         </div>
                         <div class="flex items-center justify-between text-xs text-slate-600">
-                            <span>موعد التسليم: <strong>${o.delivery_time_slot || 'اليوم'}</strong></span>
+                            <span>موعد التسليم: <strong>${deliveryDateDisplay}</strong></span>
                             <span>المندوب: <strong>${o.driver_name || 'غير معين'}</strong></span>
                         </div>
                         ${(!currentUser || currentUser.role !== 'florist') ? `<div class="text-xs font-black text-slate-900">${o.total_amount} ر.س</div>` : ''}

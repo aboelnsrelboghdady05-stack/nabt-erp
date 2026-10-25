@@ -39,15 +39,16 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
         for row in cursor.fetchall():
             status_counts[row[0]] = row[1]
 
-        # Urgent / Pending orders for this florist
+        # Urgent / Pending orders for this florist (Today first, then upcoming active orders)
         cursor.execute("""
-        SELECT o.id, o.order_number, o.customer_name, o.recipient_name, o.delivery_time_slot, 
-               o.total_amount, o.status, o.payment_status, d.name as driver_name
+        SELECT o.id, o.order_number, o.customer_name, o.recipient_name, o.delivery_date, o.delivery_time_slot, 
+               o.total_amount, o.status, o.payment_status, o.order_type, o.event_name, d.name as driver_name
         FROM orders o
         LEFT JOIN drivers d ON o.driver_id = d.id
-        WHERE o.delivery_date = ? AND o.status NOT IN ('delivered', 'cancelled') AND o.florist_id = ?
-        ORDER BY o.id DESC
-        """, (today_str, florist_id))
+        WHERE o.status NOT IN ('delivered', 'cancelled') AND o.florist_id = ?
+        ORDER BY CASE WHEN o.delivery_date = ? THEN 0 ELSE 1 END, o.delivery_date ASC, o.id DESC
+        LIMIT 15
+        """, (florist_id, today_str))
         urgent_orders = [dict(row) for row in cursor.fetchall()]
     else:
         # Today's Sales
@@ -83,14 +84,15 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
         for row in cursor.fetchall():
             status_counts[row[0]] = row[1]
 
-        # Today's Pending / Urgent Orders
+        # Active Pending Orders (Today first, then upcoming active orders)
         cursor.execute("""
-        SELECT o.id, o.order_number, o.customer_name, o.recipient_name, o.delivery_time_slot, 
-               o.total_amount, o.status, o.payment_status, d.name as driver_name
+        SELECT o.id, o.order_number, o.customer_name, o.recipient_name, o.delivery_date, o.delivery_time_slot, 
+               o.total_amount, o.status, o.payment_status, o.order_type, o.event_name, d.name as driver_name
         FROM orders o
         LEFT JOIN drivers d ON o.driver_id = d.id
-        WHERE o.delivery_date = ? AND o.status NOT IN ('delivered', 'cancelled')
-        ORDER BY o.id DESC
+        WHERE o.status NOT IN ('delivered', 'cancelled')
+        ORDER BY CASE WHEN o.delivery_date = ? THEN 0 ELSE 1 END, o.delivery_date ASC, o.id DESC
+        LIMIT 15
         """, (today_str,))
         urgent_orders = [dict(row) for row in cursor.fetchall()]
 
