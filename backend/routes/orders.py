@@ -1014,18 +1014,18 @@ def check_and_process_florist_timeouts():
         reminded_dt = parse_db_utc(reminded_at_str) if reminded_at_str else None
         reminder_count = ord_dict.get('florist_reminder_count') or 0
 
-        # Condition 2: 3 minutes after 2nd reminder (or 6 minutes total without acceptance) -> Auto-Forward to next florist!
+        # Condition 2: 5 minutes after 2nd reminder (or 10 minutes total without acceptance) -> Auto-Forward to next florist!
         should_forward = False
         if reminder_count >= 1:
-            if reminded_dt and (now_utc - reminded_dt).total_seconds() >= 180:
+            if reminded_dt and (now_utc - reminded_dt).total_seconds() >= 300:
                 should_forward = True
-            elif elapsed_sec >= 360:
+            elif elapsed_sec >= 600:
                 should_forward = True
-        elif elapsed_sec >= 360:
+        elif elapsed_sec >= 600:
             should_forward = True
 
         if should_forward:
-            reason = "عدم قبول الطلب وتجاوز مهلة الـ 6 دقائق (التنبيه الأول والتنبيه الثاني)"
+            reason = "عدم قبول الطلب وتجاوز مهلة الـ 10 دقائق (التنبيه الأول والتنبيه الثاني)"
             fwd_res = perform_florist_autoforward(order_id, reason, ord_dict.get('current_florist_name'), conn=conn)
             if fwd_res:
                 actions_taken.append({
@@ -1035,8 +1035,8 @@ def check_and_process_florist_timeouts():
                 })
             continue
 
-        # Condition 1: 3 minutes elapsed since assignment and 2nd reminder not yet sent -> Send Second Alert to florist!
-        if elapsed_sec >= 180 and reminder_count == 0:
+        # Condition 1: 5 minutes elapsed since assignment and 2nd reminder not yet sent -> Send Second Alert to florist!
+        if elapsed_sec >= 300 and reminder_count == 0:
             cursor.execute("SELECT product_name, quantity FROM order_items WHERE order_id = ?", (order_id,))
             o_items = cursor.fetchall()
             items_summary = " + ".join([f"{it['quantity']}x {it['product_name']}" for it in o_items]) if o_items else "تنسيق ورد"
@@ -1046,10 +1046,10 @@ def check_and_process_florist_timeouts():
 
             reminder_msg = (
                 f"⚠️ تنبيه عاجل وتذكير ثانٍ يا فنان {ord_dict['current_florist_name']} 🌸\n"
-                f"لديك طلب جديد رقم #{ord_dict['order_number']} بانتظار قبولك منذ 3 دقائق!\n"
+                f"لديك طلب جديد رقم #{ord_dict['order_number']} بانتظار قبولك منذ 5 دقائق!\n"
                 f"• تفاصيل الطلب: {items_summary}\n"
                 f"• موعد التسليم: {ord_dict['delivery_date']} ({clean_slot})\n\n"
-                f"⏳ متبقي 3 دقائق فقط لقبول الطلب عبر السيستم قبل أن يتم تحويله تلقائياً لمنسق آخر وإشعار إدارة نبت! 💐"
+                f"⏳ متبقي 5 دقائق فقط لقبول الطلب عبر السيستم قبل أن يتم تحويله تلقائياً لمنسق آخر وإشعار إدارة نبت! 💐"
             )
 
             # Insert WhatsApp message for florist
@@ -1061,7 +1061,7 @@ def check_and_process_florist_timeouts():
             # Operational alert for Faisal (Operations Manager)
             manager_notice = (
                 f"⚠️ متابعة مهام: تم إرسال التنبيه الثاني للمنسق ({ord_dict['current_florist_name']}) "
-                f"للطلب #{ord_dict['order_number']} لمرور 3 دقائق دون قبول. المهلة المتبقية للتحويل التلقائي: 3 دقائق."
+                f"للطلب #{ord_dict['order_number']} لمرور 5 دقائق دون قبول. المهلة المتبقية للتحويل التلقائي: 5 دقائق."
             )
             cursor.execute("""
             INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)

@@ -183,13 +183,13 @@ function updateFloristSlaCounters() {
         const badgeEl = el.querySelector('.florist-sla-badge');
         const labelEl = el.querySelector('.florist-sla-label');
 
-        if (elapsed < 180) {
-            const rem = 180 - elapsed;
+        if (elapsed < 300) {
+            const rem = 300 - elapsed;
             const mm = String(Math.floor(rem / 60)).padStart(2, '0');
             const ss = String(rem % 60).padStart(2, '0');
             if (timeEl) timeEl.textContent = `${mm}:${ss}`;
-        } else if (elapsed < 360) {
-            const rem = 360 - elapsed;
+        } else if (elapsed < 600) {
+            const rem = 600 - elapsed;
             const mm = String(Math.floor(rem / 60)).padStart(2, '0');
             const ss = String(rem % 60).padStart(2, '0');
             if (badgeEl && !badgeEl.classList.contains('bg-rose-100')) {
@@ -224,14 +224,14 @@ function getFloristAcceptanceSlaHtml(o) {
 
     const elapsedSeconds = Math.max(0, Math.floor((Date.now() - assignedDate.getTime()) / 1000));
     
-    // Step 1: within first 3 minutes (0 - 179s)
-    if (elapsedSeconds < 180) {
-        const remaining = 180 - elapsedSeconds;
+    // Step 1: within first 5 minutes (0 - 299s)
+    if (elapsedSeconds < 300) {
+        const remaining = 300 - elapsedSeconds;
         const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
         const ss = String(remaining % 60).padStart(2, '0');
         return `
             <div class="florist-sla-container mt-1" data-order-id="${o.id}" data-assigned-ts="${assignedDate.getTime()}">
-                <span class="florist-sla-badge inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-900 border border-amber-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs" title="مهلة قبول الطلب قبل التنبيه الثاني (3 دقائق)">
+                <span class="florist-sla-badge inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-900 border border-amber-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs" title="مهلة قبول الطلب قبل التنبيه الثاني (5 دقائق)">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
                     <span class="florist-sla-label">مهلة القبول:</span>
                     <span class="florist-sla-time font-mono">${mm}:${ss}</span>
@@ -239,9 +239,9 @@ function getFloristAcceptanceSlaHtml(o) {
             </div>
         `;
     }
-    // Step 2: between 3 and 6 minutes (180 - 359s) - Second Alert Active!
-    if (elapsedSeconds < 360) {
-        const remaining = 360 - elapsedSeconds;
+    // Step 2: between 5 and 10 minutes (300 - 599s) - Second Alert Active!
+    if (elapsedSeconds < 600) {
+        const remaining = 600 - elapsedSeconds;
         const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
         const ss = String(remaining % 60).padStart(2, '0');
         return `
@@ -254,7 +254,7 @@ function getFloristAcceptanceSlaHtml(o) {
             </div>
         `;
     }
-    // Step 3: 6 minutes or more (Auto-Forwarding)
+    // Step 3: 10 minutes or more (Auto-Forwarding)
     return `
         <div class="florist-sla-container mt-1" data-order-id="${o.id}" data-assigned-ts="${assignedDate.getTime()}">
             <span class="inline-flex items-center gap-1 text-[10px] bg-purple-100 text-purple-900 border border-purple-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs">
@@ -1018,7 +1018,7 @@ function updateUserInterface() {
         if (dashFloristCards) dashFloristCards.classList.add('hidden');
 
         if (dashOrderFlowTitle) dashOrderFlowTitle.textContent = (typeof t === 'function' ? t('order_flow_title', 'متابعة تدفق وحالات الطلبات في المحل') : 'متابعة تدفق وحالات الطلبات في المحل');
-        if (dashUrgentTableTitle) dashUrgentTableTitle.textContent = 'طلبات التوصيل المستعجلة والمقررة اليوم';
+        if (dashUrgentTableTitle) dashUrgentTableTitle.textContent = 'الطلبات الجارية والتوصيل (اليوم والقادمة)';
 
         if (dashSideWidgets) dashSideWidgets.classList.remove('hidden');
         if (dashUrgentTableContainer) {
