@@ -1201,18 +1201,31 @@ async function loadOrders() {
         orders.forEach(o => {
             const itemsSummary = o.items ? o.items.map(it => `${it.product_name} (×${it.quantity})`).join(', ') : '-';
             const isLargeEvent = (o.order_type === 'large_event') || !!o.event_name;
+            const isDaftraSale = (o.order_type === 'daftra_sale') || !!(o.notes && o.notes.includes('دفترة'));
             const countdownText = getDeliveryCountdownText(o.delivery_date);
 
-            const eventBadgeHtml = isLargeEvent ? `
-                <div class="mt-1 flex items-center gap-1 flex-wrap">
-                    <span class="inline-flex items-center gap-1 text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-lg shadow-2xs">
-                        <i data-lucide="sparkles" class="w-3 h-3 text-amber-100"></i>
-                        <span>طلب خاص ✨</span>
-                    </span>
-                    ${o.event_name ? `<span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded-md truncate max-w-[130px]" title="${o.event_name}">${o.event_name}</span>` : ''}
-                    ${countdownText ? `<span class="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 font-bold px-1.5 py-0.5 rounded">${countdownText}</span>` : ''}
-                </div>
-            ` : '';
+            let eventBadgeHtml = '';
+            if (isDaftraSale) {
+                eventBadgeHtml = `
+                    <div class="mt-1 flex items-center gap-1 flex-wrap">
+                        <span class="inline-flex items-center gap-1 text-[10px] bg-sky-100 text-sky-800 border border-sky-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs">
+                            <i data-lucide="receipt" class="w-3 h-3 text-sky-700"></i>
+                            <span>فاتورة دفترة 📁 (مرجع محاسبي)</span>
+                        </span>
+                    </div>
+                `;
+            } else if (isLargeEvent) {
+                eventBadgeHtml = `
+                    <div class="mt-1 flex items-center gap-1 flex-wrap">
+                        <span class="inline-flex items-center gap-1 text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-lg shadow-2xs">
+                            <i data-lucide="sparkles" class="w-3 h-3 text-amber-100"></i>
+                            <span>طلب خاص ✨</span>
+                        </span>
+                        ${o.event_name ? `<span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded-md truncate max-w-[130px]" title="${o.event_name}">${o.event_name}</span>` : ''}
+                        ${countdownText ? `<span class="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 font-bold px-1.5 py-0.5 rounded">${countdownText}</span>` : ''}
+                    </div>
+                `;
+            }
 
             // Reference image button
             let refBtnHtml = '';
@@ -1234,7 +1247,15 @@ async function loadOrders() {
             }
 
             // Shared Action Buttons HTML
-            const actionsHtml = `
+            const actionsHtml = isDaftraSale ? `
+                <button onclick="openInvoicePrintModalByOrder(${o.id})" title="عرض وتفاصيل فاتورة دفترة كاملة" class="text-xs bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-bold px-2.5 py-1.5 rounded-xl shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer">
+                    <i data-lucide="receipt" class="w-3.5 h-3.5 text-sky-600"></i>
+                    <span>تفاصيل الفاتورة 📄</span>
+                </button>
+                <button onclick="openOrderDetailModal(${o.id})" title="عرض تفاصيل الطلب" class="p-1.5 rounded-lg hover:bg-olive-100 text-olive-800 transition-all cursor-pointer">
+                    <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+            ` : `
                 <!-- View details eye icon -->
                 <button onclick="openOrderDetailModal(${o.id})" title="عرض تفاصيل الطلب والتوقيتات ومسار التنسيق" class="p-1.5 rounded-lg hover:bg-olive-100 text-olive-800 transition-all cursor-pointer">
                     <i data-lucide="eye" class="w-4 h-4"></i>
@@ -1320,17 +1341,21 @@ async function loadOrders() {
                         ${countdownText ? `<span class="inline-block text-[10px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded mt-0.5">${countdownText}</span>` : ''}
                     </td>
                     <td class="py-3 px-4">
-                        ${o.florist_name 
+                        ${isDaftraSale ? `
+                            <span class="text-slate-400 font-medium text-[11px]">مرجع محاسبي</span>
+                        ` : (o.florist_name 
                             ? `<span class="inline-flex items-center gap-1 font-semibold text-purple-800 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200 text-xs"><i data-lucide="flower" class="w-3.5 h-3.5 text-purple-600"></i> ${o.florist_name}</span>`
                             : `<button onclick="promptAssignFlorist(${o.id})" class="text-[11px] text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md font-bold cursor-pointer">تعيين منسق +</button>`
-                        }
-                        ${getFloristAcceptanceSlaHtml(o)}
+                        )}
+                        ${isDaftraSale ? '' : getFloristAcceptanceSlaHtml(o)}
                     </td>
                     <td class="py-3 px-4">
-                        ${o.driver_name 
+                        ${isDaftraSale ? `
+                            <span class="text-slate-400 font-medium text-[11px]">مكتمل بدفترة</span>
+                        ` : (o.driver_name 
                             ? `<span class="inline-flex items-center gap-1 font-semibold text-slate-800"><i data-lucide="truck" class="w-3 h-3 text-brand-600"></i> ${o.driver_name}</span>`
                             : `<button onclick="promptAssignDriver(${o.id})" class="text-[11px] text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md font-bold cursor-pointer">تعيين مندوب +</button>`
-                        }
+                        )}
                     </td>
                     <td class="py-3 px-4">
                         ${currentUser && currentUser.role === 'florist' ? '-' : `
@@ -1341,7 +1366,9 @@ async function loadOrders() {
                         `}
                     </td>
                     <td class="py-3 px-4">
-                        ${renderStatusBadge(o.status)}
+                        ${isDaftraSale ? `
+                            <span class="badge-status bg-slate-100 text-slate-800 border border-slate-200 font-bold">مكتملة (دفترة) ✅</span>
+                        ` : renderStatusBadge(o.status)}
                         ${o.approval_status === 'approved' ? `
                             <div class="mt-1.5 flex items-center gap-1 flex-wrap">
                                 <span class="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded-lg shadow-2xs">
@@ -3377,11 +3404,21 @@ async function loadInvoices() {
                 ? `<span class="badge-status bg-blue-100 text-blue-800">مسددة جزئياً ⏳</span>`
                 : `<span class="badge-status bg-amber-100 text-amber-800">غير مسددة ⚠️</span>`;
 
+            const isDaftraInv = (inv.notes && inv.notes.includes('دفترة')) || inv.invoice_number.startsWith('DFT-');
+
             tr.innerHTML = `
-                <td class="py-3 px-4 font-bold font-mono text-slate-900">${inv.invoice_number}</td>
+                <td class="py-3 px-4 font-bold font-mono text-slate-900">
+                    <button onclick="openInvoicePrintModal(${inv.id})" class="font-bold text-olive-900 hover:text-terracotta-600 hover:underline flex items-center gap-1 cursor-pointer text-start" title="عرض وتفاصيل الفاتورة كاملة">
+                        <span>${inv.invoice_number}</span>
+                        <i data-lucide="file-text" class="w-3 h-3 text-olive-500"></i>
+                    </button>
+                    ${isDaftraInv ? `<span class="inline-block px-1.5 py-0.2 text-[9px] bg-sky-100 text-sky-800 rounded font-bold border border-sky-200 mt-0.5">دفترة 📁</span>` : ''}
+                </td>
                 <td class="py-3 px-4 text-slate-700 font-semibold">${inv.order_number || '-'}</td>
                 <td class="py-3 px-4">
-                    <strong class="text-slate-800 block">${inv.customer_name}</strong>
+                    <button onclick="openInvoicePrintModal(${inv.id})" class="text-start hover:underline block cursor-pointer">
+                        <strong class="text-slate-800 block">${inv.customer_name}</strong>
+                    </button>
                     <span class="text-slate-500 font-mono text-[11px]">${inv.customer_phone || ''}</span>
                 </td>
                 <td class="py-3 px-4 text-slate-600">${inv.issue_date}</td>

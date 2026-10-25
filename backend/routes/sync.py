@@ -101,19 +101,28 @@ async def receive_invoice_from_accounting(payload: ExternalInvoicePayload, notif
         order_seq = cursor.fetchone()[0] + 1
         order_number = f"ORD-{payload.invoice_number.replace('INV-', '')}"
 
-        # Assign first available driver if found
-        cursor.execute("SELECT id FROM drivers WHERE status = 'available' LIMIT 1")
-        avail_driver = cursor.fetchone()
-        driver_id = avail_driver[0] if avail_driver else None
-
-        # Smart Florist Assignment: ONLY assign to florists currently on duty in the shop (never on leave!)
-        from routes.employees import get_best_available_florist
-        avail_florist = get_best_available_florist(cursor)
-        florist_id = avail_florist['id'] if avail_florist else None
-
         is_daftra = (payload.source_system == "دفترة (Daftra)")
-        initial_order_status = "delivered" if (is_daftra or issue_date < today_str or payload.payment_status == "paid") else "new"
-        initial_acceptance = "accepted" if initial_order_status == "delivered" else "pending"
+        if is_daftra:
+            driver_id = None
+            florist_id = None
+            initial_order_status = "delivered"
+            initial_acceptance = "accepted"
+            order_type_val = "daftra_sale"
+            delivered_at_val = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            # Assign first available driver if found
+            cursor.execute("SELECT id FROM drivers WHERE status = 'available' LIMIT 1")
+            avail_driver = cursor.fetchone()
+            driver_id = avail_driver[0] if avail_driver else None
+
+            from routes.employees import get_best_available_florist
+            avail_florist = get_best_available_florist(cursor)
+            florist_id = avail_florist['id'] if avail_florist else None
+
+            initial_order_status = "delivered" if (issue_date < today_str or payload.payment_status == "paid") else "new"
+            initial_acceptance = "accepted" if initial_order_status == "delivered" else "pending"
+            order_type_val = "regular"
+            delivered_at_val = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if initial_order_status == "delivered" else None
 
         cursor.execute("""
         INSERT INTO orders (
@@ -121,18 +130,19 @@ async def receive_invoice_from_accounting(payload: ExternalInvoicePayload, notif
             recipient_name, recipient_phone, recipient_address,
             card_message, delivery_date, delivery_time_slot, driver_id, florist_id,
             status, subtotal, delivery_fee, discount, tax, total_amount,
-            payment_status, payment_method, notes, acceptance_status, florist_reminder_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'مسائي (4ع - 8م)', ?, ?, ?, ?, 0.0, 0.0, ?, ?, ?, ?, ?, ?, 99)
+            payment_status, payment_method, notes, acceptance_status, florist_reminder_count,
+            order_type, delivered_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'مسائي (4ع - 8م)', ?, ?, ?, ?, 0.0, 0.0, ?, ?, ?, ?, ?, ?, 99, ?, ?)
         """, (
             order_number, customer_id, payload.customer_name, payload.customer_phone,
             payload.recipient_name or payload.customer_name,
             payload.recipient_phone or payload.customer_phone,
-            payload.recipient_address or payload.customer_address or "توصيل للعميل",
-            payload.card_message or "هدية ورد ومشاعر طيبة 💐",
+            payload.recipient_address or payload.customer_address or "المعرض / مبيعات",
+            payload.card_message or "فاتورة مبيعات",
             issue_date, driver_id, florist_id, initial_order_status, payload.subtotal, payload.tax_amount or 0.0,
             payload.total_amount, payload.payment_status, payload.payment_method or "pos",
-            f"تم الإصدار عبر: {payload.source_system}. ملاحظات: {payload.notes or '-'}",
-            initial_acceptance
+            f"مرجع مبيعات دفترة (منتهية ومكتملة). ملاحظات: {payload.notes or '-'}" if is_daftra else f"تم الإصدار عبر: {payload.source_system}. ملاحظات: {payload.notes or '-'}",
+            initial_acceptance, order_type_val, delivered_at_val
         ))
         order_id = cursor.lastrowid
 
@@ -392,22 +402,23 @@ def import_daftra_raw_invoice(raw_item: dict, conn, cursor) -> dict:
 
     # Items
     items_list = []
-    raw_items = inv.get("InvoiceItem") or inv.get("items") or []
+    raw_items = inv.get("InvoiceItem") or raw_item.get("InvoiceItem") or inv.get("items") or raw_item.get("items") or []
     for it in raw_items:
         it_dict = it.get("InvoiceItem") if isinstance(it, dict) and "InvoiceItem" in it else it
         if isinstance(it_dict, dict):
-            it_name = it_dict.get("item") or it_dict.get("name") or it_dict.get("description") or "تنسيق ورد"
+            it_name = it_dict.get("item") or it_dict.get("name") or it_dict.get("description") or it_dict.get("item_code") or "صنف مبيعات نبت"
             it_qty = int(float(it_dict.get("quantity") or 1))
             it_unit_price = float(it_dict.get("unit_price") or it_dict.get("price") or (total / it_qty if it_qty else total))
+            it_tot = float(it_dict.get("total") or (it_unit_price * it_qty))
             items_list.append(WebhookItemSchema(
                 name=it_name,
                 quantity=it_qty,
                 unit_price=it_unit_price,
-                total_price=it_unit_price * it_qty
+                total_price=it_tot
             ))
 
     if not items_list:
-        items_list.append(WebhookItemSchema(name="طلب وتنسيق ورد", quantity=1, unit_price=subtotal, total_price=subtotal))
+        items_list.append(WebhookItemSchema(name=f"مبيعات فاتورة #{invoice_number}", quantity=1, unit_price=subtotal, total_price=subtotal))
 
     payload = ExternalInvoicePayload(
         source_system="دفترة (Daftra)",
@@ -540,7 +551,7 @@ def pull_daftra_invoices():
     max_pages = 30 # Can fetch up to 3000 invoices from 2026
 
     while page <= max_pages:
-        url = f"https://{clean_subdomain}.daftra.com/api2/invoices.json?limit=100&page={page}&order=id:desc"
+        url = f"https://{clean_subdomain}.daftra.com/api2/invoices.json?limit=100&page={page}&order=id:desc&include=InvoiceItem,Client"
         req = urllib.request.Request(
             url,
             headers={
