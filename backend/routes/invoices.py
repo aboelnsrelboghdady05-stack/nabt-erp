@@ -178,3 +178,42 @@ def record_payment(payload: PaymentCreateSchema):
         "new_remaining": new_remaining,
         "status": new_status
     }
+
+@router.delete("/{invoice_id}")
+def delete_invoice(invoice_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,))
+    inv = cursor.fetchone()
+    if not inv:
+        conn.close()
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    inv_dict = dict(inv)
+    inv_number = inv_dict.get("invoice_number") or f"INV-{invoice_id}"
+    order_id = inv_dict.get("order_id")
+
+    # 1. Delete associated payments
+    cursor.execute("DELETE FROM payments WHERE invoice_id = ?", (invoice_id,))
+
+    # 2. If this invoice is associated with a Daftra-created order or shell order, clean up order items and order
+    if order_id:
+        cursor.execute("SELECT notes FROM orders WHERE id = ?", (order_id,))
+        ord_row = cursor.fetchone()
+        if ord_row:
+            notes_str = ord_row["notes"] or ""
+            if "دفترة" in notes_str or "Daftra" in notes_str or "برنامج الحسابات" in notes_str:
+                cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+                cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+
+    # 3. Delete the invoice itself
+    cursor.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"تم حذف الفاتورة ({inv_number}) بنجاح"
+    }

@@ -3396,8 +3396,11 @@ async function loadInvoices() {
                                 قبض دفعة +
                             </button>
                         ` : ''}
-                        <button onclick="openInvoicePrintModal(${inv.id})" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700" title="طباعة الفاتورة">
+                        <button onclick="openInvoicePrintModal(${inv.id})" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 cursor-pointer" title="طباعة الفاتورة">
                             <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="handleDeleteInvoice(${inv.id}, '${inv.invoice_number}')" class="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition-colors cursor-pointer" title="حذف الفاتورة">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
                 </td>
@@ -3464,10 +3467,44 @@ async function handleRecordPaymentSubmit(event) {
     }
 }
 
+let currentModalInvoiceId = null;
+let currentModalInvoiceNumber = '';
+
+async function handleDeleteInvoice(invoiceId, invoiceNumber) {
+    if (!invoiceId) return;
+    const invLabel = invoiceNumber || `#${invoiceId}`;
+    const confirmed = confirm(`هل أنت متأكد من حذف الفاتورة (${invLabel}) نهائياً؟\nسيتم حذف الفاتورة وسندات السداد المرتبطة بها.`);
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`/api/invoices/${invoiceId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(data.message || 'تم حذف الفاتورة بنجاح', 'success');
+            closeModal('modal-invoice-detail');
+            loadInvoices();
+            if (typeof loadDashboardData === 'function') loadDashboardData();
+        } else {
+            showToast(data.detail || data.message || 'تعذر حذف الفاتورة', 'error');
+        }
+    } catch (e) {
+        console.error('Delete invoice error:', e);
+        showToast('حدث خطأ أثناء حذف الفاتورة', 'error');
+    }
+}
+
+function handleDeleteCurrentInvoice() {
+    if (currentModalInvoiceId) {
+        handleDeleteInvoice(currentModalInvoiceId, currentModalInvoiceNumber);
+    }
+}
+
 async function openInvoicePrintModal(invoiceId) {
     try {
+        currentModalInvoiceId = invoiceId;
         const res = await fetch(`/api/invoices/${invoiceId}`);
         const inv = await res.json();
+        currentModalInvoiceNumber = inv.invoice_number || '';
 
         // 1. Header Information
         let invNum = inv.invoice_number || '01517';

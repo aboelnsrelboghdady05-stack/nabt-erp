@@ -48,7 +48,7 @@ def get_webhook_config(request: Request):
     }
 
 @router.post("/invoice")
-async def receive_invoice_from_accounting(payload: ExternalInvoicePayload):
+async def receive_invoice_from_accounting(payload: ExternalInvoicePayload, notify_whatsapp: bool = True):
     """
     Webhook Receiver: Called automatically when an invoice is issued in Qoyod, Daftra, Odoo, Zoho, etc.
     Immediately syncs to Dashboard, Invoices, Orders, Drivers, and fires WhatsApp confirmation!
@@ -111,23 +111,28 @@ async def receive_invoice_from_accounting(payload: ExternalInvoicePayload):
         avail_florist = get_best_available_florist(cursor)
         florist_id = avail_florist['id'] if avail_florist else None
 
+        is_daftra = (payload.source_system == "دفترة (Daftra)")
+        initial_order_status = "delivered" if (is_daftra or issue_date < today_str or payload.payment_status == "paid") else "new"
+        initial_acceptance = "accepted" if initial_order_status == "delivered" else "pending"
+
         cursor.execute("""
         INSERT INTO orders (
             order_number, customer_id, customer_name, customer_phone,
             recipient_name, recipient_phone, recipient_address,
             card_message, delivery_date, delivery_time_slot, driver_id, florist_id,
             status, subtotal, delivery_fee, discount, tax, total_amount,
-            payment_status, payment_method, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'مسائي (4ع - 8م)', ?, ?, 'new', ?, 0.0, 0.0, ?, ?, ?, ?, ?)
+            payment_status, payment_method, notes, acceptance_status, florist_reminder_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'مسائي (4ع - 8م)', ?, ?, ?, ?, 0.0, 0.0, ?, ?, ?, ?, ?, ?, 99)
         """, (
             order_number, customer_id, payload.customer_name, payload.customer_phone,
             payload.recipient_name or payload.customer_name,
             payload.recipient_phone or payload.customer_phone,
             payload.recipient_address or payload.customer_address or "توصيل للعميل",
             payload.card_message or "هدية ورد ومشاعر طيبة 💐",
-            issue_date, driver_id, florist_id, payload.subtotal, payload.tax_amount or 0.0,
+            issue_date, driver_id, florist_id, initial_order_status, payload.subtotal, payload.tax_amount or 0.0,
             payload.total_amount, payload.payment_status, payload.payment_method or "pos",
-            f"تم الإصدار عبر: {payload.source_system}. ملاحظات: {payload.notes or '-'}"
+            f"تم الإصدار عبر: {payload.source_system}. ملاحظات: {payload.notes or '-'}",
+            initial_acceptance
         ))
         order_id = cursor.lastrowid
 
@@ -165,70 +170,72 @@ async def receive_invoice_from_accounting(payload: ExternalInvoicePayload):
             """, (f"PAY-{p_seq:05d}", inv_id, payload.total_amount, payload.payment_method, f"ACC-{payload.invoice_number}", "سداد مسجل في برنامج الحسابات"))
 
         # 5. IMMEDIATELY FIRE AUTOMATIC WHATSAPP NOTIFICATION TO CUSTOMER (Stage 1)!
-        pay_status_ar = "مسدد" if payload.payment_status == 'paid' else "غير مسدد"
-        amount_str = f"{payload.total_amount:g}" if float(payload.total_amount).is_integer() else f"{payload.total_amount:.2f}"
-        wa_message = (
-            f"شكرًا لأنك اخترت نبت | Nabt\n"
-            f".\n"
-            f".\n"
-            f"استلمنا طلبك رقم #{order_number} بنجاح!\n"
-            f".\n"
-            f"قيمة الطلب: {amount_str} ر.س\n"
-            f"حالة السداد: ({pay_status_ar})\n"
-            f".\n"
-            f"تاريخ التوصيل: {issue_date} \n"
-            f"موعد التوصيل:مسائي (4ع - 8م))\n"
-            f".\n"
-            f".\n"
-            f"من اليوم أنت جزء من نبت | Nabt 🌱"
-        )
-        cursor.execute("""
-        INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-        VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
-        """, (payload.customer_phone, payload.customer_name, wa_message, order_id))
-        dispatch_via_gateway_if_configured(payload.customer_phone, wa_message)
-
-        # If driver assigned, notify driver on WhatsApp
-        if driver_id:
-            cursor.execute("SELECT name, phone FROM drivers WHERE id = ?", (driver_id,))
-            driver_row = cursor.fetchone()
-            if driver_row:
-                driver_msg = (
-                    f"مرحباً يا بطل {driver_row['name']} 🚗🌸\n"
-                    f"وصلت فاتورة وطلب توصيل جديد من الحسابات #{payload.invoice_number}!\n"
-                    f"العميل: {payload.customer_name}\n"
-                    f"المستلم: {payload.recipient_name or payload.customer_name}\n"
-                    f"جوال: {payload.recipient_phone or payload.customer_phone}\n"
-                    f"العنوان: {payload.recipient_address or payload.customer_address or 'يحدد لاحقاً'}\n"
-                    f"الحالة: {payload.payment_status}"
-                )
-                cursor.execute("""
-                INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-                VALUES (?, ?, 'outbound', 'driver_alert', ?, 'delivered', ?)
-                """, (driver_row['phone'], driver_row['name'], driver_msg, order_id))
-
-        # If florist assigned, notify florist on WhatsApp
-        if florist_id and avail_florist:
-            items_summary = " + ".join([f"{it.quantity}x {it.name}" for it in payload.items]) if payload.items else "تنسيق ورد"
-            florist_msg = (
-                f"🌸 مهمة تنسيق ورد جديد\n"
-                f"مرحباً يا فنان {avail_florist['name']}\n"
-                f"تم إسناد طلب جديد إليك من الإدارة للتجهيز:\n"
-                f"• رقم الطلب: #{order_number}\n"
-                f"• تفاصيل الطلب: {items_summary}\n"
-                f"• 🎨 ألوان الورد والتغليف: حسب التنسيق العام والطلب\n"
-                f"• كرت الإهداء: \"{payload.card_message or 'بدون كرت إهداء'}\"\n"
-                f"• موعد التسليم: {issue_date} \n"
-                f"• وقت التسليم(مسائي (4ع - 8م))\n"
-                f"• ملاحظات التجهيز: {payload.notes or 'تنسيق قياسي أنيق'}\n"
-                f"• 📸 صورة (مساندة) مرجعية: مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!\n\n"
-                f"شد حيلك وأبدأ التجهيز وأكد لنا إذا جهز! 💐"
+        # (Disabled for Daftra sync and read-only imports)
+        if notify_whatsapp and not is_daftra:
+            pay_status_ar = "مسدد" if payload.payment_status == 'paid' else "غير مسدد"
+            amount_str = f"{payload.total_amount:g}" if float(payload.total_amount).is_integer() else f"{payload.total_amount:.2f}"
+            wa_message = (
+                f"شكرًا لأنك اخترت نبت | Nabt\n"
+                f".\n"
+                f".\n"
+                f"استلمنا طلبك رقم #{order_number} بنجاح!\n"
+                f".\n"
+                f"قيمة الطلب: {amount_str} ر.س\n"
+                f"حالة السداد: ({pay_status_ar})\n"
+                f".\n"
+                f"تاريخ التوصيل: {issue_date} \n"
+                f"موعد التوصيل:مسائي (4ع - 8م))\n"
+                f".\n"
+                f".\n"
+                f"من اليوم أنت جزء من نبت | Nabt 🌱"
             )
             cursor.execute("""
             INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-            VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
-            """, (avail_florist['phone'], avail_florist['name'], florist_msg, order_id))
-            dispatch_via_gateway_if_configured(avail_florist['phone'], florist_msg)
+            VALUES (?, ?, 'outbound', 'order_update', ?, 'delivered', ?)
+            """, (payload.customer_phone, payload.customer_name, wa_message, order_id))
+            dispatch_via_gateway_if_configured(payload.customer_phone, wa_message)
+
+            # If driver assigned, notify driver on WhatsApp
+            if driver_id:
+                cursor.execute("SELECT name, phone FROM drivers WHERE id = ?", (driver_id,))
+                driver_row = cursor.fetchone()
+                if driver_row:
+                    driver_msg = (
+                        f"مرحباً يا بطل {driver_row['name']} 🚗🌸\n"
+                        f"وصلت فاتورة وطلب توصيل جديد من الحسابات #{payload.invoice_number}!\n"
+                        f"العميل: {payload.customer_name}\n"
+                        f"المستلم: {payload.recipient_name or payload.customer_name}\n"
+                        f"جوال: {payload.recipient_phone or payload.customer_phone}\n"
+                        f"العنوان: {payload.recipient_address or payload.customer_address or 'يحدد لاحقاً'}\n"
+                        f"الحالة: {payload.payment_status}"
+                    )
+                    cursor.execute("""
+                    INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+                    VALUES (?, ?, 'outbound', 'driver_alert', ?, 'delivered', ?)
+                    """, (driver_row['phone'], driver_row['name'], driver_msg, order_id))
+
+            # If florist assigned, notify florist on WhatsApp
+            if florist_id and avail_florist:
+                items_summary = " + ".join([f"{it.quantity}x {it.name}" for it in payload.items]) if payload.items else "تنسيق ورد"
+                florist_msg = (
+                    f"🌸 مهمة تنسيق ورد جديد\n"
+                    f"مرحباً يا فنان {avail_florist['name']}\n"
+                    f"تم إسناد طلب جديد إليك من الإدارة للتجهيز:\n"
+                    f"• رقم الطلب: #{order_number}\n"
+                    f"• تفاصيل الطلب: {items_summary}\n"
+                    f"• 🎨 ألوان الورد والتغليف: حسب التنسيق العام والطلب\n"
+                    f"• كرت الإهداء: \"{payload.card_message or 'بدون كرت إهداء'}\"\n"
+                    f"• موعد التسليم: {issue_date} \n"
+                    f"• وقت التسليم(مسائي (4ع - 8م))\n"
+                    f"• ملاحظات التجهيز: {payload.notes or 'تنسيق قياسي أنيق'}\n"
+                    f"• 📸 صورة (مساندة) مرجعية: مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!\n\n"
+                    f"شد حيلك وأبدأ التجهيز وأكد لنا إذا جهز! 💐"
+                )
+                cursor.execute("""
+                INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
+                VALUES (?, ?, 'outbound', 'florist_alert', ?, 'delivered', ?)
+                """, (avail_florist['phone'], avail_florist['name'], florist_msg, order_id))
+                dispatch_via_gateway_if_configured(avail_florist['phone'], florist_msg)
 
     conn.commit()
     conn.close()
@@ -375,6 +382,14 @@ def import_daftra_raw_invoice(raw_item: dict, conn, cursor) -> dict:
     issue_date = str(inv.get("date") or inv.get("created_at") or date.today().strftime("%Y-%m-%d")).split("T")[0].split(" ")[0]
     due_date = str(inv.get("due_date") or issue_date).split("T")[0].split(" ")[0]
 
+    # Strictly import invoices from the beginning of 2026 (2026-01-01 onwards)
+    if issue_date < "2026-01-01":
+        return {
+            "skipped": True,
+            "reason": f"تاريخ الفاتورة قديم قبل 2026 ({issue_date})",
+            "invoice_number": invoice_number
+        }
+
     # Items
     items_list = []
     raw_items = inv.get("InvoiceItem") or inv.get("items") or []
@@ -412,7 +427,7 @@ def import_daftra_raw_invoice(raw_item: dict, conn, cursor) -> dict:
     )
 
     import asyncio
-    return asyncio.run(receive_invoice_from_accounting(payload))
+    return asyncio.run(receive_invoice_from_accounting(payload, notify_whatsapp=False))
 
 @router.get("/daftra/status")
 def get_daftra_status(request: Request):
@@ -499,7 +514,7 @@ async def receive_daftra_webhook(request: Request):
 @router.post("/daftra/pull")
 def pull_daftra_invoices():
     """
-    سحب الفواتير من دفترة مباشرة - قراءة فقط (Strictly Read-Only GET)
+    سحب الفواتير من دفترة مباشرة من بداية 2026 وحتى الآن - قراءة فقط (Strictly Read-Only GET)
     لا يرسل أي أوامر أو تعديلات إلى حساب دفترة إطلاقاً.
     """
     conn = get_db()
@@ -519,42 +534,58 @@ def pull_daftra_invoices():
 
     clean_subdomain = subdomain.replace("https://", "").replace("http://", "").split(".")[0].strip()
     
-    url = f"https://{clean_subdomain}.daftra.com/api2/invoices.json?limit=50&order=id:desc"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "APIKEY": api_key,
-            "Accept": "application/json",
-            "User-Agent": "NabtERP-ReadOnly-Sync/1.0"
-        },
-        method="GET"
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=15) as response:
-            res_body = response.read().decode('utf-8')
-            res_data = json.loads(res_body)
-    except urllib.error.HTTPError as e:
-        conn.close()
-        error_detail = f"خطأ من دفترة ({e.code}): تحقق من صحة اسم النطاق ({clean_subdomain}) ومفتاح الـ API"
-        raise HTTPException(status_code=400, detail=error_detail)
-    except Exception as e:
-        conn.close()
-        raise HTTPException(status_code=500, detail=f"تعذر الاتصال بـ دفترة: {str(e)}")
-
-    invoices_data = res_data.get("data") or []
-    if isinstance(res_data, list):
-        invoices_data = res_data
-
     imported_count = 0
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    page = 1
+    max_pages = 30 # Can fetch up to 3000 invoices from 2026
 
-    for item in invoices_data:
+    while page <= max_pages:
+        url = f"https://{clean_subdomain}.daftra.com/api2/invoices.json?limit=100&page={page}&order=id:desc"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "APIKEY": api_key,
+                "Accept": "application/json",
+                "User-Agent": "NabtERP-ReadOnly-Sync/1.0"
+            },
+            method="GET"
+        )
+
         try:
-            import_daftra_raw_invoice(item, conn, cursor)
-            imported_count += 1
-        except Exception as err:
-            print(f"[Daftra Import Error]: {err}")
+            with urllib.request.urlopen(req, timeout=20) as response:
+                res_body = response.read().decode('utf-8')
+                res_data = json.loads(res_body)
+        except urllib.error.HTTPError as e:
+            conn.close()
+            error_detail = f"خطأ من دفترة ({e.code}): تحقق من صحة اسم النطاق ({clean_subdomain}) ومفتاح الـ API"
+            raise HTTPException(status_code=400, detail=error_detail)
+        except Exception as e:
+            conn.close()
+            raise HTTPException(status_code=500, detail=f"تعذر الاتصال بـ دفترة: {str(e)}")
+
+        invoices_data = res_data.get("data") or []
+        if isinstance(res_data, list):
+            invoices_data = res_data
+
+        if not invoices_data:
+            break
+
+        stop_older_than_2026 = False
+        for item in invoices_data:
+            try:
+                res = import_daftra_raw_invoice(item, conn, cursor)
+                if res and res.get("skipped"):
+                    # Hits invoices prior to 2026, stop further older pages
+                    stop_older_than_2026 = True
+                elif res:
+                    imported_count += 1
+            except Exception as err:
+                print(f"[Daftra Import Error]: {err}")
+
+        if stop_older_than_2026 or len(invoices_data) < 100:
+            break
+
+        page += 1
 
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_last_sync', ?)", (now_str,))
     cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_total_imported', ?)", (str(imported_count),))
@@ -563,7 +594,7 @@ def pull_daftra_invoices():
 
     return {
         "success": True,
-        "message": f"تم سحب وتحديث {imported_count} فاتورة من دفترة بنجاح، وعرضها في الداشبورد والفواتير (قراءة فقط 🛡️)",
+        "message": f"تم سحب وتحديث {imported_count} فاتورة مبيعات من دفترة (من بداية 2026 وحتى الآن) بنجاح وعرضها في الداشبورد والفواتير (قراءة فقط 🛡️)",
         "count": imported_count,
         "last_sync": now_str,
         "read_only": True
