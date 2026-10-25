@@ -27,6 +27,11 @@ class OrderCreateSchema(BaseModel):
     location_url: Optional[str] = None
     card_message: Optional[str] = None
     reference_image: Optional[str] = None
+    reference_images: Optional[List[str]] = []
+    order_type: Optional[str] = "regular" # regular, large_event
+    event_name: Optional[str] = None
+    event_venue: Optional[str] = None
+    event_coordinator_contact: Optional[str] = None
     flower_colors: Optional[str] = None
     delivery_date: str
     delivery_time_slot: Optional[str] = None
@@ -58,6 +63,8 @@ class OrderCompleteWorkSchema(BaseModel):
     completed_image: str
     florist_id: Optional[int] = None
     florist_name: Optional[str] = None
+    materials_used: Optional[List[dict]] = []
+    materials_notes: Optional[str] = None
 
 class OrderApproveSchema(BaseModel):
     approved_by: str = "فيصل (الآدمن)" # or نادر (المدير)
@@ -94,6 +101,29 @@ async def upload_reference_image(file: UploadFile = File(...)):
         "filename": unique_name
     }
 
+@router.post("/upload-multiple-references")
+async def upload_multiple_reference_images(files: List[UploadFile] = File(...)):
+    """
+    Upload multiple customer reference design images
+    """
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static", "uploads", "orders")
+    os.makedirs(uploads_dir, exist_ok=True)
+    urls = []
+    for file in files:
+        filename = file.filename or "reference.jpg"
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+            ext = ".jpg"
+        unique_name = f"ref_{uuid.uuid4().hex[:12]}{ext}"
+        target_path = os.path.join(uploads_dir, unique_name)
+        with open(target_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        urls.append(f"/static/uploads/orders/{unique_name}")
+    return {
+        "success": True,
+        "image_urls": urls
+    }
+
 @router.post("/upload-completed")
 async def upload_completed_order_image(file: UploadFile = File(...)):
     """
@@ -123,7 +153,8 @@ def get_orders(
     status: Optional[str] = None, 
     date_filter: Optional[str] = None, 
     search: Optional[str] = None,
-    florist_id: Optional[int] = None
+    florist_id: Optional[int] = None,
+    order_type: Optional[str] = None
 ):
     try:
         check_and_process_florist_timeouts()
@@ -147,6 +178,10 @@ def get_orders(
         query += " AND o.florist_id = ?"
         params.append(florist_id)
 
+    if order_type and order_type != "all":
+        query += " AND o.order_type = ?"
+        params.append(order_type)
+
     if status and status != "all":
         query += " AND o.status = ?"
         params.append(status)
@@ -154,18 +189,38 @@ def get_orders(
         query += " AND o.delivery_date = ?"
         params.append(date_filter)
     if search:
-        query += " AND (o.order_number LIKE ? OR o.customer_name LIKE ? OR o.customer_phone LIKE ? OR o.recipient_name LIKE ?)"
+        query += " AND (o.order_number LIKE ? OR o.customer_name LIKE ? OR o.customer_phone LIKE ? OR o.recipient_name LIKE ? OR o.event_name LIKE ?)"
         term = f"%{search}%"
-        params.extend([term, term, term, term])
+        params.extend([term, term, term, term, term])
 
     query += " ORDER BY o.id DESC"
     cursor.execute(query, params)
     orders = [dict(row) for row in cursor.fetchall()]
 
-    # Fetch items for each order
+    # Fetch items and parse JSON for each order
     for o in orders:
         cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (o["id"],))
         o["items"] = [dict(r) for r in cursor.fetchall()]
+
+        # Parse reference_images list
+        ref_imgs = []
+        if o.get("reference_images"):
+            try:
+                ref_imgs = json.loads(o["reference_images"])
+            except Exception:
+                ref_imgs = [o["reference_images"]]
+        elif o.get("reference_image"):
+            ref_imgs = [o["reference_image"]]
+        o["reference_images"] = ref_imgs
+
+        # Parse materials_used list
+        mats = []
+        if o.get("materials_used"):
+            try:
+                mats = json.loads(o["materials_used"])
+            except Exception:
+                mats = []
+        o["materials_used"] = mats
 
     conn.close()
     return orders
@@ -193,6 +248,26 @@ def get_order_detail(order_id: int):
     order = dict(row)
     cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
     order["items"] = [dict(r) for r in cursor.fetchall()]
+
+    # Parse reference_images
+    ref_imgs = []
+    if order.get("reference_images"):
+        try:
+            ref_imgs = json.loads(order["reference_images"])
+        except Exception:
+            ref_imgs = [order["reference_images"]]
+    elif order.get("reference_image"):
+        ref_imgs = [order["reference_image"]]
+    order["reference_images"] = ref_imgs
+
+    # Parse materials_used
+    mats = []
+    if order.get("materials_used"):
+        try:
+            mats = json.loads(order["materials_used"])
+        except Exception:
+            mats = []
+    order["materials_used"] = mats
 
     # Also fetch related WhatsApp messages
     cursor.execute("SELECT * FROM whatsapp_messages WHERE related_order_id = ? ORDER BY id DESC", (order_id,))
@@ -255,23 +330,33 @@ def create_order(payload: OrderCreateSchema):
 
     florist_id = assigned_florist['id'] if assigned_florist else None
 
+    # Prepare reference images & primary image
+    ref_imgs = payload.reference_images or []
+    if payload.reference_image and payload.reference_image not in ref_imgs:
+        ref_imgs.insert(0, payload.reference_image)
+    primary_ref_img = ref_imgs[0] if ref_imgs else payload.reference_image
+    ref_imgs_json = json.dumps(ref_imgs, ensure_ascii=False) if ref_imgs else None
+
     # 4. Insert Order
     assigned_at_val = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if florist_id else None
     cursor.execute("""
     INSERT INTO orders (
         order_number, customer_id, customer_name, customer_phone,
         recipient_name, recipient_phone, recipient_address, location_url,
-        card_message, reference_image, flower_colors, delivery_date, delivery_time_slot, driver_id, florist_id,
+        card_message, reference_image, reference_images, order_type, event_name, event_venue, event_coordinator_contact,
+        flower_colors, delivery_date, delivery_time_slot, driver_id, florist_id,
         status, subtotal, delivery_fee, discount, tax, total_amount,
         payment_status, payment_method, notes, received_at,
         florist_assigned_at, florist_reminder_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 0)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 0)
     """, (
         order_number, customer_id, payload.customer_name, payload.customer_phone,
         payload.recipient_name or payload.customer_name,
         payload.recipient_phone or payload.customer_phone,
         payload.recipient_address, payload.location_url,
-        payload.card_message, payload.reference_image, payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
+        payload.card_message, primary_ref_img, ref_imgs_json, payload.order_type or 'regular',
+        payload.event_name, payload.event_venue, payload.event_coordinator_contact,
+        payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
         payload.driver_id, florist_id, subtotal, payload.delivery_fee, payload.discount, tax, total_amount,
         payload.payment_status, payload.payment_method, payload.notes,
         assigned_at_val
@@ -364,20 +449,33 @@ def create_order(payload: OrderCreateSchema):
         if clean_slot.startswith("(") and clean_slot.endswith(")"):
             clean_slot = clean_slot[1:-1].strip()
         notes_text = payload.notes or "تنسيق قياسي أنيق"
-        ref_text = "مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!" if payload.reference_image else "بدون صورة (تنسيق نبت القياسي)"
+        ref_count = len(payload.reference_images or [])
+        if ref_count > 1:
+            ref_text = f"مرفق {ref_count} صور مرجعية في السيستم افتح تفاصيل الطلب لمطابقتها!"
+        elif payload.reference_image or ref_count == 1:
+            ref_text = "مرفقة في السيستم افتح تفاصيل الطلب لمطابقتها!"
+        else:
+            ref_text = "بدون صورة (تنسيق نبت القياسي)"
+
+        event_info = ""
+        if (payload.order_type == "large_event") or payload.event_name:
+            event_info = f"• 🏰 تصنيف الطلبية: مناسبة كبيرة ({payload.event_name or 'فعالية خاصة'})\n"
+            if payload.event_venue:
+                event_info += f"• 📍 موقع الفعالية/القاعة: {payload.event_venue}\n"
 
         florist_msg = (
             f"🌸 مهمة تنسيق ورد جديد\n"
             f"مرحباً يا فنان {assigned_florist['name']}\n"
             f"تم إسناد طلب جديد إليك من الإدارة للتجهيز:\n"
             f"• رقم الطلب: #{order_number}\n"
+            f"{event_info}"
             f"• تفاصيل الطلب: {items_summary}\n"
             f"• 🎨 ألوان الورد والتغليف: {flower_colors_text}\n"
             f"• كرت الإهداء: \"{card_text}\"\n"
             f"• موعد التسليم: {payload.delivery_date} \n"
             f"• وقت التسليم({clean_slot})\n"
             f"• ملاحظات التجهيز: {notes_text}\n"
-            f"• 📸 صورة (مساندة) مرجعية: {ref_text}\n\n"
+            f"• 📸 صور مرجعية: {ref_text}\n\n"
             f"شد حيلك وأبدأ التجهيز وأكد لنا إذا جهز! 💐"
         )
         cursor.execute("""
@@ -1041,15 +1139,19 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
         except Exception as e:
             print("Failed to decode base64 completed image:", e)
 
+    materials_json = json.dumps(payload.materials_used, ensure_ascii=False) if payload.materials_used else None
+
     cursor.execute("""
     UPDATE orders
     SET completed_image = ?,
+        materials_used = ?,
+        materials_notes = ?,
         completed_at = CURRENT_TIMESTAMP,
         prepared_at = CURRENT_TIMESTAMP,
         approval_status = 'pending',
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-    """, (final_image_url, order_id))
+    """, (final_image_url, materials_json, payload.materials_notes, order_id))
 
     # Send Notification for Approval specifically to Nader (Branch Manager) as requested
     florist_name = "منسق الورد"
@@ -1067,12 +1169,27 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
     nader_name = nader_emp['name'] if nader_emp else 'نادر (مدير فرع)'
     nader_phone = nader_emp['phone'] if nader_emp else '0502220002'
 
+    materials_summary = ""
+    if payload.materials_used:
+        mat_lines = [f"• {m.get('name')}: {m.get('quantity') or m.get('qty')} {m.get('unit', '')}".strip() for m in payload.materials_used if m.get('name')]
+        if mat_lines:
+            materials_summary = "\n🌸 الورد والمواد المستهلكة فعلياً:\n" + "\n".join(mat_lines)
+            if payload.materials_notes:
+                materials_summary += f"\n📝 ملاحظة استهلاك: {payload.materials_notes}"
+
+    event_info_str = ""
+    order_dict = dict(order)
+    if order_dict.get('order_type') == 'large_event' or order_dict.get('event_name'):
+        event_info_str = f"🏰 [طلبية مناسبة/فعالية: {order_dict.get('event_name') or 'كبيرة'}]\n📍 الموقع: {order_dict.get('event_venue') or 'القاعة'}\n"
+
     nader_approval_alert = (
         f"🌸 إشعار تعميد طلب جديد يا {nader_name}!\n"
         f"انتهى المنسق ({florist_name}) من تجهيز وتنسيق الطلب وتم رفع صورة الورد الفعلية:\n"
         f"• رقم الطلب: #{order['order_number']}\n"
+        f"{event_info_str}"
         f"• العميل: {order['customer_name']}\n"
         f"• موعد التسليم: {order['delivery_date']} ({order['delivery_time_slot'] or 'الافتراضي'})\n"
+        f"{materials_summary}\n"
         f"• حالة الطلب: بانتظار تعميدك واعتمادك في السيستم 👑\n\n"
         f"يرجى مراجعة صورة التنسيق في لوحة التحكم وتعميد الطلب لتسليمه للمندوب 🚗✨"
     )

@@ -922,6 +922,10 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="text-xs font-bold text-olive-700 ml-1" data-i18n="filter_status_label">تصفية حسب الحالة:</span>
                         <button onclick="setOrderFilter('all')" class="order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-olive-700 text-cream-50" data-status="all" data-i18n="filter_all">الكل</button>
+                        <button onclick="setOrderFilter('large_event')" class="order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300" data-status="large_event">
+                            <i data-lucide="crown" class="w-3.5 h-3.5 inline text-amber-600 ml-1"></i>
+                            <span>طلبيات كبيرة 🏰</span>
+                        </button>
                         <button onclick="setOrderFilter('new')" class="order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-cream-100 text-olive-800 hover:bg-cream-200" data-status="new" data-i18n="filter_new">جديد</button>
                         <button onclick="setOrderFilter('preparing')" class="order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-cream-100 text-olive-800 hover:bg-cream-200" data-status="preparing" data-i18n="filter_prep">قيد التنسيق</button>
                         <button onclick="setOrderFilter('ready')" class="order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-cream-100 text-olive-800 hover:bg-cream-200" data-status="ready" data-i18n="filter_ready">جاهز</button>
@@ -1639,6 +1643,53 @@
             </div>
 
             <form onsubmit="handleCreateOrder(event)" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                <!-- Section 0: Order Type Selection (طلب عادي vs طلبية كبيرة / مناسبات وفعاليات 🏰) -->
+                <div class="bg-gradient-to-r from-cream-100 via-amber-50/70 to-cream-100 p-4 rounded-2xl border-2 border-amber-300/80 shadow-xs space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-black text-olive-950 flex items-center gap-2">
+                            <i data-lucide="crown" class="w-4 h-4 text-amber-600"></i>
+                            نوع وتصنيف الطلبية:
+                        </label>
+                        <span class="text-[11px] text-olive-700/80 font-medium">اختر طلب عادي أو طلبية كبيرة لمناسبة مجدولة مسبقاً 📅</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" id="btn-order-type-regular" onclick="setOrderType('regular')" class="p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-olive-800 text-white border-olive-900 shadow-sm">
+                            <i data-lucide="flower" class="w-4 h-4"></i>
+                            <span>طلب عادي 🌸</span>
+                        </button>
+                        <button type="button" id="btn-order-type-large" onclick="setOrderType('large_event')" class="p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-white text-amber-900 border-amber-300 hover:bg-amber-50 shadow-sm">
+                            <i data-lucide="crown" class="w-4 h-4 text-amber-600"></i>
+                            <span>طلبية كبيرة / مناسبات 🏰</span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="order-type-input" value="regular">
+
+                    <!-- Collapsible Event & Large Order Details Section (تظهر عند اختيار طلبية كبيرة) -->
+                    <div id="large-event-details-section" class="hidden pt-3 border-t border-amber-200/90 space-y-3 animate-fade-in">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 text-xs font-black text-amber-950">
+                                <i data-lucide="calendar-heart" class="w-4 h-4 text-amber-700"></i>
+                                تفاصيل وموقع المناسبة الكبيرة:
+                            </span>
+                            <span class="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full font-bold">جدولة مستمرة لشهر أو أكثر ⏳</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">اسم المناسبة / الفعالية *</label>
+                                <input type="text" id="order-event-name" placeholder="مثال: حفل تخرج د/ نورة، زواج آل فلان، مؤتمر..." class="w-full text-xs px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl focus:outline-none focus:border-amber-600 font-semibold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">موقع القاعة / الفندق / الفعالية *</label>
+                                <input type="text" id="order-event-venue" placeholder="مثال: قاعة نيارة - الصالة الملكية، فندق الفورسيزونز..." class="w-full text-xs px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl focus:outline-none focus:border-amber-600 font-semibold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">منسق الموقع أو الشخص المسؤول (جوال)</label>
+                                <input type="text" id="order-event-coordinator" placeholder="مثال: أ/ منيرة منسقة القاعة 050XXXXXXX" class="w-full text-xs px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl focus:outline-none focus:border-amber-600 font-semibold text-slate-800">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Section 1: Customer & Recipient -->
                 <div>
                     <h4 class="text-xs font-bold text-terracotta-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -1698,7 +1749,7 @@
                     </div>
                 </div>
 
-                <!-- Section 2: Card Message (كرت الإهداء) -->
+                <!-- Section 2: Card Message & Multi-Image Reference Upload (رفع صور مرجعية متعددة وتفاصيل كثيرة) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="p-4 bg-rose-50/50 rounded-2xl border border-rose-100 flex flex-col justify-between">
                         <label class="block text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
@@ -1708,37 +1759,33 @@
                         <textarea id="order-card-message" rows="3" placeholder="اكتب عبارة الإهداء هنا، مثال: مبارك التخرج يا دكتورة ومنها للأعلى يارب 🎓🌹" class="w-full text-xs p-3 bg-white border border-rose-200 rounded-xl focus:outline-none focus:border-rose-400"></textarea>
                     </div>
 
-                    <!-- Customer Reference Image (صورة التصميم المرجعي التي أرسلها العميل) -->
-                    <div class="p-4 bg-sky-50/60 rounded-2xl border border-sky-200 flex flex-col justify-between space-y-2">
+                    <!-- Customer Multi-Image Reference Gallery (رفع صور كثيرة مرجعية للطلب) -->
+                    <div class="p-4 bg-sky-50/70 rounded-2xl border border-sky-200 flex flex-col justify-between space-y-2.5">
                         <div class="flex items-center justify-between">
                             <label class="block text-xs font-bold text-sky-950 flex items-center gap-1.5">
-                                <i data-lucide="image" class="w-4 h-4 text-sky-600"></i>
-                                صورة التصميم المرجعي للعميل (Reference)
+                                <i data-lucide="images" class="w-4 h-4 text-sky-600"></i>
+                                صور التصميم المرجعي للطلب (يمكنك رفع صور كثيرة 📸)
                             </label>
-                            <span class="text-[10px] bg-sky-200/70 text-sky-900 font-bold px-2 py-0.5 rounded-full">تصميم مرجعي</span>
+                            <span id="order-ref-count-badge" class="text-[10px] bg-sky-200 text-sky-900 font-black px-2 py-0.5 rounded-full">0 صور</span>
                         </div>
 
-                        <div class="flex items-center gap-3">
-                            <!-- Upload Box -->
-                            <div class="flex-1">
-                                <label class="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-sky-300 rounded-xl cursor-pointer bg-white hover:bg-sky-50 transition-all text-center p-2">
-                                    <div class="flex items-center justify-center gap-2 text-sky-600">
-                                        <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-                                        <span class="text-xs font-bold">إرفاق صورة الورد</span>
-                                    </div>
-                                    <p class="text-[10px] text-slate-400 mt-0.5">صورة التصميم المرفقة من العميل</p>
-                                    <input type="file" id="order-ref-image-file" accept="image/*" onchange="handleReferenceImageUpload(event)" class="hidden">
-                                </label>
-                                <input type="hidden" id="order-ref-image-url" value="">
-                            </div>
+                        <!-- Upload drop area -->
+                        <div>
+                            <label class="flex flex-col items-center justify-center w-full py-3 px-2 border-2 border-dashed border-sky-300 rounded-xl cursor-pointer bg-white hover:bg-sky-50 transition-all text-center">
+                                <div class="flex items-center justify-center gap-2 text-sky-700">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                                    <span class="text-xs font-black">إرفاق صور التصميم (حدد صورة أو عدة صور)</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-0.5">يمكنك اختيار أكثر من صورة للتصميم، الثيم، والفازات</p>
+                                <input type="file" id="order-ref-image-file" accept="image/*" multiple onchange="handleMultipleReferenceImagesUpload(event)" class="hidden">
+                            </label>
+                            <input type="hidden" id="order-ref-image-url" value="">
+                            <input type="hidden" id="order-ref-images-json" value="[]">
+                        </div>
 
-                            <!-- Live Thumbnail Preview -->
-                            <div id="order-ref-preview-container" class="hidden relative group w-20 h-20 rounded-xl overflow-hidden border-2 border-sky-400 shadow-sm flex-shrink-0 bg-white">
-                                <img id="order-ref-preview-img" src="" alt="Reference Preview" class="w-full h-full object-cover">
-                                <button type="button" onclick="removeReferenceImage()" title="حذف الصورة" class="absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white p-1 rounded-full shadow-md transition-all cursor-pointer">
-                                    <i data-lucide="x" class="w-3 h-3"></i>
-                                </button>
-                            </div>
+                        <!-- Live Multiple Images Gallery Preview Grid -->
+                        <div id="order-ref-gallery-container" class="hidden flex flex-wrap gap-2 max-h-36 overflow-y-auto p-1.5 bg-white/80 rounded-xl border border-sky-200">
+                            <!-- Dynamic Thumbnail Previews -->
                         </div>
                     </div>
                 </div>
@@ -2000,6 +2047,28 @@
                     </div>
                 </div>
 
+                <!-- Event Banner for Large Orders (طلبيات المناسبات الكبيرة) -->
+                <div id="detail-event-box" class="hidden p-4 bg-gradient-to-r from-amber-50 via-cream-100 to-amber-100 rounded-2xl border-2 border-amber-300 shadow-sm space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                                <i data-lucide="crown" class="w-4 h-4"></i>
+                            </span>
+                            <div>
+                                <h4 class="font-black text-amber-950 text-sm flex items-center gap-2">
+                                    <span>طلبية كبيرة / مناسبات خاصة 🏰</span>
+                                    <span id="detail-event-days-countdown" class="text-[10px] bg-amber-600 text-white font-black px-2 py-0.5 rounded-full shadow-2xs">متبقي 30 يوم</span>
+                                </h4>
+                                <p id="detail-event-name" class="text-xs text-amber-900 font-bold mt-0.5">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs pt-1 border-t border-amber-200/80">
+                        <p><span class="text-amber-800 font-bold">موقع القاعة / الفعالية:</span> <span id="detail-event-venue" class="font-semibold text-slate-800">-</span></p>
+                        <p><span class="text-amber-800 font-bold">مسؤول الموقع / المنسق:</span> <span id="detail-event-coordinator" class="font-semibold text-slate-800">-</span></p>
+                    </div>
+                </div>
+
                 <!-- 2. ORDER CORE INFO (بيانات العميل والمستلم والمكلفين) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
@@ -2047,19 +2116,48 @@
                         </table>
                     </div>
 
+                    <!-- Florist Consumed Flowers & Materials Log (الورد والمواد التي خرجت فعلياً) -->
+                    <div id="detail-consumed-materials-box" class="hidden space-y-2.5 p-4 bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl">
+                        <div class="flex items-center justify-between">
+                            <h5 class="font-black text-emerald-950 text-xs flex items-center gap-1.5">
+                                <i data-lucide="clipboard-check" class="w-4 h-4 text-emerald-700"></i>
+                                الورد والمواد المستهلكة فعلياً في الطلبية (سجل المنسق) 🌸📋
+                            </h5>
+                            <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-full">استهلاك حقيقي</span>
+                        </div>
+                        <div class="bg-white rounded-xl border border-emerald-200 overflow-hidden">
+                            <table class="w-full text-right text-xs">
+                                <thead class="bg-emerald-50/90 text-emerald-900 border-b border-emerald-200 font-bold">
+                                    <tr>
+                                        <th class="py-2 px-3">نوع الورد / المادة المستهلكة</th>
+                                        <th class="py-2 px-3 text-center">الكمية الخارجة</th>
+                                        <th class="py-2 px-3 text-center">الوحدة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detail-materials-tbody" class="divide-y divide-emerald-100">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <p id="detail-materials-notes" class="text-xs text-emerald-900 bg-white/80 p-2.5 rounded-xl border border-emerald-200 font-medium hidden"></p>
+                    </div>
+
                     <!-- Card Message, Reference Preview & Completed Product Photo -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                         <div id="detail-card-box" class="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl text-xs space-y-1">
                             <span class="font-bold text-rose-800 block">💌 كرت الإهداء:</span>
                             <p id="detail-card-message" class="text-rose-950 italic font-medium">« لا يوجد كرت »</p>
                         </div>
-                        <div id="detail-ref-box" class="p-3.5 bg-sky-50/70 border border-sky-200 rounded-xl text-xs flex items-center justify-between">
-                            <div>
+                        <div id="detail-ref-box" class="p-3.5 bg-sky-50/70 border border-sky-200 rounded-xl text-xs flex flex-col justify-between space-y-2">
+                            <div class="flex items-center justify-between">
                                 <span class="font-bold text-sky-800 block">التصميم المرجعي:</span>
-                                <span class="text-[11px] text-sky-600">طلب العميل 🖼️</span>
+                                <span id="detail-ref-count-label" class="text-[11px] text-sky-600">صور العميل 🖼️</span>
                             </div>
-                            <button id="detail-ref-btn" type="button" class="bg-sky-600 text-white font-bold px-2.5 py-1 rounded-lg text-xs hover:bg-sky-700 transition-all cursor-pointer">
-                                عرض 🖼️
+                            <div id="detail-ref-gallery" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                <!-- Dynamic thumbnails -->
+                            </div>
+                            <button id="detail-ref-btn" type="button" class="w-full bg-sky-600 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs hover:bg-sky-700 transition-all cursor-pointer text-center">
+                                عرض الصور بالكامل 🖼️
                             </button>
                         </div>
                         <div id="detail-completed-photo-box" class="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs flex items-center justify-between">
@@ -2168,6 +2266,41 @@
                 <!-- Live Preview -->
                 <div id="complete-preview-box" class="hidden border border-slate-200 rounded-2xl p-2 bg-slate-50 flex items-center justify-center max-h-60 overflow-hidden">
                     <img id="complete-preview-img" src="" class="max-h-56 rounded-xl object-contain shadow-sm">
+                </div>
+
+                <!-- Florist Materials & Flowers Consumption Log (سجل الورد والمواد التي خرجت في الطلبية) -->
+                <div class="bg-gradient-to-r from-emerald-50/80 via-teal-50/70 to-purple-50/70 p-4 rounded-2xl border-2 border-emerald-300/80 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="block text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                                <i data-lucide="clipboard-list" class="w-4 h-4 text-emerald-700"></i>
+                                سجل الورد والمواد التي خرجت في الطلبية 🌸📋
+                            </label>
+                            <p class="text-[11px] text-emerald-800/90 font-medium mt-0.5">اكتب أنواع الورد والكميات الفعلية التي استهلكتها في تجهيز الطلب</p>
+                        </div>
+                        <button type="button" onclick="addFloristMaterialRow()" class="text-xs bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-black px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>إضافة مادة / وردة +</span>
+                        </button>
+                    </div>
+
+                    <!-- Column titles -->
+                    <div class="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-500 px-1">
+                        <div class="col-span-6">نوع الورد / المادة / الفازة</div>
+                        <div class="col-span-3 text-center">الكمية</div>
+                        <div class="col-span-2 text-center">الوحدة</div>
+                        <div class="col-span-1 text-center">حذف</div>
+                    </div>
+
+                    <!-- Container for rows -->
+                    <div id="florist-materials-container" class="space-y-2">
+                        <!-- Dynamic items -->
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 mb-1">ملاحظات إضافية على الاستهلاك (اختياري):</label>
+                        <input type="text" id="florist-materials-notes" placeholder="مثال: تم استخدام بكت جوري أحمر إضافي لكبر حجم الباقة أو فازة سيراميك خاصة..." class="w-full text-xs px-3 py-2 bg-white border border-emerald-300 rounded-xl focus:outline-none focus:border-emerald-600 font-medium">
+                    </div>
                 </div>
 
                 <div class="pt-2 flex items-center justify-end gap-2">

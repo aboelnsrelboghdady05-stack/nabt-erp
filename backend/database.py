@@ -269,6 +269,20 @@ def init_db():
         cursor.execute("ALTER TABLE orders ADD COLUMN florist_reminded_at TIMESTAMP")
     if "florist_reminder_count" not in columns:
         cursor.execute("ALTER TABLE orders ADD COLUMN florist_reminder_count INTEGER DEFAULT 0")
+    if "order_type" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN order_type TEXT DEFAULT 'regular'")
+    if "event_name" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN event_name TEXT")
+    if "event_venue" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN event_venue TEXT")
+    if "event_coordinator_contact" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN event_coordinator_contact TEXT")
+    if "reference_images" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN reference_images TEXT")
+    if "materials_used" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN materials_used TEXT")
+    if "materials_notes" not in columns:
+        cursor.execute("ALTER TABLE orders ADD COLUMN materials_notes TEXT")
 
     # Backfill florist_assigned_at for existing orders assigned to florists
     try:

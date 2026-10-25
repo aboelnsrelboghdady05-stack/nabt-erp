@@ -1097,10 +1097,34 @@ async function confirmClearAllOrders() {
 }
 
 // 2. ORDERS LOGIC
+function getDeliveryCountdownText(deliveryDateStr) {
+    if (!deliveryDateStr) return '';
+    try {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const parts = deliveryDateStr.split('-');
+        if (parts.length !== 3) return '';
+        const target = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        target.setHours(0,0,0,0);
+        const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) return 'اليوم 🚨';
+        if (diffDays === 1) return 'غداً ⚠️';
+        if (diffDays === 2) return 'بعد يومين ⏳';
+        if (diffDays > 2) return `متبقي ${diffDays} يوم ⏳`;
+        if (diffDays === -1) return 'أمس';
+        return `منذ ${Math.abs(diffDays)} يوم`;
+    } catch (e) {
+        return '';
+    }
+}
+
 async function loadOrders() {
     try {
         const search = document.getElementById('order-search-input')?.value || '';
-        let url = `/api/orders?status=${activeOrderFilter}`;
+        let url = `/api/orders?status=${activeOrderFilter === 'large_event' ? 'all' : activeOrderFilter}`;
+        if (activeOrderFilter === 'large_event') {
+            url += `&order_type=large_event`;
+        }
         if (search) url += `&search=${encodeURIComponent(search)}`;
         
         // If current user is a florist, fetch only their assigned orders!
@@ -1119,7 +1143,7 @@ async function loadOrders() {
         if (orders.length === 0) {
             const emptyText = (currentUser && currentUser.role === 'florist')
                 ? `لا توجد طلبات مسندة للمنسق (${currentUser.name || ''}) حالياً في هذا الفلتر 🌸`
-                : `لا توجد طلبات تطابق الفلتر المحدد`;
+                : (activeOrderFilter === 'large_event' ? `لا توجد طلبيات كبيرة أو مناسبات مسجلة حالياً 🏰` : `لا توجد طلبات تطابق الفلتر المحدد`);
             if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-center py-10 text-slate-400 text-xs">${emptyText}</td></tr>`;
             if (mobileContainer) mobileContainer.innerHTML = `<div class="p-6 bg-white rounded-2xl border border-cream-200 text-center text-slate-400 text-xs">${emptyText}</div>`;
             return;
@@ -1127,6 +1151,38 @@ async function loadOrders() {
 
         orders.forEach(o => {
             const itemsSummary = o.items ? o.items.map(it => `${it.product_name} (×${it.quantity})`).join(', ') : '-';
+            const isLargeEvent = (o.order_type === 'large_event') || !!o.event_name;
+            const countdownText = getDeliveryCountdownText(o.delivery_date);
+
+            const eventBadgeHtml = isLargeEvent ? `
+                <div class="mt-1 flex items-center gap-1 flex-wrap">
+                    <span class="inline-flex items-center gap-1 text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-lg shadow-2xs">
+                        <i data-lucide="crown" class="w-3 h-3 text-amber-100"></i>
+                        <span>طلبية كبيرة 🏰</span>
+                    </span>
+                    ${o.event_name ? `<span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded-md truncate max-w-[130px]" title="${o.event_name}">${o.event_name}</span>` : ''}
+                    ${countdownText ? `<span class="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 font-bold px-1.5 py-0.5 rounded">${countdownText}</span>` : ''}
+                </div>
+            ` : '';
+
+            // Reference image button
+            let refBtnHtml = '';
+            if (o.reference_images && o.reference_images.length > 1) {
+                refBtnHtml = `
+                    <button onclick="viewReferenceImageModal('${o.reference_images[0]}', '${o.order_number} (${o.reference_images.length} صور مرجعية)')" class="inline-flex items-center gap-1 text-[10px] bg-sky-100 hover:bg-sky-200 text-sky-800 border border-sky-300 px-1.5 py-0.5 rounded-md font-bold mt-1 transition-all cursor-pointer">
+                        <i data-lucide="images" class="w-3 h-3 text-sky-600"></i>
+                        <span>${o.reference_images.length} صور ريفرنس 🖼️</span>
+                    </button>
+                `;
+            } else if (o.reference_image || (o.reference_images && o.reference_images.length === 1)) {
+                const img = o.reference_image || o.reference_images[0];
+                refBtnHtml = `
+                    <button onclick="viewReferenceImageModal('${img}', '${o.order_number}')" class="inline-flex items-center gap-1 text-[10px] bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold mt-1 transition-all cursor-pointer">
+                        <i data-lucide="image" class="w-3 h-3 text-sky-600"></i>
+                        <span>صورة ريفرنس 🖼️</span>
+                    </button>
+                `;
+            }
 
             // Shared Action Buttons HTML
             const actionsHtml = `
@@ -1178,20 +1234,16 @@ async function loadOrders() {
             // 1. Desktop Table Row
             if (tbody) {
                 const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition-colors text-xs border-b border-slate-100';
+                tr.className = `hover:bg-slate-50 transition-colors text-xs border-b border-slate-100 ${isLargeEvent ? 'bg-amber-50/30' : ''}`;
                 tr.innerHTML = `
                     <td class="py-3 px-4 font-bold text-slate-900">
                         <button onclick="openOrderDetailModal(${o.id})" class="font-bold text-olive-900 hover:text-terracotta-600 hover:underline flex items-center gap-1 cursor-pointer" title="عرض تفاصيل الطلب والتوقيتات">
                             <span>${o.order_number}</span>
                             <i data-lucide="info" class="w-3 h-3 text-olive-500"></i>
                         </button>
-                        ${o.card_message ? `<span class="block text-[10px] text-rose-600 font-medium">💌 كرت إهداء</span>` : ''}
-                        ${o.reference_image ? `
-                            <button onclick="viewReferenceImageModal('${o.reference_image}', '${o.order_number}')" class="inline-flex items-center gap-1 text-[10px] bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold mt-1 transition-all cursor-pointer">
-                                <i data-lucide="image" class="w-3 h-3 text-sky-600"></i>
-                                <span>صورة ريفرنس 🖼️</span>
-                            </button>
-                        ` : ''}
+                        ${eventBadgeHtml}
+                        ${o.card_message ? `<span class="block text-[10px] text-rose-600 font-medium mt-0.5">💌 كرت إهداء</span>` : ''}
+                        ${refBtnHtml}
                         ${o.completed_image ? `
                             <button onclick="viewReferenceImageModal('${o.completed_image}', '${o.order_number} - صورة العمل المنجز')" class="inline-flex items-center gap-1 text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded font-bold mt-1 transition-all cursor-pointer">
                                 <i data-lucide="camera" class="w-3 h-3 text-purple-700"></i>
@@ -1206,16 +1258,17 @@ async function loadOrders() {
                     <td class="py-3 px-4">
                         <strong class="text-slate-800 block">${o.recipient_name || o.customer_name}</strong>
                         ${o.recipient_phone ? `<span class="text-slate-600 font-mono text-[11px] block font-semibold">${o.recipient_phone}</span>` : ''}
-                        <p class="text-slate-500 truncate max-w-[180px] text-[11px]">${o.recipient_address || 'استلام من المعرض'}</p>
+                        <p class="text-slate-500 truncate max-w-[180px] text-[11px]">${o.recipient_address || (o.event_venue || 'استلام من المعرض')}</p>
                         ${o.location_url ? `<a href="${o.location_url}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5 mt-0.5"><i data-lucide="map-pin" class="w-3 h-3"></i> خرائط جوجل</a>` : ''}
                     </td>
                     <td class="py-3 px-4 text-slate-600 max-w-[200px]" title="${itemsSummary}">
-                        <span class="block truncate">${itemsSummary}</span>
+                        <span class="block truncate font-medium">${itemsSummary}</span>
                         ${o.flower_colors ? `<span class="inline-flex items-center gap-1 text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded font-semibold mt-1"><i data-lucide="palette" class="w-3 h-3 text-rose-500"></i> ${o.flower_colors}</span>` : ''}
                     </td>
                     <td class="py-3 px-4">
                         <span class="block font-semibold text-slate-800">${o.delivery_date}</span>
                         <span class="text-[11px] text-slate-500">${o.delivery_time_slot || ''}</span>
+                        ${countdownText ? `<span class="inline-block text-[10px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded mt-0.5">${countdownText}</span>` : ''}
                     </td>
                     <td class="py-3 px-4">
                         ${o.florist_name 
@@ -1280,7 +1333,7 @@ async function loadOrders() {
             // 2. Mobile Responsive Card (100% Fit, Touch-Friendly, No Horizontal Scroll)
             if (mobileContainer) {
                 const card = document.createElement('div');
-                card.className = 'mobile-card bg-cream-50/60 p-3.5 rounded-2xl border border-cream-200 shadow-xs space-y-2.5 text-xs';
+                card.className = `mobile-card bg-cream-50/60 p-3.5 rounded-2xl border ${isLargeEvent ? 'border-amber-300 bg-amber-50/30' : 'border-cream-200'} shadow-xs space-y-2.5 text-xs`;
                 card.innerHTML = `
                     <div class="flex items-center justify-between border-b border-cream-200/70 pb-2">
                         <div class="flex items-center gap-2">
@@ -1288,10 +1341,18 @@ async function loadOrders() {
                                 <span>${o.order_number}</span>
                                 <i data-lucide="info" class="w-3.5 h-3.5 text-olive-500"></i>
                             </button>
+                            ${isLargeEvent ? `<span class="text-[10px] bg-amber-500 text-white font-black px-1.5 py-0.5 rounded shadow-2xs">🏰 كبيرة</span>` : ''}
                             ${o.card_message ? `<span class="text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-bold border border-rose-200">💌 كرت</span>` : ''}
                         </div>
                         <div>${renderStatusBadge(o.status)}</div>
                     </div>
+
+                    ${isLargeEvent && o.event_name ? `
+                        <div class="p-2 bg-amber-100/70 border border-amber-200 rounded-xl text-xs flex items-center justify-between text-amber-950 font-bold">
+                            <span class="truncate">👑 ${o.event_name}</span>
+                            ${countdownText ? `<span class="text-[10px] bg-amber-600 text-white px-2 py-0.5 rounded-full shrink-0">${countdownText}</span>` : ''}
+                        </div>
+                    ` : ''}
 
                     ${o.approval_status === 'approved' ? `
                         <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl text-xs text-emerald-950">
@@ -1333,7 +1394,7 @@ async function loadOrders() {
                             <span class="text-[10px] text-olive-700 font-bold block">📍 المستلم:</span>
                             <strong class="text-slate-800 text-xs block truncate">${o.recipient_name || o.customer_name}</strong>
                             ${o.recipient_phone ? `<a href="tel:${o.recipient_phone}" class="text-[11px] text-olive-800 font-mono mt-0.5 block">${o.recipient_phone}</a>` : ''}
-                            <span class="text-[10px] text-slate-500 block truncate">${o.recipient_address || 'استلام من المعرض'}</span>
+                            <span class="text-[10px] text-slate-500 block truncate">${o.recipient_address || (o.event_venue || 'استلام من المعرض')}</span>
                         </div>
                     </div>
 
@@ -1343,12 +1404,7 @@ async function loadOrders() {
                                 <span class="text-[10px] font-bold text-olive-700 block">💐 الورد والطلب:</span>
                                 <p class="text-slate-700 font-medium text-xs mt-0.5 leading-snug">${itemsSummary}</p>
                             </div>
-                            ${o.reference_image ? `
-                                <button onclick="viewReferenceImageModal('${o.reference_image}', '${o.order_number}')" class="shrink-0 flex items-center gap-1 text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold cursor-pointer">
-                                    <i data-lucide="image" class="w-3 h-3"></i>
-                                    <span>ريفرنس</span>
-                                </button>
-                            ` : ''}
+                            ${refBtnHtml}
                             ${o.completed_image ? `
                                 <button onclick="viewReferenceImageModal('${o.completed_image}', '${o.order_number} - صورة العمل المنجز')" class="shrink-0 flex items-center gap-1 text-[10px] bg-purple-100 text-purple-900 border border-purple-300 px-2 py-1 rounded-lg font-bold cursor-pointer">
                                     <i data-lucide="camera" class="w-3 h-3 text-purple-700"></i>
@@ -1405,10 +1461,19 @@ async function loadOrders() {
 function setOrderFilter(status) {
     activeOrderFilter = status;
     document.querySelectorAll('.order-filter-btn').forEach(btn => {
-        if (btn.getAttribute('data-status') === status) {
-            btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-olive-700 text-cream-50';
+        const btnStatus = btn.getAttribute('data-status');
+        if (btnStatus === status) {
+            if (status === 'large_event') {
+                btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 text-white shadow-xs';
+            } else {
+                btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-olive-700 text-cream-50';
+            }
         } else {
-            btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-cream-100 text-olive-800 hover:bg-cream-200';
+            if (btnStatus === 'large_event') {
+                btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300';
+            } else {
+                btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-cream-100 text-olive-800 hover:bg-cream-200';
+            }
         }
     });
     loadOrders();
@@ -1541,6 +1606,50 @@ async function rejectOrderByFlorist(orderId) {
     }
 }
 
+// Florist Flower & Material Consumption Logging
+let floristMaterialRowCounter = 0;
+function addFloristMaterialRow(defaultName = '', defaultQty = 1, defaultUnit = 'حبة') {
+    const container = document.getElementById('florist-materials-container');
+    if (!container) return;
+    floristMaterialRowCounter++;
+    const rowId = `mat-row-${floristMaterialRowCounter}-${Date.now()}`;
+
+    const div = document.createElement('div');
+    div.id = rowId;
+    div.className = 'grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-xl border border-emerald-200 shadow-2xs';
+    div.innerHTML = `
+        <div class="col-span-6">
+            <input type="text" value="${defaultName}" placeholder="اسم الورد (مثال: جوري أحمر، بيبي جوري)" class="mat-name-input w-full text-xs px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-600 font-bold text-slate-800">
+        </div>
+        <div class="col-span-3">
+            <input type="number" min="0.5" step="any" value="${defaultQty}" placeholder="الكمية" class="mat-qty-input w-full text-xs px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold focus:outline-none focus:border-emerald-600">
+        </div>
+        <div class="col-span-2">
+            <select class="mat-unit-select w-full text-[11px] px-1.5 py-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700 focus:outline-none">
+                <option value="حبة" ${defaultUnit === 'حبة' ? 'selected' : ''}>حبة</option>
+                <option value="غصن" ${defaultUnit === 'غصن' ? 'selected' : ''}>غصن</option>
+                <option value="ربطة" ${defaultUnit === 'ربطة' ? 'selected' : ''}>ربطة</option>
+                <option value="بكت" ${defaultUnit === 'بكت' ? 'selected' : ''}>بكت</option>
+                <option value="فازة" ${defaultUnit === 'فازة' ? 'selected' : ''}>فازة</option>
+                <option value="بوكس" ${defaultUnit === 'بوكس' ? 'selected' : ''}>بوكس</option>
+                <option value="رول" ${defaultUnit === 'رول' ? 'selected' : ''}>رول</option>
+            </select>
+        </div>
+        <div class="col-span-1 text-center">
+            <button type="button" onclick="removeFloristMaterialRow('${rowId}')" title="حذف" class="text-slate-400 hover:text-rose-600 p-1.5 transition-all cursor-pointer">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(div);
+    initIcons();
+}
+
+function removeFloristMaterialRow(rowId) {
+    const el = document.getElementById(rowId);
+    if (el) el.remove();
+}
+
 async function openFloristCompleteWorkModal(orderId, orderNum) {
     document.getElementById('complete-modal-order-id').value = orderId;
     document.getElementById('complete-modal-order-num').textContent = orderNum || `#${orderId}`;
@@ -1571,10 +1680,16 @@ async function openFloristCompleteWorkModal(orderId, orderNum) {
         submitBtn.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i><span>إرسال الصورة للتعميد</span>`;
     }
 
+    // Reset materials consumption container
+    const matContainer = document.getElementById('florist-materials-container');
+    const matNotesInput = document.getElementById('florist-materials-notes');
+    if (matContainer) matContainer.innerHTML = '';
+    if (matNotesInput) matNotesInput.value = '';
+
     openModal('modal-florist-complete-work');
     initIcons();
 
-    // Check if order has revision requested notes from manager
+    // Check if order has revision requested notes and previous materials
     try {
         const res = await fetch(`/api/orders/${orderId}`);
         if (res.ok) {
@@ -1587,6 +1702,23 @@ async function openFloristCompleteWorkModal(orderId, orderNum) {
                     submitBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4"></i><span>إرسال الصورة بعد التعديل 🔄</span>`;
                 }
                 initIcons();
+            }
+
+            // Populate materials used
+            if (ord.materials_used && ord.materials_used.length > 0) {
+                ord.materials_used.forEach(m => {
+                    addFloristMaterialRow(m.name, m.quantity, m.unit);
+                });
+            } else if (ord.items && ord.items.length > 0) {
+                ord.items.forEach(it => {
+                    addFloristMaterialRow(it.product_name, it.quantity, 'حبة');
+                });
+            } else {
+                addFloristMaterialRow('', 1, 'حبة');
+            }
+
+            if (matNotesInput && ord.materials_notes) {
+                matNotesInput.value = ord.materials_notes;
             }
         }
     } catch (e) {
@@ -1777,13 +1909,27 @@ async function handleFloristSubmitCompletedWork(event) {
             submitBtn.innerHTML = `<span class="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> <span>جاري الحفظ في السيستم...</span>`;
         }
 
+        const matRows = document.querySelectorAll('#florist-materials-container > div');
+        const materialsUsed = [];
+        matRows.forEach(r => {
+            const name = r.querySelector('.mat-name-input')?.value.trim();
+            const qty = r.querySelector('.mat-qty-input')?.value.trim();
+            const unit = r.querySelector('.mat-unit-select')?.value.trim() || 'حبة';
+            if (name && qty) {
+                materialsUsed.push({ name, quantity: qty, unit });
+            }
+        });
+        const materialsNotes = document.getElementById('florist-materials-notes')?.value.trim() || null;
+
         const res = await fetch(`/api/orders/${orderId}/complete-work`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 completed_image: imageUrl,
                 florist_id: currentUser ? currentUser.id : null,
-                florist_name: currentUser ? (currentUser.name || currentUser.username) : "المنسق"
+                florist_name: currentUser ? (currentUser.name || currentUser.username) : "المنسق",
+                materials_used: materialsUsed,
+                materials_notes: materialsNotes
             })
         });
         const data = await res.json();
@@ -1956,6 +2102,37 @@ function setOrderDeliveryMode(mode) {
 }
 
 // 3. NEW ORDER MODAL & CREATION
+let currentOrderType = 'regular';
+let currentOrderReferenceImages = [];
+
+function setOrderType(type) {
+    currentOrderType = type;
+    const typeInput = document.getElementById('order-type-input');
+    if (typeInput) typeInput.value = type;
+
+    const btnReg = document.getElementById('btn-order-type-regular');
+    const btnLarge = document.getElementById('btn-order-type-large');
+    const eventSection = document.getElementById('large-event-details-section');
+
+    if (type === 'large_event') {
+        if (btnLarge) {
+            btnLarge.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300';
+        }
+        if (btnReg) {
+            btnReg.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-white text-slate-700 border-slate-200 hover:bg-slate-50';
+        }
+        if (eventSection) eventSection.classList.remove('hidden');
+    } else {
+        if (btnReg) {
+            btnReg.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-olive-800 text-white border-olive-900 shadow-md ring-2 ring-olive-300';
+        }
+        if (btnLarge) {
+            btnLarge.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-white text-amber-900 border-amber-300 hover:bg-amber-50';
+        }
+        if (eventSection) eventSection.classList.add('hidden');
+    }
+}
+
 async function openNewOrderModal() {
     if (!canCreateOrders()) {
         alert("عذراً! صلاحية إضافة طلب جديد محصورة على الإدارة (ياسر، فيصل، نادر) فقط 🌸");
@@ -1965,6 +2142,20 @@ async function openNewOrderModal() {
     const today = getLocalDateString();
     document.getElementById('order-delivery-date').value = today;
     setOrderDeliveryMode('delivery');
+    setOrderType('regular');
+
+    // Reset event inputs
+    const evName = document.getElementById('order-event-name');
+    if (evName) evName.value = '';
+    const evVenue = document.getElementById('order-event-venue');
+    if (evVenue) evVenue.value = '';
+    const evCoord = document.getElementById('order-event-coordinator');
+    if (evCoord) evCoord.value = '';
+
+    // Reset reference images state
+    currentOrderReferenceImages = [];
+    renderReferenceImagesGallery();
+    removeReferenceImage();
 
     // Reset items
     const rows = document.getElementById('order-items-rows');
@@ -1985,8 +2176,6 @@ async function openNewOrderModal() {
         dateInput.onchange = refreshOrderModalFlorists;
     }
 
-    calculateOrderModalTotals();
-    removeReferenceImage();
     const colorsInput = document.getElementById('order-flower-colors-input');
     if (colorsInput) colorsInput.value = '';
 
@@ -2038,35 +2227,96 @@ function toggleColorBadge(colorName) {
     }
 }
 
-async function handleReferenceImageUpload(event) {
-    const rawFile = event.target.files[0];
-    if (!rawFile) return;
+async function handleMultipleReferenceImagesUpload(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files || files.length === 0) return;
 
-    // Show immediate local preview
-    const previewImg = document.getElementById('order-ref-preview-img');
-    const previewContainer = document.getElementById('order-ref-preview-container');
-    if (previewImg) previewImg.src = URL.createObjectURL(rawFile);
-    if (previewContainer) previewContainer.classList.remove('hidden');
+    const countBadge = document.getElementById('order-ref-count-badge');
+    if (countBadge) countBadge.textContent = 'جاري الرفع... ⏳';
 
     try {
-        // Compress high-res mobile photo to lightweight JPEG (~200KB)
-        const file = await compressImageFile(rawFile, 1280, 0.82);
-
-        // Upload to server endpoint
         const formData = new FormData();
-        formData.append('file', file);
+        for (const rawFile of files) {
+            const compressed = await compressImageFile(rawFile, 1280, 0.82);
+            formData.append('files', compressed, compressed.name || 'reference.jpg');
+        }
 
-        const res = await fetch('/api/orders/upload-reference', {
+        const res = await fetch('/api/orders/upload-multiple-references', {
             method: 'POST',
             body: formData
         });
         const data = await res.json();
-        if (data.success) {
-            document.getElementById('order-ref-image-url').value = data.image_url;
+        if (data.success && Array.isArray(data.image_urls)) {
+            data.image_urls.forEach(url => {
+                if (!currentOrderReferenceImages.includes(url)) {
+                    currentOrderReferenceImages.push(url);
+                }
+            });
+            renderReferenceImagesGallery();
+        } else {
+            alert(data.detail || "حدث خطأ أثناء رفع الصور");
         }
     } catch (err) {
-        console.error("Upload reference photo error:", err);
+        console.error("Multi-image upload error:", err);
+        alert("فشل رفع الصور، يرجى المحاولة مرة أخرى");
+    } finally {
+        if (event.target) event.target.value = '';
     }
+}
+
+function renderReferenceImagesGallery() {
+    const galleryContainer = document.getElementById('order-ref-gallery-container');
+    const countBadge = document.getElementById('order-ref-count-badge');
+    const jsonInput = document.getElementById('order-ref-images-json');
+    const urlInput = document.getElementById('order-ref-image-url');
+
+    if (jsonInput) jsonInput.value = JSON.stringify(currentOrderReferenceImages);
+    if (urlInput) urlInput.value = currentOrderReferenceImages[0] || '';
+
+    if (countBadge) {
+        countBadge.textContent = `${currentOrderReferenceImages.length} صور`;
+        if (currentOrderReferenceImages.length > 0) {
+            countBadge.className = 'text-[10px] bg-sky-600 text-white font-black px-2 py-0.5 rounded-full shadow-2xs';
+        } else {
+            countBadge.className = 'text-[10px] bg-sky-200 text-sky-900 font-black px-2 py-0.5 rounded-full';
+        }
+    }
+
+    if (!galleryContainer) return;
+
+    if (currentOrderReferenceImages.length === 0) {
+        galleryContainer.classList.add('hidden');
+        galleryContainer.innerHTML = '';
+        return;
+    }
+
+    galleryContainer.classList.remove('hidden');
+    galleryContainer.innerHTML = '';
+
+    currentOrderReferenceImages.forEach((imgUrl, idx) => {
+        const card = document.createElement('div');
+        card.className = 'relative w-16 h-16 rounded-lg overflow-hidden border border-sky-300 bg-slate-100 group shrink-0';
+        card.innerHTML = `
+            <img src="${imgUrl}" alt="صورة ${idx + 1}" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-all" onclick="viewReferenceImageModal('${imgUrl}', 'صورة تصميم ${idx + 1}')">
+            <button type="button" onclick="removeReferenceImageByIndex(${idx})" title="حذف هذه الصورة" class="absolute top-0.5 left-0.5 bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-xs cursor-pointer">
+                ✕
+            </button>
+            <span class="absolute bottom-0 right-0 bg-black/60 text-[9px] text-white px-1 font-mono rounded-tl">${idx + 1}</span>
+        `;
+        galleryContainer.appendChild(card);
+    });
+}
+
+function removeReferenceImageByIndex(idx) {
+    if (idx >= 0 && idx < currentOrderReferenceImages.length) {
+        currentOrderReferenceImages.splice(idx, 1);
+        renderReferenceImagesGallery();
+    }
+}
+
+async function handleReferenceImageUpload(event) {
+    // For single file upload backward-compatibility
+    handleMultipleReferenceImagesUpload(event);
 }
 
 function removeReferenceImage() {
@@ -2074,10 +2324,10 @@ function removeReferenceImage() {
     if (fileInput) fileInput.value = '';
     const urlInput = document.getElementById('order-ref-image-url');
     if (urlInput) urlInput.value = '';
-    const previewImg = document.getElementById('order-ref-preview-img');
-    if (previewImg) previewImg.src = '';
-    const container = document.getElementById('order-ref-preview-container');
-    if (container) container.classList.add('hidden');
+    const jsonInput = document.getElementById('order-ref-images-json');
+    if (jsonInput) jsonInput.value = '[]';
+    currentOrderReferenceImages = [];
+    renderReferenceImagesGallery();
 }
 
 function viewReferenceImageModal(imgUrl, orderNum) {
@@ -2214,6 +2464,27 @@ async function openOrderDetailModal(orderId) {
             durationBox.classList.add('hidden');
         }
 
+        // Event banner for Large Orders
+        const eventBox = document.getElementById('detail-event-box');
+        if (eventBox) {
+            if (ord.order_type === 'large_event' || ord.event_name || ord.event_venue) {
+                eventBox.classList.remove('hidden');
+                const evName = document.getElementById('detail-event-name');
+                if (evName) evName.textContent = ord.event_name || 'مناسبة / طلبية خاصة';
+                const evVenue = document.getElementById('detail-event-venue');
+                if (evVenue) evVenue.textContent = ord.event_venue || 'غير محدد';
+                const evCoord = document.getElementById('detail-event-coordinator');
+                if (evCoord) evCoord.textContent = ord.event_coordinator_contact || 'غير محدد';
+                const evCountdown = document.getElementById('detail-event-days-countdown');
+                if (evCountdown) {
+                    const cd = getDeliveryCountdownText(ord.delivery_date);
+                    evCountdown.textContent = cd ? `⏳ ${cd}` : `موعد التسليم: ${ord.delivery_date}`;
+                }
+            } else {
+                eventBox.classList.add('hidden');
+            }
+        }
+
         // 3. Customer & logistics
         document.getElementById('detail-cust-name').textContent = ord.customer_name || '-';
         document.getElementById('detail-cust-phone').textContent = ord.customer_phone || '-';
@@ -2245,6 +2516,44 @@ async function openOrderDetailModal(orderId) {
             itemsTbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-slate-400">لا توجد بنود مسجلة</td></tr>`;
         }
 
+        // Consumed flowers / materials by Florist
+        const consumedBox = document.getElementById('detail-consumed-materials-box');
+        const consumedTbody = document.getElementById('detail-materials-tbody');
+        const consumedNotes = document.getElementById('detail-materials-notes');
+        const matList = Array.isArray(ord.materials_used) ? ord.materials_used : [];
+
+        if (consumedBox) {
+            if (matList.length > 0 || ord.materials_notes) {
+                consumedBox.classList.remove('hidden');
+                if (consumedTbody) {
+                    consumedTbody.innerHTML = '';
+                    if (matList.length > 0) {
+                        matList.forEach(m => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td class="py-2 px-3 font-bold text-emerald-950">${m.name || '-'}</td>
+                                <td class="py-2 px-3 text-center font-black text-emerald-800 font-mono">${m.qty || 1}</td>
+                                <td class="py-2 px-3 text-center text-emerald-700 font-bold">${m.unit || 'حبة / غصن'}</td>
+                            `;
+                            consumedTbody.appendChild(tr);
+                        });
+                    } else {
+                        consumedTbody.innerHTML = `<tr><td colspan="3" class="text-center py-2 text-emerald-600">تم تسجيل ملاحظات استهلاك دون جدول كميات</td></tr>`;
+                    }
+                }
+                if (consumedNotes) {
+                    if (ord.materials_notes) {
+                        consumedNotes.textContent = `📝 ملاحظة المنسق عن الورد والمواد: ${ord.materials_notes}`;
+                        consumedNotes.classList.remove('hidden');
+                    } else {
+                        consumedNotes.classList.add('hidden');
+                    }
+                }
+            } else {
+                consumedBox.classList.add('hidden');
+            }
+        }
+
         // 5. Card message & reference
         const cardBox = document.getElementById('detail-card-box');
         const cardMsg = document.getElementById('detail-card-message');
@@ -2257,11 +2566,30 @@ async function openOrderDetailModal(orderId) {
 
         const refBox = document.getElementById('detail-ref-box');
         const refBtn = document.getElementById('detail-ref-btn');
-        if (ord.reference_image) {
-            refBox.classList.remove('hidden');
-            refBtn.onclick = () => viewReferenceImageModal(ord.reference_image, ord.order_number);
+        const refGallery = document.getElementById('detail-ref-gallery');
+        const refCountLabel = document.getElementById('detail-ref-count-label');
+        const allRefs = (Array.isArray(ord.reference_images) && ord.reference_images.length > 0)
+            ? ord.reference_images
+            : (ord.reference_image ? [ord.reference_image] : []);
+
+        if (allRefs.length > 0) {
+            if (refBox) refBox.classList.remove('hidden');
+            if (refCountLabel) refCountLabel.textContent = `(${allRefs.length} صور)`;
+            if (refGallery) {
+                refGallery.innerHTML = '';
+                allRefs.forEach((imgUrl, i) => {
+                    const thumb = document.createElement('div');
+                    thumb.className = 'w-10 h-10 rounded-lg overflow-hidden border border-sky-300 cursor-pointer hover:opacity-90 relative shrink-0';
+                    thumb.innerHTML = `<img src="${imgUrl}" class="w-full h-full object-cover"><span class="absolute bottom-0 right-0 bg-black/60 text-[8px] text-white px-0.5 font-mono">${i + 1}</span>`;
+                    thumb.onclick = () => viewReferenceImageModal(imgUrl, `#${ord.order_number} - صورة تصميم ${i + 1}`);
+                    refGallery.appendChild(thumb);
+                });
+            }
+            if (refBtn) {
+                refBtn.onclick = () => viewReferenceImageModal(allRefs[0], `#${ord.order_number} - صور التصميم (${allRefs.length})`);
+            }
         } else {
-            refBox.classList.add('hidden');
+            if (refBox) refBox.classList.add('hidden');
         }
 
         const compBox = document.getElementById('detail-completed-photo-box');
@@ -2470,8 +2798,20 @@ async function handleCreateOrder(event) {
     }
 
     const floristVal = document.getElementById('order-florist-select')?.value;
+    const orderType = document.getElementById('order-type-input')?.value || currentOrderType || 'regular';
+    const eventName = document.getElementById('order-event-name')?.value.trim() || null;
+    const eventVenue = document.getElementById('order-event-venue')?.value.trim() || null;
+    const eventCoord = document.getElementById('order-event-coordinator')?.value.trim() || null;
+    const refImages = currentOrderReferenceImages.length > 0 
+        ? currentOrderReferenceImages 
+        : (document.getElementById('order-ref-image-url')?.value ? [document.getElementById('order-ref-image-url').value] : []);
 
     const payload = {
+        order_type: orderType,
+        event_name: eventName,
+        event_venue: eventVenue,
+        event_coordinator_contact: eventCoord,
+        reference_images: refImages,
         customer_name: document.getElementById('order-cust-name').value,
         customer_phone: document.getElementById('order-cust-phone').value,
         recipient_name: document.getElementById('order-rec-name').value || null,
@@ -2479,7 +2819,7 @@ async function handleCreateOrder(event) {
         recipient_address: document.getElementById('order-rec-address').value || null,
         location_url: document.getElementById('order-rec-location').value || null,
         card_message: document.getElementById('order-card-message').value || null,
-        reference_image: document.getElementById('order-ref-image-url')?.value || null,
+        reference_image: refImages[0] || null,
         flower_colors: document.getElementById('order-flower-colors-input')?.value.trim() || null,
         delivery_date: document.getElementById('order-delivery-date').value,
         delivery_time_slot: document.getElementById('order-time-slot').value,
