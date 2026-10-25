@@ -2881,82 +2881,128 @@
         </div>
     </div>
 
-    <!-- MODAL: ACCOUNTING WEBHOOK & SYNC SETUP (ربط برنامج الحسابات) -->
+    <!-- MODAL: DAFTRA & ACCOUNTING READ-ONLY SYNC (الربط مع دفترة - قراءة وسحب فقط) -->
     <div id="modal-accounting-sync" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
-            <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-up">
+            <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-olive-900 to-olive-800 text-cream-50">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                        <i data-lucide="link-2" class="w-5 h-5"></i>
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center font-bold">
+                        <i data-lucide="receipt" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold text-slate-800 text-base">ربط برنامج الحسابات (Webhook Integration)</h3>
-                        <p class="text-xs text-slate-500">استقبال الفواتير الصادرة من قيود، دفترة، أودو، أو زوهو آلياً فور إصدارها</p>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-cream-50 text-base">الربط مع دفترة (سحب وقراءة الفواتير فقط 📥)</h3>
+                            <span class="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full">READ-ONLY</span>
+                        </div>
+                        <p class="text-xs text-cream-200/80 mt-0.5">سحب واستقبال فواتير المبيعات لعرضها في الداشبورد بدون إرسال أي أوامر لدفترة</p>
                     </div>
                 </div>
-                <button onclick="closeModal('modal-accounting-sync')" class="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600">
+                <button onclick="closeModal('modal-accounting-sync')" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-cream-100 transition-all cursor-pointer">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto space-y-6 text-xs text-slate-700">
-                <!-- Endpoint URL Box -->
-                <div class="space-y-1.5">
-                    <label class="font-bold text-slate-800 flex items-center gap-1.5">
-                        <i data-lucide="globe" class="w-4 h-4 text-brand-600"></i>
-                        رابط الاستقبال السحابي (Webhook URL):
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="sync-webhook-url-input" readonly value="http://localhost:8000/api/sync/invoice" class="w-full bg-slate-100 border border-slate-200 font-mono text-slate-800 text-xs px-3.5 py-2.5 rounded-xl select-all font-semibold">
-                        <button onclick="copyToClipboard('sync-webhook-url-input')" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-4 py-2.5 rounded-xl whitespace-nowrap">
-                            نسخ الرابط
-                        </button>
+            <div class="p-6 overflow-y-auto space-y-5 text-xs text-slate-700">
+                <!-- Strict Read-Only Safety Assurance Banner -->
+                <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i>
                     </div>
-                    <p class="text-[11px] text-slate-500">قم بوضع هذا الرابط في قسم الـ Webhooks في برنامج الحسابات لديك مع حدث: <strong>Invoice Created / فاتورة جديدة</strong>.</p>
-                </div>
-
-                <!-- API Key Box -->
-                <div class="space-y-1.5">
-                    <label class="font-bold text-slate-800 flex items-center gap-1.5">
-                        <i data-lucide="key" class="w-4 h-4 text-amber-500"></i>
-                        مفتاح التوثيق (API Secret Key):
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <input type="text" readonly value="nabt_sec_live_2026_qoyod_daftra" class="w-full bg-slate-100 border border-slate-200 font-mono text-slate-800 text-xs px-3.5 py-2.5 rounded-xl select-all font-semibold">
-                    </div>
-                </div>
-
-                <!-- Step by step instructions for popular accounting software -->
-                <div class="border-t border-slate-200 pt-4 space-y-3">
-                    <h4 class="font-bold text-slate-900 text-sm">خطوات تفعيل الربط في برامج الحسابات الشائعة:</h4>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <!-- Qoyod -->
-                        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                            <span class="font-black text-slate-800 block text-xs">١. قيود (Qoyod):</span>
-                            <p class="text-[11px] text-slate-600 leading-relaxed">
-                                من الإعدادات &larr; التطبيقات و Webhooks &larr; إضافة Webhook جديد &larr; الصق رابط الاستقبال واختر الحدث (إنشاء فاتورة مبيعات).
-                            </p>
-                        </div>
-
-                        <!-- Daftra -->
-                        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                            <span class="font-black text-slate-800 block text-xs">٢. دفترة (Daftra):</span>
-                            <p class="text-[11px] text-slate-600 leading-relaxed">
-                                من الإعدادات &larr; قواعد العمل التلقائية / API &larr; عند إضافة فاتورة جديدة &larr; إجراء: إرسال Webhook POST لرابط السيستم.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Live Test Simulator inside Modal -->
-                <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
                     <div>
-                        <strong class="text-emerald-900 block text-xs">هل ترغب في تجربة مزامنة فاتورة حية الآن؟</strong>
-                        <p class="text-[11px] text-emerald-700 mt-0.5">سيقوم السيستم بتوليد فاتورة مبيعات ومحاكاة وصولها من قيود/دفترة فوراً.</p>
+                        <strong class="text-emerald-950 font-bold block text-xs">ضمان أمان تام: الربط بوضع القراءة والاستقبال فقط 🛡️</strong>
+                        <p class="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                            السيستم مبرمج تقنياً لقراءة واستقبال فواتيرك من <strong>دفترة</strong> لعرضها في الداشبورد وحساب المبيعات فوراً.
+                            <strong>لن يقوم السيستم بإرسال أي أوامر، أو تعديل أي فواتير، أو حذف أي بيانات في حسابك بدفترة نهائياً.</strong>
+                        </p>
                     </div>
-                    <button onclick="triggerSimulateAccountingInvoice(); closeModal('modal-accounting-sync');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs whitespace-nowrap shadow-sm">
-                        إصدار فاتورة تجريبية الآن ⚡
+                </div>
+
+                <!-- Method 1: Direct API Pull (سحب يدوي أو آلي بنقرة زر) -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-black text-slate-800 text-xs flex items-center gap-1.5">
+                            <i data-lucide="download-cloud" class="w-4 h-4 text-brand-600"></i>
+                            الطريقة الأولى: السحب المباشر من دفترة (API Key - قراءة فقط)
+                        </span>
+                        <span id="daftra-sync-status-badge" class="text-[10px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded-full">جاهز للربط</span>
+                    </div>
+
+                    <form onsubmit="handleSaveDaftraSettings(event)" class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">اسم نطاق حسابك في دفترة (Subdomain) *</label>
+                                <input type="text" id="daftra-subdomain-input" required placeholder="مثال: mystore أو mystore.daftra.com" dir="ltr" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono text-slate-800 font-semibold focus:outline-none focus:border-olive-600">
+                                <span class="text-[10px] text-slate-400 mt-0.5 block">الاسم الذي يظهر قبل daftra.com في الرابط</span>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">مفتاح الـ API الخاص بدفترة (API Key) *</label>
+                                <input type="password" id="daftra-apikey-input" placeholder="ألصق مفتاح الـ API هنا" dir="ltr" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono text-slate-800 font-semibold focus:outline-none focus:border-olive-600">
+                                <span class="text-[10px] text-slate-400 mt-0.5 block">من دفترة: الإعدادات ⬅️ واجهة برمجة التطبيقات (API)</span>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <div class="flex items-center gap-2">
+                                <button type="submit" id="btn-save-daftra-settings" class="bg-olive-800 hover:bg-olive-900 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                    <span>حفظ بيانات الربط</span>
+                                </button>
+                                <span id="daftra-save-msg" class="text-[11px] text-emerald-700 font-bold hidden">✓ تم الحفظ</span>
+                            </div>
+
+                            <button type="button" onclick="triggerDaftraPullNow()" id="btn-pull-daftra-now" class="bg-gradient-to-r from-amber-600 to-terracotta-600 hover:from-amber-700 hover:to-terracotta-700 text-white font-black px-4 py-2 rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="daftra-pull-icon"></i>
+                                <span id="daftra-pull-label">سحب الفواتير من دفترة الآن 📥</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="p-2.5 bg-white rounded-xl border border-slate-200/80 flex items-center justify-between text-[11px] text-slate-600">
+                        <span>آخر سحب تم: <strong id="daftra-last-sync-time" class="text-slate-800">لم يتم السحب بعد</strong></span>
+                        <span>فواتير دفترة المسجلة: <strong id="daftra-total-invoices" class="text-brand-700 font-bold">0</strong></span>
+                    </div>
+                </div>
+
+                <!-- Method 2: Daftra Webhook (استقبال آلي لحظي عند كل فاتورة جديدة) -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <span class="font-black text-slate-800 text-xs flex items-center gap-1.5">
+                        <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                        الطريقة الثانية: الاستقبال اللحظي التلقائي (Daftra Webhook)
+                    </span>
+                    <p class="text-[11px] text-slate-600 leading-relaxed">
+                        تتيح لدفترة إرسال الفاتورة تلقائياً إلى سيستم نبت بمجرد قيام الكاشير أو المحاسب بإصدارها:
+                    </p>
+
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-700 block">رابط الاستقبال الخاص بك في نبت (Webhook URL):</label>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="daftra-webhook-url-input" readonly value="/api/sync/daftra/webhook" class="w-full bg-white border border-slate-200 font-mono text-slate-800 text-xs px-3.5 py-2.5 rounded-xl select-all font-semibold">
+                            <button type="button" onclick="copyToClipboard('daftra-webhook-url-input')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl whitespace-nowrap cursor-pointer">
+                                نسخ الرابط 📋
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1 text-[11px] text-amber-950">
+                        <strong class="block font-bold">خطوات التفعيل في لوحة دفترة:</strong>
+                        <ol class="list-decimal list-inside space-y-0.5 text-amber-900">
+                            <li>اذهب إلى <strong>الإعدادات ⚙️</strong> &larr; <strong>واجهة برمجة التطبيقات (API) والويب هوك</strong>.</li>
+                            <li>اضغط على <strong>إضافة Webhook جديد</strong>.</li>
+                            <li>ألصق الرابط المنسوخ أعلاه في خانة <strong>URL</strong>.</li>
+                            <li>اختر الحدث: <strong>عند إضافة فاتورة جديدة (Invoice Created)</strong> أو <strong>تحديث فاتورة</strong>.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Simulation & Test -->
+                <div class="p-3.5 bg-cream-50 border border-cream-200 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <strong class="text-olive-950 block text-xs">تجربة استقبال فاتورة ومزامنتها في الداشبورد:</strong>
+                        <p class="text-[11px] text-olive-700 mt-0.5">يمكنك تجربة ضخ فاتورة تجريبية للتأكد من انعكاسها الفوري في الداشبورد.</p>
+                    </div>
+                    <button type="button" onclick="triggerSimulateAccountingInvoice(); closeModal('modal-accounting-sync');" class="bg-olive-800 hover:bg-olive-900 text-white font-bold px-3.5 py-2 rounded-xl text-xs whitespace-nowrap shadow-xs cursor-pointer">
+                        تجربة فاتورة الآن ⚡
                     </button>
                 </div>
             </div>
@@ -3641,7 +3687,7 @@
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
     <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261025_sla_5min_v4"></script>
+    <script src="/static/js/app.js?v=20261025_daftra_sync_v5"></script>
     <script>
     // Inline guarantee for setOrderType in case of browser cache
     function setOrderType(type) {

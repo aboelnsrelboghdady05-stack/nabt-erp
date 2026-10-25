@@ -4,6 +4,9 @@ from typing import Optional, List, Any, Dict
 from database import get_db
 from datetime import datetime, date
 import json
+import urllib.request
+import urllib.parse
+import urllib.error
 from routes.whatsapp import dispatch_via_gateway_if_configured
 
 router = APIRouter(prefix="/api/sync", tags=["Accounting Sync & Webhooks"])
@@ -325,4 +328,243 @@ def reset_all_data():
     return {
         "success": True,
         "message": "تم تصفير وحذف جميع العمليات والإجازات والطلبات بنجاح. السيستم نظيف وجاهز للعمل الحقيقي من الصفر 🌸"
+    }
+
+# ========================================================
+# DAFTRA (دفترة) READ-ONLY INTEGRATION
+# استقبال وسحب الفواتير فقط وعرضها في الداشبورد دون إرسال أي أوامر لدفترة
+# ========================================================
+
+class DaftraSettingsSaveSchema(BaseModel):
+    subdomain: str
+    api_key: Optional[str] = None
+
+def import_daftra_raw_invoice(raw_item: dict, conn, cursor) -> dict:
+    inv = raw_item.get("Invoice") or raw_item.get("invoice") or raw_item
+    client = raw_item.get("Client") or raw_item.get("client") or raw_item.get("Customer") or raw_item.get("customer") or {}
+
+    raw_id = inv.get("id") or inv.get("invoice_id") or ""
+    raw_no = inv.get("invoice_number") or inv.get("no") or inv.get("number") or str(raw_id)
+    raw_no_str = str(raw_no).strip()
+    if not raw_no_str.startswith("DFT-") and not raw_no_str.startswith("INV-"):
+        invoice_number = f"DFT-{raw_no_str}"
+    else:
+        invoice_number = raw_no_str
+
+    first_name = (client.get("first_name") or client.get("name") or inv.get("client_name") or "عميل دفترة").strip()
+    last_name = (client.get("last_name") or "").strip()
+    client_name = f"{first_name} {last_name}".strip() or "عميل دفترة"
+
+    client_phone = (client.get("phone1") or client.get("phone") or client.get("mobile") or inv.get("client_phone") or "0500000000").strip()
+    client_address = (client.get("address1") or client.get("address") or inv.get("client_address") or "المعرض / توصيل").strip()
+
+    total = float(inv.get("total") or inv.get("total_amount") or 0.0)
+    subtotal = float(inv.get("sub_total") or inv.get("subtotal") or (total / 1.15 if total > 0 else 0.0))
+    tax = float(inv.get("tax_total") or inv.get("tax_amount") or (total - subtotal))
+
+    # Payment status (Daftra: 1 = paid, 2 = partial, 0/3 = unpaid)
+    raw_status = inv.get("payment_status")
+    paid_val = float(inv.get("paid") or 0.0)
+    if str(raw_status) in ["1", "paid"] or (paid_val >= total and total > 0):
+        pay_status = "paid"
+    elif str(raw_status) in ["2", "partial"] or (0 < paid_val < total):
+        pay_status = "partial"
+    else:
+        pay_status = "unpaid"
+
+    issue_date = str(inv.get("date") or inv.get("created_at") or date.today().strftime("%Y-%m-%d")).split("T")[0].split(" ")[0]
+    due_date = str(inv.get("due_date") or issue_date).split("T")[0].split(" ")[0]
+
+    # Items
+    items_list = []
+    raw_items = inv.get("InvoiceItem") or inv.get("items") or []
+    for it in raw_items:
+        it_dict = it.get("InvoiceItem") if isinstance(it, dict) and "InvoiceItem" in it else it
+        if isinstance(it_dict, dict):
+            it_name = it_dict.get("item") or it_dict.get("name") or it_dict.get("description") or "تنسيق ورد"
+            it_qty = int(float(it_dict.get("quantity") or 1))
+            it_unit_price = float(it_dict.get("unit_price") or it_dict.get("price") or (total / it_qty if it_qty else total))
+            items_list.append(WebhookItemSchema(
+                name=it_name,
+                quantity=it_qty,
+                unit_price=it_unit_price,
+                total_price=it_unit_price * it_qty
+            ))
+
+    if not items_list:
+        items_list.append(WebhookItemSchema(name="طلب وتنسيق ورد", quantity=1, unit_price=subtotal, total_price=subtotal))
+
+    payload = ExternalInvoicePayload(
+        source_system="دفترة (Daftra)",
+        invoice_number=invoice_number,
+        issue_date=issue_date,
+        due_date=due_date,
+        customer_name=client_name,
+        customer_phone=client_phone,
+        customer_address=client_address,
+        subtotal=subtotal,
+        tax_amount=tax,
+        total_amount=total,
+        payment_status=pay_status,
+        payment_method="pos",
+        notes="مستورد من برنامج دفترة (قراءة فقط 🛡️)",
+        items=items_list
+    )
+
+    import asyncio
+    return asyncio.run(receive_invoice_from_accounting(payload))
+
+@router.get("/daftra/status")
+def get_daftra_status(request: Request):
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT value FROM system_settings WHERE key = 'daftra_subdomain'")
+    sub_row = cursor.fetchone()
+    cursor.execute("SELECT value FROM system_settings WHERE key = 'daftra_api_key'")
+    key_row = cursor.fetchone()
+    cursor.execute("SELECT value FROM system_settings WHERE key = 'daftra_last_sync'")
+    sync_row = cursor.fetchone()
+
+    subdomain = sub_row[0] if sub_row else ""
+    api_key = key_row[0] if key_row else ""
+    last_sync = sync_row[0] if sync_row else "لم يتم السحب بعد"
+
+    cursor.execute("SELECT COUNT(*) FROM invoices WHERE notes LIKE '%دفترة%'")
+    daftra_invoices_count = int(cursor.fetchone()[0])
+    
+    base_url = str(request.base_url).rstrip("/")
+    conn.close()
+
+    return {
+        "subdomain": subdomain,
+        "has_api_key": bool(api_key),
+        "api_key_masked": (api_key[:4] + "••••••••" + api_key[-4:]) if len(api_key) > 8 else ("••••" if api_key else ""),
+        "webhook_url": f"{base_url}/api/sync/daftra/webhook",
+        "last_sync": last_sync,
+        "total_imported": daftra_invoices_count,
+        "read_only_mode": True
+    }
+
+@router.post("/daftra/settings")
+def save_daftra_settings(payload: DaftraSettingsSaveSchema):
+    conn = get_db()
+    cursor = conn.cursor()
+    clean_sub = payload.subdomain.replace("https://", "").replace("http://", "").split(".")[0].strip()
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_subdomain', ?)", (clean_sub,))
+    if payload.api_key and payload.api_key.strip():
+        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_api_key', ?)", (payload.api_key.strip(),))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "تم حفظ إعدادات دفترة بنجاح (وضع القراءة فقط 🛡️)"}
+
+@router.post("/daftra/webhook")
+async def receive_daftra_webhook(request: Request):
+    """
+    نقطة استقبال الويب هوك الخاص بدفترة (Webhook Receiver):
+    يستقبل الفاتورة فور إصدارها في دفترة ويعرضها مباشرة في الداشبورد.
+    لا يقوم بإرسال أي أوامر إلى دفترة نهائياً (استقبال وقراءة فقط).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        try:
+            form = await request.form()
+            body = dict(form)
+        except Exception:
+            body = {}
+
+    if not body:
+        raise HTTPException(status_code=400, detail="البيانات المستقبلة فارغة")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        result = import_daftra_raw_invoice(body, conn, cursor)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_last_webhook', ?)", (now_str,))
+        conn.commit()
+        conn.close()
+        return {
+            "success": True,
+            "message": "تم استقبال فاتورة دفترة وعرضها في الداشبورد بنجاح (قراءة فقط)",
+            "read_only": True,
+            "details": result
+        }
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة فاتورة دفترة: {str(e)}")
+
+@router.post("/daftra/pull")
+def pull_daftra_invoices():
+    """
+    سحب الفواتير من دفترة مباشرة - قراءة فقط (Strictly Read-Only GET)
+    لا يرسل أي أوامر أو تعديلات إلى حساب دفترة إطلاقاً.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT value FROM system_settings WHERE key = 'daftra_subdomain'")
+    sub_row = cursor.fetchone()
+    cursor.execute("SELECT value FROM system_settings WHERE key = 'daftra_api_key'")
+    key_row = cursor.fetchone()
+
+    subdomain = (sub_row[0] if sub_row else "").strip()
+    api_key = (key_row[0] if key_row else "").strip()
+
+    if not subdomain or not api_key:
+        conn.close()
+        raise HTTPException(status_code=400, detail="يرجى إدخال رابط الدومين ومفتاح الـ API الخاص بدفترة أولاً")
+
+    clean_subdomain = subdomain.replace("https://", "").replace("http://", "").split(".")[0].strip()
+    
+    url = f"https://{clean_subdomain}.daftra.com/api2/invoices.json?limit=50&order=id:desc"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "APIKEY": api_key,
+            "Accept": "application/json",
+            "User-Agent": "NabtERP-ReadOnly-Sync/1.0"
+        },
+        method="GET"
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            res_body = response.read().decode('utf-8')
+            res_data = json.loads(res_body)
+    except urllib.error.HTTPError as e:
+        conn.close()
+        error_detail = f"خطأ من دفترة ({e.code}): تحقق من صحة اسم النطاق ({clean_subdomain}) ومفتاح الـ API"
+        raise HTTPException(status_code=400, detail=error_detail)
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=f"تعذر الاتصال بـ دفترة: {str(e)}")
+
+    invoices_data = res_data.get("data") or []
+    if isinstance(res_data, list):
+        invoices_data = res_data
+
+    imported_count = 0
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for item in invoices_data:
+        try:
+            import_daftra_raw_invoice(item, conn, cursor)
+            imported_count += 1
+        except Exception as err:
+            print(f"[Daftra Import Error]: {err}")
+
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_last_sync', ?)", (now_str,))
+    cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('daftra_total_imported', ?)", (str(imported_count),))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"تم سحب وتحديث {imported_count} فاتورة من دفترة بنجاح، وعرضها في الداشبورد والفواتير (قراءة فقط 🛡️)",
+        "count": imported_count,
+        "last_sync": now_str,
+        "read_only": True
     }

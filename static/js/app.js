@@ -4097,9 +4097,117 @@ function closeModal(modalId) {
     }
 }
 
-// 10. ACCOUNTING WEBHOOK & SIMULATION LOGIC
-function openAccountingSyncModal() {
+// 10. DAFTRA (دفترة) & ACCOUNTING READ-ONLY SYNC LOGIC
+async function openAccountingSyncModal() {
     openModal('modal-accounting-sync');
+    
+    // Set absolute webhook url
+    const whInput = document.getElementById('daftra-webhook-url-input');
+    if (whInput) {
+        whInput.value = `${window.location.origin}/api/sync/daftra/webhook`;
+    }
+
+    try {
+        const res = await fetch('/api/sync/daftra/status');
+        const data = await res.json();
+        if (data) {
+            const subInput = document.getElementById('daftra-subdomain-input');
+            const keyInput = document.getElementById('daftra-apikey-input');
+            const lastSync = document.getElementById('daftra-last-sync-time');
+            const totalInv = document.getElementById('daftra-total-invoices');
+            const badge = document.getElementById('daftra-sync-status-badge');
+
+            if (subInput && data.subdomain) subInput.value = data.subdomain;
+            if (keyInput) {
+                if (data.has_api_key) {
+                    keyInput.placeholder = `محفوظ: ${data.api_key_masked} (اتركه فارغاً للإبقاء عليه)`;
+                } else {
+                    keyInput.placeholder = 'ألصق مفتاح الـ API هنا';
+                }
+            }
+            if (lastSync) lastSync.textContent = data.last_sync || 'لم يتم السحب بعد';
+            if (totalInv) totalInv.textContent = data.total_imported || 0;
+            if (badge) {
+                if (data.has_api_key && data.subdomain) {
+                    badge.className = 'text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full';
+                    badge.textContent = 'متصل بالقراءة فقط 🛡️';
+                } else {
+                    badge.className = 'text-[10px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded-full';
+                    badge.textContent = 'جاهز للربط';
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load Daftra status:", e);
+    }
+}
+
+async function handleSaveDaftraSettings(event) {
+    if (event) event.preventDefault();
+    const subdomain = document.getElementById('daftra-subdomain-input')?.value.trim();
+    const apiKey = document.getElementById('daftra-apikey-input')?.value.trim();
+    const saveMsg = document.getElementById('daftra-save-msg');
+
+    if (!subdomain) {
+        alert("يرجى إدخال اسم نطاق حسابك في دفترة أولاً (Subdomain)");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/sync/daftra/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subdomain: subdomain,
+                api_key: apiKey || null
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (saveMsg) {
+                saveMsg.classList.remove('hidden');
+                setTimeout(() => saveMsg.classList.add('hidden'), 3000);
+            }
+            alert("✓ " + data.message);
+            openAccountingSyncModal();
+        } else {
+            alert(data.detail || "تعذر حفظ إعدادات دفترة");
+        }
+    } catch (err) {
+        console.error("Save Daftra settings error:", err);
+        alert("حدث خطأ أثناء حفظ الإعدادات");
+    }
+}
+
+async function triggerDaftraPullNow() {
+    const btn = document.getElementById('btn-pull-daftra-now');
+    const label = document.getElementById('daftra-pull-label');
+    const icon = document.getElementById('daftra-pull-icon');
+
+    if (btn) btn.disabled = true;
+    if (label) label.textContent = 'جاري سحب الفواتير من دفترة...';
+    if (icon) icon.classList.add('animate-spin');
+
+    try {
+        const res = await fetch('/api/sync/daftra/pull', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(`🛡️ ${data.message}\n\n• تم تحديث الداشبورد وحسابات المبيعات وسجل الفواتير بنجاح بدون إرسال أي أوامر لدفترة.`);
+            await loadDashboardData();
+            await loadInvoices();
+            await loadOrders();
+            await openAccountingSyncModal();
+        } else {
+            alert(data.detail || "تعذر سحب الفواتير من دفترة. يرجى التأكد من اسم النطاق ومفتاح الـ API.");
+        }
+    } catch (err) {
+        console.error("Daftra pull error:", err);
+        alert("حدث خطأ أثناء محاولة الاتصال بـ دفترة.");
+    } finally {
+        if (btn) btn.disabled = false;
+        if (label) label.textContent = 'سحب الفواتير من دفترة الآن 📥';
+        if (icon) icon.classList.remove('animate-spin');
+    }
 }
 
 function copyToClipboard(inputId) {
