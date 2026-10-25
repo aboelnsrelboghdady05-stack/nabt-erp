@@ -318,7 +318,7 @@ def init_db():
     users_to_ensure = [
         ("ياسر (المدير العام)", "0544338827", "general_manager", "yasser", "123456", "إدارة عامة وإشراف", "الجمعة"),
         ("فيصل (مدير تشغيلي)", "0500475452", "operations_manager", "faisal", "123456", "إدارة تشغيلية وتنسيق", "السبت"),
-        ("نادر (مدير فرع)", "0502220002", "branch_manager", "nader", "123456", "إدارة الفرع والطلبات", "الأحد"),
+        ("نادر (مدير فرع)", "0554346405", "branch_manager", "nader", "123456", "إدارة الفرع والطلبات", "الأحد"),
         ("عمر (منسق ورد)", "0533688697", "florist", "omar", "123456", "تنسيق باقات وتغليف", "الثلاثاء"),
         ("ريكو (منسق ورد)", "0544917489", "florist", "rico", "123456", "تنسيق فازات وهدايا", "الاثنين")
     ]
@@ -330,8 +330,8 @@ def init_db():
             emp_id = existing_row[0]
             existing_pwd = existing_row[1] or upwd
             existing_off = existing_row[2] or uoffday
-            # Prioritize real numbers for Omar, Rico, and Faisal
-            existing_phone = uphone if ulogin in ["omar", "rico", "faisal"] else (existing_row[3] or uphone)
+            # Prioritize real numbers for Omar, Rico, Faisal, Yasser, and Nader
+            existing_phone = uphone if ulogin in ["omar", "rico", "faisal", "yasser", "nader"] else (existing_row[3] or uphone)
             cursor.execute("""
             UPDATE employees 
             SET name = ?, phone = ?, role = ?, username = ?, specialty = ?, status = 'on_duty',

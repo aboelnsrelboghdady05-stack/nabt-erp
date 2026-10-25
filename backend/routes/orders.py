@@ -933,7 +933,7 @@ def perform_florist_autoforward(order_id: int, reason: str, orig_florist_name: O
     # 3. Alert Nader (Branch Manager)
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status, related_order_id)
-    VALUES ('0502220002', 'نادر (مدير فرع)', 'outbound', 'florist_alert', ?, 'delivered', ?)
+    VALUES ('0554346405', 'نادر (مدير فرع)', 'outbound', 'florist_alert', ?, 'delivered', ?)
     """, (alert_text, order_id))
 
     # 4. Dispatch to new florist (Rico or Omar)
@@ -1167,7 +1167,7 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
     cursor.execute("SELECT name, phone FROM employees WHERE role = 'branch_manager' OR name LIKE '%نادر%' LIMIT 1")
     nader_emp = cursor.fetchone()
     nader_name = nader_emp['name'] if nader_emp else 'نادر (مدير فرع)'
-    nader_phone = nader_emp['phone'] if nader_emp else '0502220002'
+    nader_phone = nader_emp['phone'] if nader_emp else '0554346405'
 
     materials_summary = ""
     if payload.materials_used:
