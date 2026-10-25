@@ -459,7 +459,7 @@ def create_order(payload: OrderCreateSchema):
 
         event_info = ""
         if (payload.order_type == "large_event") or payload.event_name:
-            event_info = f"• 🏰 تصنيف الطلبية: مناسبة كبيرة ({payload.event_name or 'فعالية خاصة'})\n"
+            event_info = f"• ✨ تصنيف الطلبية: طلب خاص ({payload.event_name or 'مناسبة خاصة'})\n"
             if payload.event_venue:
                 event_info += f"• 📍 موقع الفعالية/القاعة: {payload.event_venue}\n"
 
@@ -1180,7 +1180,7 @@ def complete_florist_work(order_id: int, payload: OrderCompleteWorkSchema):
     event_info_str = ""
     order_dict = dict(order)
     if order_dict.get('order_type') == 'large_event' or order_dict.get('event_name'):
-        event_info_str = f"🏰 [طلبية مناسبة/فعالية: {order_dict.get('event_name') or 'كبيرة'}]\n📍 الموقع: {order_dict.get('event_venue') or 'القاعة'}\n"
+        event_info_str = f"✨ [تصنيف الطلبية: طلب خاص - {order_dict.get('event_name') or 'مناسبة خاصة'}]\n📍 الموقع: {order_dict.get('event_venue') or 'القاعة'}\n"
 
     nader_approval_alert = (
         f"🌸 إشعار تعميد طلب جديد يا {nader_name}!\n"

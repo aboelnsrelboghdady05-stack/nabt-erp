@@ -1121,9 +1121,13 @@ function getDeliveryCountdownText(deliveryDateStr) {
 async function loadOrders() {
     try {
         const search = document.getElementById('order-search-input')?.value || '';
-        let url = `/api/orders?status=${activeOrderFilter === 'large_event' ? 'all' : activeOrderFilter}`;
+        let url = `/api/orders?status=all`;
         if (activeOrderFilter === 'large_event') {
             url += `&order_type=large_event`;
+        } else if (activeOrderFilter === 'regular') {
+            url += `&order_type=regular`;
+        } else if (activeOrderFilter !== 'all') {
+            url = `/api/orders?status=${activeOrderFilter}`;
         }
         if (search) url += `&search=${encodeURIComponent(search)}`;
         
@@ -1143,7 +1147,7 @@ async function loadOrders() {
         if (orders.length === 0) {
             const emptyText = (currentUser && currentUser.role === 'florist')
                 ? `لا توجد طلبات مسندة للمنسق (${currentUser.name || ''}) حالياً في هذا الفلتر 🌸`
-                : (activeOrderFilter === 'large_event' ? `لا توجد طلبيات كبيرة أو مناسبات مسجلة حالياً 🏰` : `لا توجد طلبات تطابق الفلتر المحدد`);
+                : (activeOrderFilter === 'large_event' ? `لا توجد طلبات خاصة مسجلة حالياً ✨` : (activeOrderFilter === 'regular' ? `لا توجد طلبات يومية مسجلة حالياً 🌸` : `لا توجد طلبات تطابق الفلتر المحدد`));
             if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-center py-10 text-slate-400 text-xs">${emptyText}</td></tr>`;
             if (mobileContainer) mobileContainer.innerHTML = `<div class="p-6 bg-white rounded-2xl border border-cream-200 text-center text-slate-400 text-xs">${emptyText}</div>`;
             return;
@@ -1157,8 +1161,8 @@ async function loadOrders() {
             const eventBadgeHtml = isLargeEvent ? `
                 <div class="mt-1 flex items-center gap-1 flex-wrap">
                     <span class="inline-flex items-center gap-1 text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-lg shadow-2xs">
-                        <i data-lucide="crown" class="w-3 h-3 text-amber-100"></i>
-                        <span>طلبية كبيرة 🏰</span>
+                        <i data-lucide="sparkles" class="w-3 h-3 text-amber-100"></i>
+                        <span>طلب خاص ✨</span>
                     </span>
                     ${o.event_name ? `<span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded-md truncate max-w-[130px]" title="${o.event_name}">${o.event_name}</span>` : ''}
                     ${countdownText ? `<span class="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 font-bold px-1.5 py-0.5 rounded">${countdownText}</span>` : ''}
@@ -1341,7 +1345,7 @@ async function loadOrders() {
                                 <span>${o.order_number}</span>
                                 <i data-lucide="info" class="w-3.5 h-3.5 text-olive-500"></i>
                             </button>
-                            ${isLargeEvent ? `<span class="text-[10px] bg-amber-500 text-white font-black px-1.5 py-0.5 rounded shadow-2xs">🏰 كبيرة</span>` : ''}
+                            ${isLargeEvent ? `<span class="text-[10px] bg-amber-500 text-white font-black px-1.5 py-0.5 rounded shadow-2xs">✨ طلب خاص</span>` : ''}
                             ${o.card_message ? `<span class="text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-bold border border-rose-200">💌 كرت</span>` : ''}
                         </div>
                         <div>${renderStatusBadge(o.status)}</div>
@@ -1465,12 +1469,16 @@ function setOrderFilter(status) {
         if (btnStatus === status) {
             if (status === 'large_event') {
                 btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 text-white shadow-xs';
+            } else if (status === 'regular') {
+                btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-olive-800 text-white shadow-xs';
             } else {
                 btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-olive-700 text-cream-50';
             }
         } else {
             if (btnStatus === 'large_event') {
                 btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300';
+            } else if (btnStatus === 'regular') {
+                btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-cream-100 text-olive-800 hover:bg-cream-200';
             } else {
                 btn.className = 'order-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-cream-100 text-olive-800 hover:bg-cream-200';
             }
@@ -2114,24 +2122,43 @@ function setOrderType(type) {
     const btnLarge = document.getElementById('btn-order-type-large');
     const eventSection = document.getElementById('large-event-details-section');
 
-    if (type === 'large_event') {
+    if (type === 'large_event' || type === 'special' || type === 'large') {
+        currentOrderType = 'large_event';
+        if (typeInput) typeInput.value = 'large_event';
         if (btnLarge) {
-            btnLarge.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300';
+            btnLarge.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-amber-600 text-white border-amber-700 shadow-md ring-4 ring-amber-300';
+            btnLarge.style.backgroundColor = '#d97706';
+            btnLarge.style.color = '#ffffff';
         }
         if (btnReg) {
             btnReg.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-white text-slate-700 border-slate-200 hover:bg-slate-50';
+            btnReg.style.backgroundColor = '#ffffff';
+            btnReg.style.color = '#334155';
         }
-        if (eventSection) eventSection.classList.remove('hidden');
+        if (eventSection) {
+            eventSection.classList.remove('hidden');
+            eventSection.style.display = 'block';
+        }
     } else {
+        currentOrderType = 'regular';
+        if (typeInput) typeInput.value = 'regular';
         if (btnReg) {
-            btnReg.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-olive-800 text-white border-olive-900 shadow-md ring-2 ring-olive-300';
+            btnReg.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-olive-800 text-white border-olive-900 shadow-md ring-4 ring-olive-300';
+            btnReg.style.backgroundColor = '#283618';
+            btnReg.style.color = '#ffffff';
         }
         if (btnLarge) {
             btnLarge.className = 'p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 text-xs font-black cursor-pointer bg-white text-amber-900 border-amber-300 hover:bg-amber-50';
+            btnLarge.style.backgroundColor = '#ffffff';
+            btnLarge.style.color = '#78350f';
         }
-        if (eventSection) eventSection.classList.add('hidden');
+        if (eventSection) {
+            eventSection.classList.add('hidden');
+            eventSection.style.display = 'none';
+        }
     }
 }
+window.setOrderType = setOrderType;
 
 async function openNewOrderModal() {
     if (!canCreateOrders()) {
