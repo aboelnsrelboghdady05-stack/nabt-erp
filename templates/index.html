@@ -1634,10 +1634,11 @@
                         <i data-lucide="flower" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold text-olive-950 text-base">إنشاء طلب ورد وتنسيق جديد 🌸</h3>
-                        <p class="text-xs text-olive-700/70">إدخال تفاصيل الورد، كرت الإهداء، والمستلم والفوترة</p>
+                        <h3 id="modal-order-title" class="font-bold text-olive-950 text-base">إنشاء طلب ورد وتنسيق جديد 🌸</h3>
+                        <p id="modal-order-subtitle" class="text-xs text-olive-700/70">إدخال تفاصيل الورد، كرت الإهداء، والمستلم والفوترة</p>
                     </div>
                 </div>
+                <input type="hidden" id="editing-order-id" value="">
                 <button onclick="closeModal('modal-new-order')" class="w-8 h-8 rounded-full bg-cream-200 hover:bg-cream-300 flex items-center justify-center text-olive-800 transition-all cursor-pointer">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
@@ -1920,7 +1921,7 @@
                     </div>
                     <button type="submit" class="bg-terracotta-600 hover:bg-terracotta-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-terracotta-600/30 flex items-center gap-2 transition-all active:scale-95 cursor-pointer">
                         <i data-lucide="check" class="w-4 h-4"></i>
-                        <span>حفظ وإصدار الفاتورة 🌸</span>
+                        <span id="modal-order-submit-text">حفظ وإصدار الفاتورة 🌸</span>
                     </button>
                 </div>
             </form>
@@ -2207,6 +2208,24 @@
                     <div id="detail-payment-badge">
                         <!-- Paid / Unpaid badge -->
                     </div>
+                </div>
+
+                <!-- 5. ACTIONS (تعديل الطلب، حذف الطلب، طباعة الفاتورة) -->
+                <div class="p-3.5 bg-cream-50 rounded-2xl border border-cream-200 flex flex-wrap items-center justify-between gap-2.5">
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btn-detail-edit-order" onclick="handleEditFromDetailModal()" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            <span>تعديل الطلب ✏️</span>
+                        </button>
+                        <button type="button" id="btn-detail-delete-order" onclick="handleDeleteFromDetailModal()" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <span>حذف الطلب 🗑️</span>
+                        </button>
+                    </div>
+                    <button type="button" id="btn-detail-print-order" onclick="handlePrintFromDetailModal()" class="px-3.5 py-2 bg-olive-800 hover:bg-olive-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        <span>عرض الفاتورة 📄</span>
+                    </button>
                 </div>
             </div>
         </div>

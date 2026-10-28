@@ -1255,11 +1255,26 @@ async function loadOrders() {
                 <button onclick="openOrderDetailModal(${o.id})" title="عرض تفاصيل الطلب" class="p-1.5 rounded-lg hover:bg-olive-100 text-olive-800 transition-all cursor-pointer">
                     <i data-lucide="eye" class="w-4 h-4"></i>
                 </button>
+                ${(!currentUser || currentUser.role !== 'florist') ? `
+                    <button onclick="openEditOrderModal(${o.id})" title="تعديل بيانات الطلب" class="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700 transition-all cursor-pointer">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="deleteSingleOrder(${o.id}, '${o.order_number}')" title="حذف هذا الطلب نهائياً" class="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition-all cursor-pointer">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                ` : ''}
             ` : `
                 <!-- View details eye icon -->
                 <button onclick="openOrderDetailModal(${o.id})" title="عرض تفاصيل الطلب والتوقيتات ومسار التنسيق" class="p-1.5 rounded-lg hover:bg-olive-100 text-olive-800 transition-all cursor-pointer">
                     <i data-lucide="eye" class="w-4 h-4"></i>
                 </button>
+
+                <!-- Edit Order Button -->
+                ${(!currentUser || currentUser.role !== 'florist') ? `
+                    <button onclick="openEditOrderModal(${o.id})" title="تعديل بيانات الطلب" class="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700 transition-all cursor-pointer">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                ` : ''}
 
                 <!-- FLORIST WORKFLOW BUTTONS -->
                 ${currentUser && currentUser.role === 'florist' && o.status === 'new' && o.acceptance_status !== 'accepted' ? `
@@ -1299,6 +1314,13 @@ async function loadOrders() {
                 <button onclick="openWhatsAppChatDirect('${o.customer_phone}', '${o.customer_name}', 'أهلاً بك عميلنا العزيز في نبت 🌸 بخصوص طلبك رقم ${o.order_number}')" title="محادثة واتساب" class="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 cursor-pointer">
                     <i data-lucide="message-circle" class="w-4 h-4"></i>
                 </button>
+
+                <!-- Delete Order Button -->
+                ${(!currentUser || currentUser.role !== 'florist') ? `
+                    <button onclick="deleteSingleOrder(${o.id}, '${o.order_number}')" title="حذف هذا الطلب نهائياً" class="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition-all cursor-pointer">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                ` : ''}
             `;
 
             // 1. Desktop Table Row
@@ -2232,11 +2254,50 @@ function setOrderType(type) {
 }
 window.setOrderType = setOrderType;
 
+let editingOrderId = null;
+
 async function openNewOrderModal() {
     if (!canCreateOrders()) {
         alert("عذراً! صلاحية إضافة طلب جديد محصورة على الإدارة (ياسر، فيصل، نادر) فقط 🌸");
         return;
     }
+
+    editingOrderId = null;
+    const editIdInput = document.getElementById('editing-order-id');
+    if (editIdInput) editIdInput.value = '';
+
+    const titleEl = document.getElementById('modal-order-title');
+    if (titleEl) titleEl.textContent = 'إنشاء طلب ورد وتنسيق جديد 🌸';
+
+    const subtitleEl = document.getElementById('modal-order-subtitle');
+    if (subtitleEl) subtitleEl.textContent = 'إدخال تفاصيل الورد، كرت الإهداء، والمستلم والفوترة';
+
+    const submitTextEl = document.getElementById('modal-order-submit-text');
+    if (submitTextEl) submitTextEl.textContent = 'حفظ وإصدار الفاتورة 🌸';
+
+    // Clear customer & recipient fields
+    const custName = document.getElementById('order-cust-name');
+    if (custName) custName.value = '';
+    const custPhone = document.getElementById('order-cust-phone');
+    if (custPhone) custPhone.value = '';
+    const recName = document.getElementById('order-rec-name');
+    if (recName) recName.value = '';
+    const recPhone = document.getElementById('order-rec-phone');
+    if (recPhone) recPhone.value = '';
+    const recAddr = document.getElementById('order-rec-address');
+    if (recAddr) recAddr.value = '';
+    const recLoc = document.getElementById('order-rec-location');
+    if (recLoc) recLoc.value = '';
+    const cardMsg = document.getElementById('order-card-message');
+    if (cardMsg) cardMsg.value = '';
+    const discountInput = document.getElementById('order-discount');
+    if (discountInput) discountInput.value = '0';
+    const payStatus = document.getElementById('order-payment-status');
+    if (payStatus) payStatus.value = 'paid';
+    const payMethod = document.getElementById('order-payment-method');
+    if (payMethod) payMethod.value = 'pos';
+    const notesInput = document.getElementById('order-notes');
+    if (notesInput) notesInput.value = '';
 
     const today = getLocalDateString();
     document.getElementById('order-delivery-date').value = today;
@@ -2287,6 +2348,165 @@ async function openNewOrderModal() {
     calculateOrderModalTotals();
     openModal('modal-new-order');
 }
+
+async function openEditOrderModal(orderId) {
+    if (!canCreateOrders()) {
+        alert("عذراً! صلاحية تعديل الطلب محصورة على الإدارة (ياسر، فيصل، نادر) فقط 🌸");
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (!res.ok) {
+            alert("تعذر جلب تفاصيل الطلب للتعديل");
+            return;
+        }
+        const o = await res.json();
+        editingOrderId = o.id;
+
+        const editIdInput = document.getElementById('editing-order-id');
+        if (editIdInput) editIdInput.value = o.id;
+
+        // Change modal header & submit button
+        const titleEl = document.getElementById('modal-order-title');
+        if (titleEl) titleEl.textContent = `تعديل الطلب #${o.order_number} ✏️`;
+
+        const subtitleEl = document.getElementById('modal-order-subtitle');
+        if (subtitleEl) subtitleEl.textContent = `تعديل بيانات العميل، تفاصيل الورد، الفوترة، ومواعيد التسليم`;
+
+        const submitTextEl = document.getElementById('modal-order-submit-text');
+        if (submitTextEl) submitTextEl.textContent = `حفظ التعديلات 💾`;
+
+        // Order Type
+        const oType = o.order_type || (o.event_name ? 'large_event' : 'regular');
+        setOrderType(oType);
+
+        const evName = document.getElementById('order-event-name');
+        if (evName) evName.value = o.event_name || '';
+        const evVenue = document.getElementById('order-event-venue');
+        if (evVenue) evVenue.value = o.event_venue || '';
+        const evCoord = document.getElementById('order-event-coordinator');
+        if (evCoord) evCoord.value = o.event_coordinator_contact || '';
+
+        // Customer & Recipient
+        const custName = document.getElementById('order-cust-name');
+        if (custName) custName.value = o.customer_name || '';
+        const custPhone = document.getElementById('order-cust-phone');
+        if (custPhone) custPhone.value = o.customer_phone || '';
+        const recName = document.getElementById('order-rec-name');
+        if (recName) recName.value = o.recipient_name || '';
+        const recPhone = document.getElementById('order-rec-phone');
+        if (recPhone) recPhone.value = o.recipient_phone || '';
+
+        // Delivery Mode
+        if (o.recipient_address === 'استلام من المحل') {
+            setOrderDeliveryMode('pickup');
+        } else {
+            setOrderDeliveryMode('delivery');
+        }
+        const recAddr = document.getElementById('order-rec-address');
+        if (recAddr) recAddr.value = o.recipient_address || '';
+        const recLoc = document.getElementById('order-rec-location');
+        if (recLoc) recLoc.value = o.location_url || '';
+
+        // Card message
+        const cardMsg = document.getElementById('order-card-message');
+        if (cardMsg) cardMsg.value = o.card_message || '';
+
+        // Reference images
+        currentOrderReferenceImages = Array.isArray(o.reference_images) && o.reference_images.length > 0 
+            ? o.reference_images 
+            : (o.reference_image ? [o.reference_image] : []);
+        renderReferenceImagesGallery();
+
+        // Flower colors
+        const colorsInput = document.getElementById('order-flower-colors-input');
+        if (colorsInput) colorsInput.value = o.flower_colors || '';
+
+        // Delivery date & slot
+        const dateInput = document.getElementById('order-delivery-date');
+        if (dateInput) dateInput.value = o.delivery_date || getLocalDateString();
+        const slotInput = document.getElementById('order-time-slot');
+        if (slotInput) slotInput.value = o.delivery_time_slot || '';
+
+        // Drivers select
+        const driverSelect = document.getElementById('order-driver-select');
+        if (driverSelect) {
+            driverSelect.innerHTML = `<option value="">-- اختياري: تعيين لاحقاً --</option>`;
+            allDrivers.forEach(d => {
+                const isSel = (o.driver_id && o.driver_id == d.id) ? 'selected' : '';
+                driverSelect.innerHTML += `<option value="${d.id}" ${isSel}>${d.name} (${d.vehicle})</option>`;
+            });
+        }
+
+        // Florists select
+        await refreshOrderModalFlorists();
+        const floristSelect = document.getElementById('order-florist-select');
+        if (floristSelect && o.florist_id) {
+            floristSelect.value = o.florist_id;
+        }
+
+        // Financials
+        const feeInput = document.getElementById('order-delivery-fee');
+        if (feeInput) feeInput.value = (o.delivery_fee !== undefined && o.delivery_fee !== null) ? o.delivery_fee : 35;
+        const discountInput = document.getElementById('order-discount');
+        if (discountInput) discountInput.value = o.discount || 0;
+        const payStatus = document.getElementById('order-payment-status');
+        if (payStatus) payStatus.value = o.payment_status || 'unpaid';
+        const payMethod = document.getElementById('order-payment-method');
+        if (payMethod) payMethod.value = o.payment_method || 'pos';
+        const notesInput = document.getElementById('order-notes');
+        if (notesInput) notesInput.value = o.notes || '';
+
+        // Items rows
+        const rows = document.getElementById('order-items-rows');
+        if (rows) {
+            rows.innerHTML = '';
+            if (o.items && o.items.length > 0) {
+                o.items.forEach(it => {
+                    addOrderItemRow(it.product_name, it.unit_price, it.quantity);
+                });
+            } else {
+                addOrderItemRow();
+            }
+        }
+
+        calculateOrderModalTotals();
+        openModal('modal-new-order');
+    } catch (err) {
+        console.error("Open edit order modal error:", err);
+        alert("حدث خطأ أثناء فتح شاشة تعديل الطلب");
+    }
+}
+window.openEditOrderModal = openEditOrderModal;
+
+async function deleteSingleOrder(orderId, orderNumber) {
+    if (!canCreateOrders()) {
+        alert("عذراً! صلاحية حذف الطلب محصورة على الإدارة (ياسر، فيصل، نادر) فقط 🌸");
+        return;
+    }
+    if (!confirm(`هل أنت متأكد من حذف الطلب #${orderNumber} نهائياً؟\n⚠️ سيتم حذف تفاصيل الطلب وكافة السجلات والفاتورة المرتبطة به ولا يمكن التراجع.`)) {
+        return;
+    }
+    try {
+        const res = await fetch(`/api/orders/${orderId}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message || `تم حذف الطلب #${orderNumber} بنجاح`);
+            loadOrders();
+            loadDashboardData();
+            loadInvoices();
+        } else {
+            alert(data.detail || "تعذر حذف الطلب");
+        }
+    } catch (err) {
+        console.error("Delete order error:", err);
+        alert("حدث خطأ أثناء محاولة حذف الطلب");
+    }
+}
+window.deleteSingleOrder = deleteSingleOrder;
 
 async function refreshOrderModalFlorists() {
     const floristSelect = document.getElementById('order-florist-select');
@@ -2499,6 +2719,8 @@ async function openOrderDetailModal(orderId) {
             return;
         }
         const ord = await res.json();
+        currentDetailOrderId = ord.id;
+        currentDetailOrderNumber = ord.order_number;
 
         // 1. Header info
         document.getElementById('detail-order-number-badge').textContent = `#${ord.order_number}`;
@@ -2780,6 +3002,32 @@ async function openOrderDetailModal(orderId) {
     }
 }
 
+let currentDetailOrderId = null;
+let currentDetailOrderNumber = null;
+
+function handleEditFromDetailModal() {
+    if (!currentDetailOrderId) return;
+    const oId = currentDetailOrderId;
+    closeModal('modal-order-detail');
+    openEditOrderModal(oId);
+}
+window.handleEditFromDetailModal = handleEditFromDetailModal;
+
+function handleDeleteFromDetailModal() {
+    if (!currentDetailOrderId) return;
+    const oId = currentDetailOrderId;
+    const oNum = currentDetailOrderNumber;
+    closeModal('modal-order-detail');
+    deleteSingleOrder(oId, oNum);
+}
+window.handleDeleteFromDetailModal = handleDeleteFromDetailModal;
+
+function handlePrintFromDetailModal() {
+    if (!currentDetailOrderId) return;
+    openInvoicePrintModalByOrder(currentDetailOrderId);
+}
+window.handlePrintFromDetailModal = handlePrintFromDetailModal;
+
 function addOrderItemRow(defaultName = '', defaultPrice = '', defaultQty = 1) {
     const container = document.getElementById('order-items-rows');
     const rowId = `item-row-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -2934,29 +3182,50 @@ async function handleCreateOrder(event) {
     };
 
     try {
-        const res = await fetch('/api/orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (result.success) {
-            closeModal('modal-new-order');
-            loadDashboardData();
-            loadOrders();
-            loadInvoices();
-            switchTab('orders');
-
-            let alertMsg = `✓ تم إنشاء الطلب بنجاح برقم: ${result.order_number}`;
-            if (result.assigned_florist) {
-                alertMsg += `\nتم إرسال مهمة التنسيق للمنسق (${result.assigned_florist.name}) عبر الواتساب بنجاح 🌸`;
+        let res, result;
+        if (editingOrderId) {
+            res = await fetch(`/api/orders/${editingOrderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            result = await res.json();
+            if (result.success) {
+                closeModal('modal-new-order');
+                const editedNum = result.order_number || '';
+                editingOrderId = null;
+                loadDashboardData();
+                loadOrders();
+                loadInvoices();
+                alert(`✓ تم حفظ وتحديث بيانات الطلب #${editedNum} بنجاح 💾`);
+            } else {
+                alert(result.detail || "حدث خطأ أثناء تعديل الطلب");
             }
-            alert(alertMsg);
         } else {
-            alert(result.detail || "حدث خطأ أثناء حفظ الطلب");
+            res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            result = await res.json();
+            if (result.success) {
+                closeModal('modal-new-order');
+                loadDashboardData();
+                loadOrders();
+                loadInvoices();
+                switchTab('orders');
+
+                let alertMsg = `✓ تم إنشاء الطلب بنجاح برقم: ${result.order_number}`;
+                if (result.assigned_florist) {
+                    alertMsg += `\nتم إرسال مهمة التنسيق للمنسق (${result.assigned_florist.name}) عبر الواتساب بنجاح 🌸`;
+                }
+                alert(alertMsg);
+            } else {
+                alert(result.detail || "حدث خطأ أثناء حفظ الطلب");
+            }
         }
     } catch (err) {
-        console.error("Order creation failed:", err);
+        console.error("Order creation/update failed:", err);
     }
 }
 

@@ -768,15 +768,217 @@ def clear_all_orders():
     conn.close()
     return {"success": True, "message": "تم حذف كافة الطلبات وتصفير الفواتير بنجاح"}
 
-@router.delete("/{order_id}")
-def cancel_or_delete_order(order_id: int):
+@router.put("/{order_id}")
+def update_order(order_id: int, payload: OrderCreateSchema):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
-    cursor.execute("UPDATE invoices SET status = 'cancelled' WHERE order_id = ?", (order_id,))
+
+    cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+    order = cursor.fetchone()
+    if not order:
+        conn.close()
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+
+    orig_order = dict(order)
+
+    # 1. Customer Management (find or create/update)
+    cursor.execute("SELECT id FROM customers WHERE phone = ?", (payload.customer_phone,))
+    c_row = cursor.fetchone()
+    if c_row:
+        customer_id = c_row['id']
+        cursor.execute("UPDATE customers SET name = ? WHERE id = ?", (payload.customer_name, customer_id))
+    else:
+        cursor.execute("INSERT INTO customers (name, phone) VALUES (?, ?)", (payload.customer_name, payload.customer_phone))
+        customer_id = cursor.lastrowid
+
+    # 2. Check / update florist availability if changed
+    from routes.employees import check_employee_availability_on_date
+    new_florist_id = payload.florist_id
+    old_florist_id = orig_order.get('florist_id')
+
+    if new_florist_id and new_florist_id != old_florist_id:
+        is_avail, unavail_reason = check_employee_availability_on_date(cursor, new_florist_id, payload.delivery_date)
+        if not is_avail:
+            conn.close()
+            raise HTTPException(status_code=400, detail=f"عذراً! {unavail_reason} يرجى اختيار منسق آخر.")
+
+        # Update active counts
+        if old_florist_id:
+            cursor.execute("UPDATE employees SET active_orders_count = MAX(0, active_orders_count - 1) WHERE id = ?", (old_florist_id,))
+        cursor.execute("UPDATE employees SET active_orders_count = active_orders_count + 1 WHERE id = ?", (new_florist_id,))
+
+    # 3. Calculate financial totals
+    gross_items = sum([item.quantity * item.unit_price for item in payload.items])
+    total_amount = round(max(0.0, gross_items + payload.delivery_fee - payload.discount), 2)
+    subtotal = round(total_amount / 1.15, 2)
+    tax = round(total_amount - subtotal, 2)
+    taxable_amount = subtotal
+
+    # 4. Prepare reference images
+    ref_imgs = payload.reference_images or []
+    if payload.reference_image and payload.reference_image not in ref_imgs:
+        ref_imgs.insert(0, payload.reference_image)
+    primary_ref_img = ref_imgs[0] if ref_imgs else payload.reference_image
+    ref_imgs_json = json.dumps(ref_imgs, ensure_ascii=False) if ref_imgs else None
+
+    # Reset florist timer if florist changed
+    florist_reset_clause = ""
+    if new_florist_id and new_florist_id != old_florist_id:
+        florist_reset_clause = ", florist_assigned_at = CURRENT_TIMESTAMP, florist_reminder_count = 0, florist_reminded_at = NULL, previous_florist_id = NULL, acceptance_status = 'pending'"
+
+    # 5. Update Order
+    update_sql = f"""
+    UPDATE orders SET
+        customer_id = ?,
+        customer_name = ?,
+        customer_phone = ?,
+        recipient_name = ?,
+        recipient_phone = ?,
+        recipient_address = ?,
+        location_url = ?,
+        card_message = ?,
+        reference_image = ?,
+        reference_images = ?,
+        order_type = ?,
+        event_name = ?,
+        event_venue = ?,
+        event_coordinator_contact = ?,
+        flower_colors = ?,
+        delivery_date = ?,
+        delivery_time_slot = ?,
+        driver_id = ?,
+        florist_id = ?,
+        subtotal = ?,
+        delivery_fee = ?,
+        discount = ?,
+        tax = ?,
+        total_amount = ?,
+        payment_status = ?,
+        payment_method = ?,
+        notes = ?,
+        updated_at = CURRENT_TIMESTAMP
+        {florist_reset_clause}
+    WHERE id = ?
+    """
+    params = [
+        customer_id, payload.customer_name, payload.customer_phone,
+        payload.recipient_name or payload.customer_name,
+        payload.recipient_phone or payload.customer_phone,
+        payload.recipient_address, payload.location_url,
+        payload.card_message, primary_ref_img, ref_imgs_json,
+        payload.order_type or 'regular',
+        payload.event_name, payload.event_venue, payload.event_coordinator_contact,
+        payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
+        payload.driver_id, new_florist_id,
+        subtotal, payload.delivery_fee, payload.discount, tax, total_amount,
+        payload.payment_status, payload.payment_method, payload.notes,
+        order_id
+    ]
+
+    cursor.execute(update_sql, params)
+
+    # 6. Update Items (delete old and insert new)
+    cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+    for item in payload.items:
+        cursor.execute("""
+        INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, total_price)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (order_id, item.product_id, item.product_name, item.quantity, item.unit_price, item.quantity * item.unit_price))
+
+    # 7. Update associated invoice
+    paid_amt = total_amount if payload.payment_status == "paid" else 0.0
+    rem_amt = 0.0 if payload.payment_status == "paid" else total_amount
+
+    cursor.execute("""
+    UPDATE invoices SET
+        customer_name = ?,
+        subtotal = ?,
+        tax_amount = ?,
+        total_amount = ?,
+        paid_amount = ?,
+        remaining_amount = ?,
+        status = ?,
+        payment_method = ?,
+        issue_date = ?,
+        due_date = ?
+    WHERE order_id = ?
+    """, (
+        payload.customer_name, taxable_amount, tax, total_amount,
+        paid_amt, rem_amt, payload.payment_status, payload.payment_method,
+        payload.delivery_date, payload.delivery_date, order_id
+    ))
+
+    # 8. Update Payments if paid status changed
+    if payload.payment_status == "paid":
+        cursor.execute("SELECT id FROM payments WHERE invoice_id IN (SELECT id FROM invoices WHERE order_id = ?)", (order_id,))
+        existing_pay = cursor.fetchone()
+        if not existing_pay:
+            cursor.execute("SELECT id FROM invoices WHERE order_id = ?", (order_id,))
+            inv_row = cursor.fetchone()
+            if inv_row:
+                cursor.execute("SELECT COALESCE(MAX(id), 0) FROM payments")
+                p_count = cursor.fetchone()[0] + 1
+                cursor.execute("""
+                INSERT INTO payments (payment_number, invoice_id, amount, payment_method, reference_number, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, (f"PAY-{p_count:05d}", inv_row['id'], total_amount, payload.payment_method, f"TXN-{orig_order['order_number']}", "سداد كامل للطلب بعد التعديل"))
+
+    # 9. Recalculate customer stats
+    cursor.execute("""
+        UPDATE customers 
+        SET orders_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?),
+            total_spent = COALESCE((SELECT SUM(total_amount) FROM orders WHERE customer_id = ? AND payment_status = 'paid'), 0.0)
+        WHERE id = ?
+    """, (customer_id, customer_id, customer_id))
+
     conn.commit()
     conn.close()
-    return {"success": True, "message": "Order marked as cancelled"}
+
+    return {
+        "success": True,
+        "message": f"تم تعديل الطلب #{orig_order['order_number']} بنجاح",
+        "order_id": order_id,
+        "order_number": orig_order['order_number'],
+        "total_amount": total_amount
+    }
+
+@router.delete("/{order_id}")
+def delete_order(order_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+    order = cursor.fetchone()
+    if not order:
+        conn.close()
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+
+    order_num = order['order_number']
+    cust_id = order['customer_id']
+    florist_id = order['florist_id']
+
+    # Delete related records (payments, invoices, order_items, whatsapp_messages, orders)
+    cursor.execute("DELETE FROM payments WHERE invoice_id IN (SELECT id FROM invoices WHERE order_id = ?)", (order_id,))
+    cursor.execute("DELETE FROM invoices WHERE order_id = ?", (order_id,))
+    cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+    cursor.execute("DELETE FROM whatsapp_messages WHERE related_order_id = ?", (order_id,))
+    cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+
+    # Decrement florist active count if applicable
+    if florist_id:
+        cursor.execute("UPDATE employees SET active_orders_count = MAX(0, active_orders_count - 1) WHERE id = ?", (florist_id,))
+
+    # Recalculate customer stats if customer exists
+    if cust_id:
+        cursor.execute("""
+            UPDATE customers 
+            SET orders_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?),
+                total_spent = COALESCE((SELECT SUM(total_amount) FROM orders WHERE customer_id = ? AND payment_status = 'paid'), 0.0)
+            WHERE id = ?
+        """, (cust_id, cust_id, cust_id))
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"تم حذف الطلب #{order_num} نهائياً بنجاح"}
 
 # ========================================================
 # WORKFLOW: FLORIST ACCEPTANCE & REJECTION / AUTO-FORWARD
