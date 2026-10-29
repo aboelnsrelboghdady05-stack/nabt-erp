@@ -6,15 +6,31 @@ from turso_db import TursoConnection
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nabt_erp.db")
 
+def _get_turso_creds():
+    url = (
+        os.environ.get("TURSO_DATABASE_URL") or 
+        os.environ.get("TURSO_URL") or 
+        os.environ.get("LIBSQL_URL") or 
+        os.environ.get("turso_database_url") or 
+        ""
+    ).strip().strip('"').strip("'")
+    
+    token = (
+        os.environ.get("TURSO_AUTH_TOKEN") or 
+        os.environ.get("TURSO_TOKEN") or 
+        os.environ.get("LIBSQL_AUTH_TOKEN") or 
+        os.environ.get("turso_auth_token") or 
+        ""
+    ).strip().strip('"').strip("'")
+    return url, token
+
 def is_turso_enabled():
-    url = (os.environ.get("TURSO_DATABASE_URL") or "").strip().strip('"').strip("'")
-    token = (os.environ.get("TURSO_AUTH_TOKEN") or "").strip().strip('"').strip("'")
+    url, token = _get_turso_creds()
     return bool(url and token)
 
 def get_db():
     if is_turso_enabled():
-        url = (os.environ.get("TURSO_DATABASE_URL") or "").strip().strip('"').strip("'")
-        token = (os.environ.get("TURSO_AUTH_TOKEN") or "").strip().strip('"').strip("'")
+        url, token = _get_turso_creds()
         return TursoConnection(url, token)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
