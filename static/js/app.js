@@ -4360,6 +4360,58 @@ async function deleteCustomer(id, name) {
     }
 }
 
+function openNewCustomerModal() {
+    const nameInput = document.getElementById('cust-name-input');
+    if (nameInput) nameInput.value = '';
+    const phoneInput = document.getElementById('cust-phone-input');
+    if (phoneInput) phoneInput.value = '';
+    const addrInput = document.getElementById('cust-address-input');
+    if (addrInput) addrInput.value = '';
+    const emailInput = document.getElementById('cust-email-input');
+    if (emailInput) emailInput.value = '';
+    const notesInput = document.getElementById('cust-notes-input');
+    if (notesInput) notesInput.value = '';
+    openModal('modal-new-customer');
+}
+
+async function handleCreateCustomer(event) {
+    if (event) event.preventDefault();
+    const name = document.getElementById('cust-name-input')?.value.trim();
+    const phone = document.getElementById('cust-phone-input')?.value.trim();
+    const address = document.getElementById('cust-address-input')?.value.trim();
+    const email = document.getElementById('cust-email-input')?.value.trim();
+    const notes = document.getElementById('cust-notes-input')?.value.trim();
+
+    if (!name || !phone) {
+        alert("يرجى إدخال اسم العميل ورقم الجوال");
+        return;
+    }
+
+    const btn = document.getElementById('cust-submit-btn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, phone, address, email, notes })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeModal('modal-new-customer');
+            alert(`تمت إضافة العميل (${name}) بنجاح`);
+            loadCustomers();
+        } else {
+            alert(data.detail || 'حدث خطأ أثناء إضافة العميل');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('فشل الاتصال بالسيرفر لإضافة العميل');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 // 8. EXPENSES & P&L
 async function loadExpenses() {
     try {

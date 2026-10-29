@@ -2859,6 +2859,46 @@
         </div>
     </div>
 
+    <!-- MODAL: ADD CUSTOMER (إضافة عميل جديد) -->
+    <div id="modal-new-customer" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 animate-scale-up">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-5 h-5 text-brand-600"></i>
+                    إضافة عميل جديد
+                </h3>
+                <button onclick="closeModal('modal-new-customer')" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form onsubmit="handleCreateCustomer(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">اسم العميل *</label>
+                    <input type="text" id="cust-name-input" required placeholder="مثال: نورة الدوسري / فيصل" class="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">رقم الجوال *</label>
+                    <input type="tel" id="cust-phone-input" required placeholder="05XXXXXXXX" class="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">العنوان / الحي</label>
+                    <input type="text" id="cust-address-input" placeholder="الرياض - حي النرجس" class="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">البريد الإلكتروني (اختياري)</label>
+                    <input type="email" id="cust-email-input" placeholder="customer@example.com" class="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">ملاحظات العميل أو المناسبات</label>
+                    <textarea id="cust-notes-input" rows="2" placeholder="تفضيلات الورد، مناسبات خاصة..." class="w-full text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-brand-500"></textarea>
+                </div>
+                <button type="submit" id="cust-submit-btn" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm">
+                    حفظ العميل
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL: ADD EXPENSE (إضافة مصروف) -->
     <div id="modal-new-expense" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 animate-scale-up">
