@@ -4320,10 +4320,16 @@ async function loadCustomers() {
                 <td class="py-3 px-4 font-black text-brand-700">${c.total_spent.toFixed(2)} ر.س</td>
                 <td class="py-3 px-4">${occasionsBadges}</td>
                 <td class="py-3 px-4 text-center">
-                    <button onclick="openWhatsAppChatDirect('${c.phone}', '${c.name}', 'أهلاً بك عميلنا العزيز ${c.name} في نبت للورد 🌸')" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 mx-auto">
-                        <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
-                        شات واتس اب
-                    </button>
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick="openWhatsAppChatDirect('${c.phone}', '${c.name}', 'أهلاً بك عميلنا العزيز ${c.name} في نبت للورد 🌸')" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1" title="مراسلة واتساب">
+                            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                            واتساب
+                        </button>
+                        <button onclick="deleteCustomer(${c.id}, '${(c.name || '').replace(/'/g, "\\'")}')" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 transition-colors" title="حذف العميل">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            حذف
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -4332,6 +4338,25 @@ async function loadCustomers() {
         initIcons();
     } catch (err) {
         console.error("Load customers error:", err);
+    }
+}
+
+async function deleteCustomer(id, name) {
+    if (!confirm(`هل أنت متأكد من حذف العميل (${name})؟`)) {
+        return;
+    }
+    try {
+        const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(`تم حذف العميل (${name}) بنجاح`);
+            loadCustomers();
+        } else {
+            alert(data.detail || 'حدث خطأ أثناء حذف العميل');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('فشل الاتصال بالسيرفر لحذف العميل');
     }
 }
 

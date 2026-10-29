@@ -113,3 +113,28 @@ def add_customer_occasion(customer_id: int, payload: OccasionSchema):
     conn.commit()
     conn.close()
     return {"success": True, "occasions": occasions}
+
+@router.delete("/{customer_id}")
+def delete_customer(customer_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name FROM customers WHERE id = ?", (customer_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="العميل غير موجود")
+
+    cust_name = row["name"]
+
+    # Detach customer from any existing orders so orders are NEVER deleted
+    cursor.execute("UPDATE orders SET customer_id = NULL WHERE customer_id = ?", (customer_id,))
+    # Detach customer from invoices
+    cursor.execute("UPDATE invoices SET customer_id = NULL WHERE customer_id = ?", (customer_id,))
+
+    # Delete customer record
+    cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+    conn.commit()
+    conn.close()
+
+    return {"success": True, "message": f"تم حذف العميل {cust_name} بنجاح"}
