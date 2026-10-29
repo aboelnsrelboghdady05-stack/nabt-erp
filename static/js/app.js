@@ -348,11 +348,12 @@ function isFaisalUser() {
 }
 
 function canCreateOrders() {
-    if (!currentUser) return false;
+    if (!currentUser) return true;
     const role = (currentUser.role || '').toLowerCase();
     if (role === 'florist' || role.includes('florist')) return false;
-    return isManagerRole(role);
+    return true;
 }
+window.canCreateOrders = canCreateOrders;
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
@@ -4464,6 +4465,7 @@ function openModal(modalId) {
         initIcons();
     }
 }
+window.openModal = openModal;
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -4472,6 +4474,7 @@ function closeModal(modalId) {
         modal.style.removeProperty('display');
     }
 }
+window.closeModal = closeModal;
 
 // 10. DAFTRA (دفترة) & ACCOUNTING READ-ONLY SYNC LOGIC
 async function openAccountingSyncModal() {

@@ -3694,9 +3694,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261012_bn_v2"></script>
+    <script src="/static/js/i18n.js?v=20261028_bn_v3"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261025_daftra_sync_v5"></script>
+    <script src="/static/js/app.js?v=20261028_edit_delete_v10"></script>
     <script>
     // Inline guarantee for setOrderType in case of browser cache
     function setOrderType(type) {
@@ -3747,6 +3747,139 @@
         }
     }
     window.setOrderType = setOrderType;
+
+    // Inline guarantee for editing and deleting orders
+    async function openEditOrderModal(orderId) {
+        if (typeof window.canCreateOrders === 'function' && !window.canCreateOrders()) {
+            alert("عذراً! صلاحية تعديل الطلب محصورة على الإدارة 🌸");
+            return;
+        }
+        try {
+            const res = await fetch('/api/orders/' + orderId);
+            if (!res.ok) {
+                alert("تعذر جلب تفاصيل الطلب للتعديل");
+                return;
+            }
+            const o = await res.json();
+            if (typeof editingOrderId !== 'undefined') editingOrderId = o.id;
+            const editIdInput = document.getElementById('editing-order-id');
+            if (editIdInput) editIdInput.value = o.id;
+
+            const titleEl = document.getElementById('modal-order-title');
+            if (titleEl) titleEl.textContent = `تعديل الطلب #${o.order_number} ✏️`;
+            const subtitleEl = document.getElementById('modal-order-subtitle');
+            if (subtitleEl) subtitleEl.textContent = `تعديل بيانات العميل، تفاصيل الورد، الفوترة، ومواعيد التسليم`;
+            const submitTextEl = document.getElementById('modal-order-submit-text');
+            if (submitTextEl) submitTextEl.textContent = `حفظ التعديلات 💾`;
+
+            if (typeof setOrderType === 'function') {
+                const oType = o.order_type || (o.event_name ? 'large_event' : 'regular');
+                setOrderType(oType);
+            }
+
+            const evName = document.getElementById('order-event-name');
+            if (evName) evName.value = o.event_name || '';
+            const evVenue = document.getElementById('order-event-venue');
+            if (evVenue) evVenue.value = o.event_venue || '';
+            const evCoord = document.getElementById('order-event-coordinator');
+            if (evCoord) evCoord.value = o.event_coordinator_contact || '';
+
+            const custName = document.getElementById('order-cust-name');
+            if (custName) custName.value = o.customer_name || '';
+            const custPhone = document.getElementById('order-cust-phone');
+            if (custPhone) custPhone.value = o.customer_phone || '';
+            const recName = document.getElementById('order-rec-name');
+            if (recName) recName.value = o.recipient_name || '';
+            const recPhone = document.getElementById('order-rec-phone');
+            if (recPhone) recPhone.value = o.recipient_phone || '';
+
+            if (typeof setOrderDeliveryMode === 'function') {
+                if (o.recipient_address === 'استلام من المحل') {
+                    setOrderDeliveryMode('pickup');
+                } else {
+                    setOrderDeliveryMode('delivery');
+                }
+            }
+            const recAddr = document.getElementById('order-rec-address');
+            if (recAddr) recAddr.value = o.recipient_address || '';
+            const recLoc = document.getElementById('order-rec-location');
+            if (recLoc) recLoc.value = o.location_url || '';
+
+            const cardMsg = document.getElementById('order-card-message');
+            if (cardMsg) cardMsg.value = o.card_message || '';
+
+            if (typeof currentOrderReferenceImages !== 'undefined') {
+                currentOrderReferenceImages = Array.isArray(o.reference_images) && o.reference_images.length > 0 
+                    ? o.reference_images 
+                    : (o.reference_image ? [o.reference_image] : []);
+            }
+            if (typeof renderReferenceImagesGallery === 'function') renderReferenceImagesGallery();
+
+            const colorsInput = document.getElementById('order-flower-colors-input');
+            if (colorsInput) colorsInput.value = o.flower_colors || '';
+
+            const dateInput = document.getElementById('order-delivery-date');
+            if (dateInput) dateInput.value = o.delivery_date || '';
+            const slotInput = document.getElementById('order-time-slot');
+            if (slotInput) slotInput.value = o.delivery_time_slot || '';
+
+            if (typeof refreshOrderModalFlorists === 'function') await refreshOrderModalFlorists();
+            const floristSelect = document.getElementById('order-florist-select');
+            if (floristSelect && o.florist_id) floristSelect.value = o.florist_id;
+
+            const feeInput = document.getElementById('order-delivery-fee');
+            if (feeInput) feeInput.value = (o.delivery_fee !== undefined && o.delivery_fee !== null) ? o.delivery_fee : 35;
+            const discountInput = document.getElementById('order-discount');
+            if (discountInput) discountInput.value = o.discount || 0;
+            const payStatus = document.getElementById('order-payment-status');
+            if (payStatus) payStatus.value = o.payment_status || 'unpaid';
+            const payMethod = document.getElementById('order-payment-method');
+            if (payMethod) payMethod.value = o.payment_method || 'pos';
+            const notesInput = document.getElementById('order-notes');
+            if (notesInput) notesInput.value = o.notes || '';
+
+            const rows = document.getElementById('order-items-rows');
+            if (rows && typeof addOrderItemRow === 'function') {
+                rows.innerHTML = '';
+                if (o.items && o.items.length > 0) {
+                    o.items.forEach(it => {
+                        addOrderItemRow(it.product_name, it.unit_price, it.quantity);
+                    });
+                } else {
+                    addOrderItemRow();
+                }
+            }
+
+            if (typeof calculateOrderModalTotals === 'function') calculateOrderModalTotals();
+            if (typeof openModal === 'function') openModal('modal-new-order');
+        } catch (err) {
+            console.error("Open edit order modal error:", err);
+            alert("حدث خطأ أثناء فتح شاشة تعديل الطلب");
+        }
+    }
+    window.openEditOrderModal = openEditOrderModal;
+
+    async function deleteSingleOrder(orderId, orderNumber) {
+        if (!confirm(`هل أنت متأكد من حذف الطلب #${orderNumber} نهائياً؟\n⚠️ سيتم حذف تفاصيل الطلب وكافة السجلات والفاتورة المرتبطة به ولا يمكن التراجع.`)) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/orders/' + orderId, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || `تم حذف الطلب #${orderNumber} بنجاح`);
+                if (typeof loadOrders === 'function') loadOrders();
+                if (typeof loadDashboardData === 'function') loadDashboardData();
+                if (typeof loadInvoices === 'function') loadInvoices();
+            } else {
+                alert(data.detail || "تعذر حذف الطلب");
+            }
+        } catch (err) {
+            console.error("Delete order error:", err);
+            alert("حدث خطأ أثناء محاولة حذف الطلب");
+        }
+    }
+    window.deleteSingleOrder = deleteSingleOrder;
 
     // Inline guarantee for WhatsApp pairing code in case of browser cache
     async function requestWaPairingCode() {

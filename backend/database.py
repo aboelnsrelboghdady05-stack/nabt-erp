@@ -2,10 +2,19 @@ import sqlite3
 import os
 import json
 from datetime import datetime
+from turso_db import TursoConnection
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nabt_erp.db")
 
+TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+
+def is_turso_enabled():
+    return bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
+
 def get_db():
+    if is_turso_enabled():
+        return TursoConnection(TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -15,10 +24,11 @@ def get_db():
 
 def init_db():
     conn = get_db()
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA cache_size = -64000")
-    conn.execute("PRAGMA temp_store = MEMORY")
-    conn.execute("PRAGMA mmap_size = 268435456")
+    if not is_turso_enabled():
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA cache_size = -64000")
+        conn.execute("PRAGMA temp_store = MEMORY")
+        conn.execute("PRAGMA mmap_size = 268435456")
     cursor = conn.cursor()
 
     # 1. Customers Table
@@ -416,20 +426,6 @@ def init_db():
         FOREIGN KEY (created_by_id) REFERENCES employees(id) ON DELETE SET NULL
     )
     """)
-
-    # 15. One-time Cleanup: Clear all existing sample/test orders upon owner request
-    cursor.execute("SELECT value FROM system_settings WHERE key = 'clear_all_orders_v1'")
-    if not cursor.fetchone():
-        cursor.execute("DELETE FROM payments")
-        cursor.execute("DELETE FROM invoices")
-        cursor.execute("DELETE FROM order_items")
-        cursor.execute("DELETE FROM orders")
-        cursor.execute("DELETE FROM whatsapp_messages WHERE related_order_id IS NOT NULL")
-        cursor.execute("UPDATE drivers SET total_delivered = 0, status = 'available' WHERE status != 'deleted'")
-        cursor.execute("UPDATE employees SET active_orders_count = 0")
-        cursor.execute("UPDATE customers SET orders_count = 0, total_spent = 0.0")
-        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('orders', 'order_items', 'invoices', 'payments')")
-        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('clear_all_orders_v1', '1')")
 
     conn.commit()
     conn.close()
