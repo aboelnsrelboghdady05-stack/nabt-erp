@@ -6,15 +6,16 @@ from turso_db import TursoConnection
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nabt_erp.db")
 
-TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
-TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
-
 def is_turso_enabled():
-    return bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
+    url = (os.environ.get("TURSO_DATABASE_URL") or "").strip().strip('"').strip("'")
+    token = (os.environ.get("TURSO_AUTH_TOKEN") or "").strip().strip('"').strip("'")
+    return bool(url and token)
 
 def get_db():
     if is_turso_enabled():
-        return TursoConnection(TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
+        url = (os.environ.get("TURSO_DATABASE_URL") or "").strip().strip('"').strip("'")
+        token = (os.environ.get("TURSO_AUTH_TOKEN") or "").strip().strip('"').strip("'")
+        return TursoConnection(url, token)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
