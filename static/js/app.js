@@ -755,13 +755,60 @@ async function loadDashboardData() {
             });
         }
 
-        // Occasions list
+        // Special Orders & Occasions list
         const occList = document.getElementById('dash-occasions-list');
         occList.innerHTML = '';
-        if (data.upcoming_occasions.length === 0) {
-            occList.innerHTML = `<p class="text-xs text-slate-400">لا توجد مناسبات مسجلة قريبة</p>`;
+        const specialOrders = data.special_orders || [];
+        const occasions = data.upcoming_occasions || [];
+
+        if (specialOrders.length === 0 && occasions.length === 0) {
+            occList.innerHTML = `<p class="text-xs text-slate-400 py-3 text-center">لا توجد طلبات خاصة أو مناسبات قادمة مسجلة حالياً</p>`;
         } else {
-            data.upcoming_occasions.forEach(occ => {
+            // First render Special Orders (الطلبات الخاصة والفعاليات)
+            specialOrders.forEach(sp => {
+                const div = document.createElement('div');
+                div.className = 'p-3 bg-gradient-to-br from-amber-50/70 to-orange-50/40 border border-amber-200/80 rounded-xl space-y-1.5 text-xs shadow-xs hover:border-amber-300 transition-all';
+                
+                const eventTitle = sp.event_name ? sp.event_name : `طلب خاص #${sp.order_number}`;
+                const venueText = sp.event_venue ? `<span class="text-slate-600 block text-[11px]"><i data-lucide="map-pin" class="w-3 h-3 inline text-amber-600 ml-0.5"></i> ${sp.event_venue}</span>` : '';
+                
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 flex items-center gap-1">
+                                <i data-lucide="sparkles" class="w-2.5 h-2.5 text-amber-700"></i>
+                                طلب خاص
+                            </span>
+                            <span class="font-mono font-bold text-slate-700 text-[11px]">#${sp.order_number}</span>
+                        </div>
+                        <span class="font-black text-brand-800 text-xs">${sp.total_amount ? sp.total_amount.toFixed(2) + ' ر.س' : ''}</span>
+                    </div>
+                    <div>
+                        <strong class="text-slate-900 text-xs block">${eventTitle}</strong>
+                        ${venueText}
+                        <span class="text-slate-500 text-[11px] block">العميل: ${sp.customer_name}</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-amber-200/50 text-[11px]">
+                        <span class="text-amber-800 font-bold flex items-center gap-1">
+                            <i data-lucide="calendar" class="w-3 h-3"></i>
+                            ${sp.delivery_date} ${sp.delivery_time_slot ? `(${sp.delivery_time_slot})` : ''}
+                        </span>
+                        <div class="flex items-center gap-1">
+                            <button onclick="openOrderDetail(${sp.id})" class="text-xs bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer">
+                                التفاصيل 🔍
+                            </button>
+                            ${sp.customer_phone ? `
+                            <button onclick="openWhatsAppChatDirect('${sp.customer_phone}', '${sp.customer_name}', 'أهلاً بك عميلنا العزيز ${sp.customer_name} من نبت للورد 🌸 بخصوص طلبكم الخاص (${eventTitle})')" class="text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-50 px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer">
+                                <i data-lucide="message-circle" class="w-3 h-3 text-emerald-600"></i>
+                            </button>` : ''}
+                        </div>
+                    </div>
+                `;
+                occList.appendChild(div);
+            });
+
+            // Then render registered customer occasions if any
+            occasions.forEach(occ => {
                 const div = document.createElement('div');
                 div.className = 'p-3 bg-purple-50/50 border border-purple-100 rounded-xl flex items-center justify-between text-xs';
                 div.innerHTML = `

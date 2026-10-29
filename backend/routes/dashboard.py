@@ -112,6 +112,17 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
     """)
     top_products = [dict(row) for row in cursor.fetchall()]
 
+    # Special Orders (الطلبات الخاصة والفعاليات والمناسبات الكبرى)
+    cursor.execute("""
+    SELECT id, order_number, customer_name, customer_phone, event_name, event_venue,
+           delivery_date, delivery_time_slot, total_amount, status, notes
+    FROM orders
+    WHERE (order_type = 'large_event' OR event_name IS NOT NULL) AND status != 'cancelled'
+    ORDER BY delivery_date ASC, id ASC
+    LIMIT 10
+    """)
+    special_orders = [dict(row) for row in cursor.fetchall()]
+
     # Customers with special occasions
     cursor.execute("SELECT id, name, phone, special_occasions FROM customers WHERE special_occasions IS NOT NULL AND special_occasions != '[]'")
     upcoming_occasions = []
@@ -149,5 +160,6 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
         },
         "urgent_orders": urgent_orders,
         "top_products": top_products,
+        "special_orders": special_orders,
         "upcoming_occasions": upcoming_occasions[:5]
     }
