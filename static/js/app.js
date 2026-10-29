@@ -5475,6 +5475,9 @@ function renderPurchasesTable() {
             <button onclick="openPurchaseActionModal(${req.id}, 'view')" title="عرض التفاصيل" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-all cursor-pointer">
                 <i data-lucide="eye" class="w-4 h-4"></i>
             </button>
+            <button onclick="deletePurchaseRequest(${req.id}, '${req.request_number || ''}')" title="حذف طلب الشراء" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-all cursor-pointer">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
         `;
 
         // Can Endorse: Branch Manager (Nader), Ops Manager (Faisal), GM (Yasser), or Admin
@@ -5579,6 +5582,10 @@ function renderPurchasesMobileCards() {
                 <span class="text-slate-400">${req.created_at ? req.created_at.split('T')[0] : ''}</span>
             </div>
             <div class="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                <button onclick="deletePurchaseRequest(${req.id}, '${req.request_number || ''}')" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-2.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1" title="حذف">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>حذف</span>
+                </button>
                 <button onclick="openPurchaseActionModal(${req.id}, 'view')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl cursor-pointer">
                     التفاصيل 🔍
                 </button>
@@ -5596,6 +5603,25 @@ function renderPurchasesMobileCards() {
         `;
         container.appendChild(card);
     });
+}
+
+async function deletePurchaseRequest(id, reqNum) {
+    if (!confirm(`هل أنت متأكد من حذف طلب الشراء (${reqNum || '#' + id})؟`)) {
+        return;
+    }
+    try {
+        const res = await fetch(`/api/purchases/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(`تم حذف طلب الشراء (${reqNum || '#' + id}) بنجاح`);
+            loadPurchases();
+        } else {
+            alert(data.detail || data.message || 'حدث خطأ أثناء حذف طلب الشراء');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('فشل الاتصال بالسيرفر لحذف طلب الشراء');
+    }
 }
 
 function openNewPurchaseModal() {

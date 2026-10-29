@@ -310,3 +310,32 @@ def reject_purchase_request(request_id: int, payload: PurchaseRejectSchema):
         "success": True,
         "message": f"تم رفض طلب الشراء {req['request_number']}"
     }
+
+@router.delete("/{request_id}")
+def delete_purchase_request(request_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM purchase_requests WHERE id = ?", (request_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="طلب الشراء غير موجود")
+
+    req = dict(row)
+    req_num = req.get("request_number") or f"#{request_id}"
+
+    if req.get("expense_id"):
+        try:
+            cursor.execute("DELETE FROM expenses WHERE id = ?", (req["expense_id"],))
+        except Exception:
+            pass
+
+    cursor.execute("DELETE FROM purchase_requests WHERE id = ?", (request_id,))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"تم حذف طلب الشراء {req_num} بنجاح"
+    }
