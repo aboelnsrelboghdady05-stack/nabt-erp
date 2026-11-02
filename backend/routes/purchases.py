@@ -112,11 +112,11 @@ def create_purchase_request(payload: PurchaseCreateSchema):
 
     new_id = cursor.lastrowid
 
-    # Look up General Manager (Yasser) dynamically
-    cursor.execute("SELECT name, phone FROM employees WHERE role = 'general_manager' OR name LIKE '%ياسر%' LIMIT 1")
-    gm_emp = cursor.fetchone()
-    yasser_name = gm_emp['name'] if gm_emp else 'ياسر (المدير العام)'
-    yasser_phone = gm_emp['phone'] if gm_emp else '0544338827'
+    # Look up Branch Manager (Nader) dynamically for endorsement
+    cursor.execute("SELECT name, phone FROM employees WHERE role = 'branch_manager' OR name LIKE '%نادر%' LIMIT 1")
+    bm_emp = cursor.fetchone()
+    nader_name = bm_emp['name'] if bm_emp else 'نادر (مدير الفرع)'
+    nader_phone = bm_emp['phone'] if bm_emp else '0554346405'
 
     urgency_text = payload.urgency
     if urgency_text in ("urgent", "عاجل جداً اليوم"):
@@ -128,10 +128,10 @@ def create_purchase_request(payload: PurchaseCreateSchema):
 
     amt_str = f"{amt:,.2f} ريال" if amt > 0 else "غير محدد"
 
-    # WhatsApp message to GM Yasser with comprehensive details
-    yasser_purchase_msg = (
-        f"👑 *إشعار طلب مشتريات جديد - نبت ورد* 🌸\n\n"
-        f"مرحباً أستاذ {yasser_name}، تم رفع طلب مشتريات جديد بالنظام وبانتظار تعميدك وموافقتك:\n\n"
+    # WhatsApp message to Branch Manager (Nader) for review and endorsement
+    nader_purchase_msg = (
+        f"📋 *إشعار طلب شراء جديد بانتظار تعميدك يا {nader_name}* ✍️\n\n"
+        f"تم رفع طلب مشتريات جديد بالنظام ويحتاج مراجعتك وتعميدك قبل رفعه للمدير العام:\n\n"
         f"📦 *الطلب / الصنف:* {payload.item_name.strip()}\n"
         f"🔢 *رقم الطلب:* #{request_number}\n"
         f"📊 *الكمية المطلوبة:* {qty}\n"
@@ -139,25 +139,25 @@ def create_purchase_request(payload: PurchaseCreateSchema):
         f"⚡ *مستوى الأهمية:* {urgency_text}\n"
         f"👤 *مقدّم الطلب:* {payload.requested_by_name} ({payload.requested_by_role})\n"
         f"📝 *تفاصيل وسبب الاحتياج:* {payload.reason or 'لا توجد ملاحظات إضافية'}\n\n"
-        f"🔗 *رابط مراجعة واعتماد الطلب:* https://nabtward.cc"
+        f"🔗 *يرجى الدخول على السيستم للمراجعة والتعميد:* https://nabtward.cc"
     )
 
     cursor.execute("""
     INSERT INTO whatsapp_messages (recipient_phone, recipient_name, direction, message_type, content, status)
     VALUES (?, ?, 'outbound', 'purchase_alert', ?, 'delivered')
-    """, (yasser_phone, yasser_name, yasser_purchase_msg))
+    """, (nader_phone, nader_name, nader_purchase_msg))
 
     conn.commit()
     conn.close()
 
-    # Dispatch WhatsApp to Yasser
-    dispatch_via_gateway_if_configured(yasser_phone, yasser_purchase_msg)
+    # Dispatch WhatsApp to Nader
+    dispatch_via_gateway_if_configured(nader_phone, nader_purchase_msg)
 
     return {
         "success": True,
         "id": new_id,
         "request_number": request_number,
-        "message": f"تم إنشاء طلب الشراء رقم {request_number} بنجاح، وتم إرسال إشعار تعميد للمدير العام (ياسر) بالواتساب 👑"
+        "message": f"تم إنشاء طلب الشراء رقم {request_number} بنجاح، وتم إرسال إشعار تعميد لمدير الفرع (نادر) بالواتساب ✍️"
     }
 
 @router.put("/{request_id}/endorse")
