@@ -123,22 +123,23 @@ def create_purchase_request(payload: PurchaseCreateSchema):
         urgency_text = "عاجل جداً اليوم ⚡"
     elif urgency_text in ("normal", "عادي غداً"):
         urgency_text = "عادي غداً ⏳"
+    else:
+        urgency_text = str(urgency_text)
 
     amt_str = f"{amt:,.2f} ريال" if amt > 0 else "غير محدد"
 
-    # WhatsApp message to Yasser asking for approval/endorsement
+    # WhatsApp message to GM Yasser with comprehensive details
     yasser_purchase_msg = (
-        f"👑 إشعار طلب مشتريات جديد يحتاج تعميدك يا {yasser_name}!\n"
-        f"تم رفع طلب مشتريات جديد بالنظام وبانتظار تعميدك واعتمادك:\n"
-        f"• رقم الطلب: #{request_number}\n"
-        f"• الصنف / المادة: {payload.item_name.strip()}\n"
-        f"• التصنيف: {cat}\n"
-        f"• الكمية: {qty}\n"
-        f"• التكلفة التقديرية: {amt_str}\n"
-        f"• درجة الأهمية: {urgency_text}\n"
-        f"• مقدّم الطلب: {payload.requested_by_name} ({payload.requested_by_role})\n"
-        f"• سبب الشراء: {payload.reason or 'لا توجد ملاحظات إضافية'}\n\n"
-        f"يرجى الدخول على السيستم لمراجعة الطلب وتعميده والموافقة عليه 📝✨"
+        f"👑 *إشعار طلب مشتريات جديد - نبت ورد* 🌸\n\n"
+        f"مرحباً أستاذ {yasser_name}، تم رفع طلب مشتريات جديد بالنظام وبانتظار تعميدك وموافقتك:\n\n"
+        f"📦 *الطلب / الصنف:* {payload.item_name.strip()}\n"
+        f"🔢 *رقم الطلب:* #{request_number}\n"
+        f"📊 *الكمية المطلوبة:* {qty}\n"
+        f"💰 *التكلفة التقديرية:* {amt_str}\n"
+        f"⚡ *مستوى الأهمية:* {urgency_text}\n"
+        f"👤 *مقدّم الطلب:* {payload.requested_by_name} ({payload.requested_by_role})\n"
+        f"📝 *تفاصيل وسبب الاحتياج:* {payload.reason or 'لا توجد ملاحظات إضافية'}\n\n"
+        f"🔗 *رابط مراجعة واعتماد الطلب:* https://nabtward.cc"
     )
 
     cursor.execute("""
@@ -199,13 +200,27 @@ def endorse_purchase_request(request_id: int, payload: PurchaseEndorseSchema):
     amt_val = float(req.get('estimated_amount') or 0.0)
     amt_disp = f"{amt_val:,.2f} ريال" if amt_val > 0 else "غير محدد"
 
+    urgency_val = req.get('urgency') or 'عادي غداً'
+    if urgency_val in ("urgent", "عاجل جداً اليوم"):
+        urgency_disp = "عاجل جداً اليوم ⚡"
+    elif urgency_val in ("normal", "عادي غداً"):
+        urgency_disp = "عادي غداً ⏳"
+    else:
+        urgency_disp = str(urgency_val)
+
     yasser_endorsed_msg = (
-        f"👑 إشعار تعميد طلب مشتريات يا {yasser_name}!\n"
-        f"تم تعميد طلب الشراء #{req['request_number']} بواسطة ({payload.endorsed_by_name}) وبانتظار موافقتك النهائية وصرف المبلغ:\n"
-        f"• الصنف: {req['item_name']}\n"
-        f"• التكلفة التقديرية: {amt_disp}\n"
-        f"• ملاحظات التعميد: {payload.endorsement_notes or 'تم التعميد والموافقة المبدئية بنجاح'}\n\n"
-        f"الطلب متاح الآن في السيستم للاعتماد النهائي والصرف ✍️"
+        f"👑 *إشعار تعميد طلب مشتريات - نبت ورد* ✍️\n\n"
+        f"مرحباً أستاذ {yasser_name}، تم تعميد طلب الشراء #{req['request_number']} بواسطة ({payload.endorsed_by_name}) وبانتظار موافقتك النهائية وصرف المبلغ:\n\n"
+        f"📦 *الطلب / الصنف:* {req['item_name']}\n"
+        f"🔢 *رقم الطلب:* #{req['request_number']}\n"
+        f"📊 *الكمية المطلوبة:* {req.get('quantity') or '-'}\n"
+        f"💰 *التكلفة التقديرية:* {amt_disp}\n"
+        f"⚡ *مستوى الأهمية:* {urgency_disp}\n"
+        f"👤 *مقدّم الطلب:* {req.get('requested_by_name') or 'المحل'}\n"
+        f"✍️ *المعمّد:* {payload.endorsed_by_name} ({payload.endorsed_by_role})\n"
+        f"📝 *ملاحظات التعميد:* {payload.endorsement_notes or 'تمت الموافقة المبدئية والتعميد بنجاح'}\n"
+        f"📌 *تفاصيل وسبب الطلب:* {req.get('reason') or 'لا توجد ملاحظات إضافية'}\n\n"
+        f"🔗 *رابط الاعتماد النهائي والصرف:* https://nabtward.cc"
     )
 
     cursor.execute("""
