@@ -5536,7 +5536,7 @@ function renderPurchasesTable() {
     tbody.innerHTML = '';
 
     if (allPurchases.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-400">لا توجد طلبات مشتريات مسجلة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-10 text-slate-400">لا توجد طلبات مشتريات مسجلة</td></tr>`;
         return;
     }
 
@@ -5609,10 +5609,15 @@ function renderPurchasesTable() {
             urgencyBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">عادي غداً</span>`;
         }
 
+        const estAmt = req.estimated_amount && req.estimated_amount > 0 
+            ? `<span class="font-bold text-emerald-800 font-mono">${parseFloat(req.estimated_amount).toLocaleString()} ر.س</span>`
+            : `<span class="text-slate-400 text-xs">غير محدد</span>`;
+
         tr.innerHTML = `
             <td class="py-3 px-3 font-mono font-bold text-slate-900">${req.request_number}</td>
             <td class="py-3 px-3 font-bold text-slate-800">${req.item_name}</td>
             <td class="py-3 px-3 font-bold text-slate-700">${req.quantity || '-'}</td>
+            <td class="py-3 px-3">${estAmt}</td>
             <td class="py-3 px-3">${urgencyBadge}</td>
             <td class="py-3 px-3">
                 <span class="font-bold text-purple-900 block">${req.requested_by_name}</span>
@@ -5660,6 +5665,10 @@ function renderPurchasesMobileCards() {
             urgencyBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">عادي غداً</span>`;
         }
 
+        const estAmtMobile = req.estimated_amount && req.estimated_amount > 0 
+            ? `<span class="font-bold text-emerald-700 font-mono">${parseFloat(req.estimated_amount).toLocaleString()} ر.س</span>`
+            : `<span class="text-slate-400">غير محدد</span>`;
+
         const canEndorse = (currentUser.role === 'branch_manager' || currentUser.role === 'operations_manager' || currentUser.role === 'general_manager' || currentUser.role === 'admin') && req.status === 'pending_review';
         const canApprove = (currentUser.role === 'general_manager' || currentUser.role === 'admin') && req.status !== 'approved' && req.status !== 'rejected';
 
@@ -5670,8 +5679,10 @@ function renderPurchasesMobileCards() {
             </div>
             <div>
                 <h5 class="font-bold text-slate-900 text-sm">${req.item_name}</h5>
-                <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
                     <span>الكمية: <strong class="text-slate-800">${req.quantity || '-'}</strong></span>
+                    <span>•</span>
+                    <span>التكلفة: ${estAmtMobile}</span>
                     <span>•</span>
                     <span>الأهمية: ${urgencyBadge}</span>
                 </div>
@@ -5728,6 +5739,8 @@ function openNewPurchaseModal() {
     if (itemInput) itemInput.value = '';
     const qtyInput = document.getElementById('purchase-quantity');
     if (qtyInput) qtyInput.value = '';
+    const amtInput = document.getElementById('purchase-estimated-amount');
+    if (amtInput) amtInput.value = '';
     const reasonInput = document.getElementById('purchase-reason');
     if (reasonInput) reasonInput.value = '';
     const urgencySelect = document.getElementById('purchase-urgency');
@@ -5741,6 +5754,7 @@ async function handleCreatePurchase(event) {
 
     const itemName = document.getElementById('purchase-item-name')?.value.trim();
     const quantity = document.getElementById('purchase-quantity')?.value.trim() || '-';
+    const estimatedAmount = parseFloat(document.getElementById('purchase-estimated-amount')?.value) || 0.0;
     const urgency = document.getElementById('purchase-urgency')?.value || 'عاجل جداً اليوم';
     const reason = document.getElementById('purchase-reason')?.value.trim() || '';
 
@@ -5753,7 +5767,7 @@ async function handleCreatePurchase(event) {
         item_name: itemName,
         category: "مشتريات عامة",
         quantity: quantity,
-        estimated_amount: 0.0,
+        estimated_amount: estimatedAmount,
         urgency: urgency,
         reason: reason,
         requested_by_name: currentUser ? currentUser.name : "موظف المحل",
