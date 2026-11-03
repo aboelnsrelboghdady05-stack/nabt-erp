@@ -95,14 +95,15 @@ def serve_login(request: Request):
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health_check():
-    from database import is_turso_enabled
+    from database import is_turso_enabled, _get_turso_creds
+    url, token = _get_turso_creds()
     return {
         "status": "ok", 
         "app": "Nabt Flowers ERP", 
-        "version": "1.0.3",
+        "version": "1.0.4",
         "turso_cloud": is_turso_enabled(),
-        "has_turso_url": bool(os.environ.get("TURSO_DATABASE_URL")),
-        "has_turso_token": bool(os.environ.get("TURSO_AUTH_TOKEN"))
+        "has_turso_url": bool(url),
+        "has_turso_token": bool(token)
     }
 
 @app.get("/apple-touch-icon.png")

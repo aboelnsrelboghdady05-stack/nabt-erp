@@ -6,13 +6,16 @@ from turso_db import TursoConnection
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nabt_erp.db")
 
+DEFAULT_TURSO_URL = "https://nabt-abuelnasr.aws-eu-west-1.turso.io"
+DEFAULT_TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMyMzYxNTYsImlkIjoiMDFhMTg1MzEtNGEwMS03NWUwLThmM2MtNTcxZDdlM2JiMTZiIiwia2lkIjoiVmRIVzNoM2RzQklGODdDUlFMaVBXU3Q5TlV3eThGVHUyUjhMUER2bExFTSIsInJpZCI6ImEzMDgyMTI5LTY3NzYtNDAwZi04NDIxLWFjYWVkYmU2ZGMwMyJ9.Trl7ML2VI1KBf5W1mWOjA5RHgscPbhQqAdx-sGxRXxDjhypiP39JqozJmjZb3TetCyCGKSf-a8rE9NVHD7L_AA"
+
 def _get_turso_creds():
     url = (
         os.environ.get("TURSO_DATABASE_URL") or 
         os.environ.get("TURSO_URL") or 
         os.environ.get("LIBSQL_URL") or 
         os.environ.get("turso_database_url") or 
-        ""
+        DEFAULT_TURSO_URL
     ).strip().strip('"').strip("'")
     
     token = (
@@ -20,7 +23,7 @@ def _get_turso_creds():
         os.environ.get("TURSO_TOKEN") or 
         os.environ.get("LIBSQL_AUTH_TOKEN") or 
         os.environ.get("turso_auth_token") or 
-        ""
+        DEFAULT_TURSO_TOKEN
     ).strip().strip('"').strip("'")
     return url, token
 
