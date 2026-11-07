@@ -31,6 +31,7 @@ from routes.employees import router as employees_router
 from routes.auth import router as auth_router
 from routes.purchases import router as purchases_router
 from routes.creative_tasks import router as creative_tasks_router
+from routes.monthly_targets import router as monthly_targets_router
 
 app = FastAPI(title="نظام نبت لإدارة محلات الورد | Nabt Flowers ERP", version="1.0.0")
 
@@ -68,6 +69,7 @@ app.include_router(products_router)
 app.include_router(sync_router)
 app.include_router(employees_router)
 app.include_router(creative_tasks_router)
+app.include_router(monthly_targets_router)
 
 import asyncio
 

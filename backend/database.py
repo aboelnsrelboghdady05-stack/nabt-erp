@@ -447,6 +447,33 @@ def init_db():
     )
     """)
 
+    # 15. Employee Monthly Targets (أهداف الشهر ومؤشرات الأداء للموظفين)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS employee_monthly_targets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_month TEXT NOT NULL, -- e.g. '2026-11'
+        employee_id INTEGER NOT NULL,
+        employee_name TEXT NOT NULL,
+        employee_role TEXT,
+        target_title TEXT NOT NULL,
+        description TEXT,
+        orders_target INTEGER DEFAULT 0,
+        sales_target REAL DEFAULT 0.0,
+        special_instructions TEXT,
+        set_by_name TEXT NOT NULL, -- فيصل / ياسر
+        set_by_role TEXT,
+        set_by_id INTEGER,
+        status TEXT DEFAULT 'in_progress', -- in_progress, achieved, exceeded, needs_improvement
+        achieved_orders INTEGER DEFAULT 0,
+        achieved_sales REAL DEFAULT 0.0,
+        manager_feedback TEXT,
+        rating INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    )
+    """)
+
     conn.commit()
     conn.close()
 

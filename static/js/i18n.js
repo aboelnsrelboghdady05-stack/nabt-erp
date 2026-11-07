@@ -23,6 +23,7 @@ const i18nTranslations = {
         nav_products: 'كتالوج الورد والهدايا',
         nav_employees: 'الموظفين والإجازات',
         nav_creative_tasks: 'مهام مشاريع نبت الإبداعية',
+        nav_monthly_targets: 'أهداف الشهر ومؤشرات الأداء',
         nav_regulations: 'لوائح وسياسات العمل',
         nav_sync: 'ربط فواتير دفترة (Daftra)',
         
@@ -173,6 +174,7 @@ const i18nTranslations = {
         nav_products: 'Bouquets Catalog',
         nav_employees: 'Florists & Leaves',
         nav_creative_tasks: 'Creative Projects Tasks',
+        nav_monthly_targets: 'Monthly Targets & KPIs',
         nav_regulations: 'Work Regulations & Rules',
         nav_sync: 'Accounting Sync',
         
@@ -323,6 +325,7 @@ const i18nTranslations = {
         nav_products: 'ফুলের ক্যাটালগ',
         nav_employees: 'ফ্লোরিস্ট ও ছুটি',
         nav_creative_tasks: 'নাবত ক্রিয়েটিভ প্রজেক্টস',
+        nav_monthly_targets: 'মাসিক লক্ষ্য ও পারফরম্যান্স',
         nav_regulations: 'কাজের নিয়মাবলী ও নীতিমালা',
         nav_sync: 'হিসাব লিঙ্ক (Webhook)',
         
