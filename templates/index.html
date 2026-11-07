@@ -478,6 +478,14 @@
                     <span id="badge-nav-creative-tasks" class="text-xs bg-purple-500/20 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">0</span>
                 </button>
 
+                <button onclick="switchTab('regulations')" id="nav-regulations" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-cream-200/80 hover:bg-olive-800 hover:text-white transition-all">
+                    <span class="flex items-center gap-3">
+                        <i data-lucide="shield-alert" class="w-4 h-4 text-amber-300"></i>
+                        <span data-i18n="nav_regulations">لوائح وسياسات العمل</span>
+                    </span>
+                    <span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">ملزمة ⚠️</span>
+                </button>
+
                 <button onclick="openAccountingSyncModal()" id="nav-sync" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-peach-200 bg-olive-950/60 border border-peach-300/20 hover:bg-olive-800 transition-all mt-2">
                     <span class="flex items-center gap-3">
                         <i data-lucide="link-2" class="w-4 h-4 text-peach-300"></i>
@@ -1621,6 +1629,254 @@
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 11. STORE REGULATIONS & POLICIES (لوائح وسياسات العمل المعتمدة) -->
+            <!-- ========================================== -->
+            <div id="view-regulations" class="space-y-6 hidden animate-fade-in">
+                <!-- Header Banner Card -->
+                <div class="bg-gradient-to-l from-amber-950 via-olive-900 to-olive-950 rounded-3xl p-6 text-white shadow-xl border border-amber-500/30 relative overflow-hidden">
+                    <div class="absolute -left-10 -bottom-10 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-amber-500/20 text-amber-300 border border-amber-400/30 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
+                                    <i data-lucide="shield-alert" class="w-4 h-4 text-amber-300"></i>
+                                    <span>ميثاق العمل والضوابط الإدارية الملزمة</span>
+                                </span>
+                                <span class="text-xs text-cream-300 font-mono hidden sm:inline">Store Regulations & Code of Conduct</span>
+                            </div>
+                            <h2 class="text-xl md:text-3xl font-black text-cream-50 flex items-center gap-2">
+                                <span>لوائح وسياسات العمل المعتمدة لنبت ورد</span>
+                                <span class="text-2xl">⚖️🌸</span>
+                            </h2>
+                            <p class="text-xs sm:text-sm text-cream-200/90 max-w-2xl leading-relaxed">
+                                هذه اللوائح والتعليمات ملزمة لجميع منسقي الورد، الموظفين، والمناديب داخل المحل، وتهدف لضمان سرعة الخدمة، توثيق الجودة، وحفظ حقوق المتجر والعملاء. أي مخالفة لأي بند تعرض صاحبها للمساءلة والخصم الإداري المباشر.
+                            </p>
+                        </div>
+
+                        <!-- Action / Print Button -->
+                        <div class="flex items-center gap-2 self-start md:self-auto">
+                            <button onclick="window.print()" class="bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2.5 rounded-2xl text-xs border border-white/20 transition-all flex items-center gap-2 shadow-xs cursor-pointer">
+                                <i data-lucide="printer" class="w-4 h-4"></i>
+                                <span>طباعة اللائحة 🖨️</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Pillars Strip -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-white/10 text-xs">
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-black">1</div>
+                            <div>
+                                <span class="font-bold text-cream-100 block">انضباط والتزام</span>
+                                <span class="text-[11px] text-cream-300/70">حضور كامل وسرعة قبول</span>
+                            </div>
+                        </div>
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-black">2</div>
+                            <div>
+                                <span class="font-bold text-cream-100 block">توثيق فوتوغرافي</span>
+                                <span class="text-[11px] text-cream-300/70">تصوير المنتج قبل خروجه</span>
+                            </div>
+                        </div>
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-black">3</div>
+                            <div>
+                                <span class="font-bold text-cream-100 block">حوكمة المبيعات</span>
+                                <span class="text-[11px] text-cream-300/70">الطلب فقط عبر الموقع</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- The 5 Core Regulations Cards Grid -->
+                <div class="grid grid-cols-1 gap-4">
+
+                    <!-- Regulation 1 -->
+                    <div class="bg-white rounded-3xl p-5 sm:p-6 border-2 border-rose-200/80 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center text-xl font-black shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                1
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                                        <span>عدم قبول الطلب يعرضك للمحاسبة الإدارية</span>
+                                        <span class="text-xs px-2.5 py-0.5 rounded-full font-black bg-rose-100 text-rose-800 border border-rose-200">مخالفة جسيمة ⚠️</span>
+                                    </h3>
+                                    <span class="text-xs text-slate-400 font-mono">Rule #1: Order Acceptance</span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                                    يلتزم منسق الورد بمجرد إسناد أي طلب إليه في السيستم بقبوله فوراً خلال مهلة الاستجابة المحددة نظامياً (5 دقائق) والبدء في التنسيق. يمنع منعاً باتاً تجاهل الطلب أو تركه معلقاً أو التباطؤ فيه؛ لأن ذلك يعطل دورة التوصيل وتجهيز المندوب، وأي عدم قبول أو تأخير يعرض المنسق للمساءلة والمحاسبة والخصم المباشر.
+                                </p>
+                                <div class="pt-2 flex flex-col sm:flex-row gap-2 text-xs">
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">English:</span>
+                                        <span class="text-slate-700 font-medium">Failure to accept assigned orders within 5 minutes leads to administrative accountability and penalties.</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">বাংলা (Bengali):</span>
+                                        <span class="text-slate-700 font-medium">অর্ডার আসার সাথে সাথে গ্রহণ করতে হবে। ৫ মিনিটের মধ্যে অর্ডার গ্রহণ না করলে জবাবদিহিতা ও জরিমানা হবে।</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regulation 2 -->
+                    <div class="bg-white rounded-3xl p-5 sm:p-6 border-2 border-amber-200/80 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center text-xl font-black shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                2
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                                        <span>عدم تصوير المنتج في الموقع يعرضك للمحاسبة</span>
+                                        <span class="text-xs px-2.5 py-0.5 rounded-full font-black bg-amber-100 text-amber-800 border border-amber-200">توثيق إلزامي 📸</span>
+                                    </h3>
+                                    <span class="text-xs text-slate-400 font-mono">Rule #2: Photo Proof</span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                                    يمنع منعاً باتاً خروج أي باقة ورد أو فازة أو هدية أو تسليمها للعميل أو تسليمها لمندوب التوصيل دون تصويرها بدقة ووضوح في استوديو المحل ورفع صورة الإنجاز (Completed Image) في الموقع الرسمي. عدم تصوير المنتج ورفعه بالنظام يعتبر مخالفة صريحة توجب المساءلة والمحاسبة الفورية.
+                                </p>
+                                <div class="pt-2 flex flex-col sm:flex-row gap-2 text-xs">
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">English:</span>
+                                        <span class="text-slate-700 font-medium">You must photograph and upload the finished product to the website before dispatching. No photo leads to accountability.</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">বাংলা (Bengali):</span>
+                                        <span class="text-slate-700 font-medium">ডেলিভারির আগে প্রস্তুত করা ফুলের ছবি ওয়েবসাইটে আপলোড করা বাধ্যতামূলক। ছবি না তুললে কঠোর ব্যবস্থা নেওয়া হবে।</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regulation 3 -->
+                    <div class="bg-white rounded-3xl p-5 sm:p-6 border-2 border-purple-200/80 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center text-xl font-black shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                3
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                                        <span>الطلب والتنفيذ عن طريق الموقع فقط</span>
+                                        <span class="text-xs px-2.5 py-0.5 rounded-full font-black bg-purple-100 text-purple-800 border border-purple-200">قنوات رسمية 🌐</span>
+                                    </h3>
+                                    <span class="text-xs text-slate-400 font-mono">Rule #3: Web Orders Only</span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                                    جميع الطلبات والمبيعات داخل المحل أو خارجه يجب أن تتم وتُسجل حصرياً عبر الموقع الرسمي لنبت (<span class="font-mono font-bold text-purple-900">nabtward.cc</span>) وإصدار فاتورة إلكترونية معتمدة. يمنع منعاً كلياً بيع أي منتج أو استلام أموال شفهياً أو جانبياً دون تسجيله في السيستم رسمياً.
+                                </p>
+                                <div class="pt-2 flex flex-col sm:flex-row gap-2 text-xs">
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">English:</span>
+                                        <span class="text-slate-700 font-medium">All customer orders must strictly be placed and processed through the website only. No offline or unrecorded orders.</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">বাংলা (Bengali):</span>
+                                        <span class="text-slate-700 font-medium">দোকানের প্রতিটি অর্ডার অবশ্যই অফিসিয়াল ওয়েবসাইটের মাধ্যমে এন্ট্রি করতে হবে। ওয়েবসাইটের বাইরে কোনো কাজ করা যাবে না।</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regulation 4 -->
+                    <div class="bg-white rounded-3xl p-5 sm:p-6 border-2 border-blue-200/80 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center text-xl font-black shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                4
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                                        <span>الالتزام بالحضور في المحل دائم الوقت</span>
+                                        <span class="text-xs px-2.5 py-0.5 rounded-full font-black bg-blue-100 text-blue-800 border border-blue-200">انضباط الدوام ⏰</span>
+                                    </h3>
+                                    <span class="text-xs text-slate-400 font-mono">Rule #4: Shop Attendance</span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                                    الالتزام التام بالحضور والتواجد المستمر داخل المحل طوال ساعات العمل والورديات المعتمدة، والاستعداد الكامل لاستقبال وتنسيق الطلبات وخدمة العملاء. يمنع مغادرة مقر المحل أثناء ساعات الدوام إلا بإذن مسبق وموثق من مدير الفرع (أ. نادر) أو إدارة التشغيل.
+                                </p>
+                                <div class="pt-2 flex flex-col sm:flex-row gap-2 text-xs">
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">English:</span>
+                                        <span class="text-slate-700 font-medium">Strict commitment to being present at the shop at all times during your working shift. Leaving without permission is prohibited.</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">বাংলা (Bengali):</span>
+                                        <span class="text-slate-700 font-medium">কাজের পুরো সময় অবশ্যই দোকানে উপস্থিত থাকতে হবে। ম্যানেজারের অনুমতি ছাড়া কর্মস্থল ত্যাগ করা সম্পূর্ণ নিষেধ।</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regulation 5 -->
+                    <div class="bg-white rounded-3xl p-5 sm:p-6 border-2 border-emerald-200/80 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-xl font-black shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                5
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                                        <span>إرسال مهامك اليومية التي تمت خلال ساعات العمل</span>
+                                        <span class="text-xs px-2.5 py-0.5 rounded-full font-black bg-emerald-100 text-emerald-800 border border-emerald-200">تقرير الإنجاز 📝</span>
+                                    </h3>
+                                    <span class="text-xs text-slate-400 font-mono">Rule #5: Daily Task Report</span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                                    يلتزم كل منسق وموظف في نهاية ساعات العمل اليومية بحصر وإرسال تقرير بالمهام التي تمت وعدد الباقات المنجزة، وحالة ثلاجة الورد ونظافتها، وأي ملاحظات تشغيلية للإدارة عبر قسم المهام الإبداعية أو مجموعة الواتساب المعتمدة لتقييم واعتماد الأداء اليومي.
+                                </p>
+                                <div class="pt-2 flex flex-col sm:flex-row gap-2 text-xs">
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">English:</span>
+                                        <span class="text-slate-700 font-medium">Submit your daily report of all completed tasks, arranged bouquets, and shop readiness at the end of every shift.</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex-1">
+                                        <span class="text-slate-500 block text-[10px] font-bold">বাংলা (Bengali):</span>
+                                        <span class="text-slate-700 font-medium">প্রতিটি শিফটের শেষে সারা দিনে কী কী কাজ সম্পন্ন হয়েছে তার দৈনিক রিপোর্ট জমা দেওয়া বাধ্যতামূলক।</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Digital Acknowledgment Pledge Card -->
+                <div id="regulations-ack-box" class="bg-gradient-to-r from-cream-100 via-amber-50 to-cream-100 rounded-3xl p-6 border-2 border-amber-300 shadow-sm space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                            ✍️
+                        </div>
+                        <div>
+                            <h4 class="font-black text-slate-900 text-base">إقرار وتعهد الموظف بالالتزام التام باللوائح</h4>
+                            <p class="text-xs text-slate-600">هذا الإقرار يُوثق إلكترونياً في النظام باسم المستخدم وتاريخ وساعة التوثيق كالتزام رسمي.</p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white/80 border border-amber-200 text-xs sm:text-sm text-slate-800 leading-relaxed font-semibold">
+                        «أقر أنا المنسق / الموظف بالاطلاع التام وقراءة وفهم كافة اللوائح والسياسات الداخلية المنصوص عليها أعلاه، وأتعهد بالالتزام الكامل بها أثناء أداء مهامي، وأتحمل كامل المسؤولية الإدارية والجزاءات المترتبة في حال مخالفتها.»
+                    </div>
+
+                    <div id="regulations-ack-status"></div>
+
+                    <div class="flex items-center justify-end">
+                        <button id="btn-regulations-ack" onclick="acknowledgeRegulations()" class="bg-gradient-to-r from-amber-600 to-terracotta-600 hover:from-amber-700 hover:to-terracotta-700 text-white font-black px-6 py-3 rounded-2xl text-xs sm:text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95">
+                            <i data-lucide="check-check" class="w-4 h-4"></i>
+                            <span>أقر بالاطلاع والالتزام التام بكافة اللوائح ✍️</span>
+                        </button>
+                    </div>
+                </div>
+
             </div>
 
         </main>
@@ -3739,9 +3995,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261028_bn_v3"></script>
+    <script src="/static/js/i18n.js?v=20261107_regulations_v1"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261102_purchases_v3"></script>
+    <script src="/static/js/app.js?v=20261107_regulations_v1"></script>
     <script>
     // Inline guarantee for setOrderType in case of browser cache
     function setOrderType(type) {

@@ -550,7 +550,7 @@ function switchTab(tabId) {
 
     currentActiveTab = tabId;
 
-    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'creative-tasks'];
+    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'creative-tasks', 'regulations'];
     tabs.forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const nav = document.getElementById(`nav-${t}`);
@@ -588,7 +588,8 @@ function switchTab(tabId) {
         products: { title: (typeof t === 'function' ? t('nav_products', 'كتالوج الورد والهدايا') : 'كتالوج الورد والهدايا'), icon: 'boxes' },
         employees: { title: (typeof t === 'function' ? t('nav_employees', 'إدارة المنسقين والموظفين والإجازات') : 'إدارة المنسقين والموظفين والإجازات'), icon: 'user-check' },
         purchases: { title: (typeof t === 'function' ? t('nav_purchases', 'طلبات المشتريات والتعميد والموافقات') : 'طلبات المشتريات والتعميد والموافقات'), icon: 'shopping-cart' },
-        'creative-tasks': { title: (typeof t === 'function' ? t('nav_creative_tasks', 'مهام مشاريع نبت الإبداعية') : 'مهام مشاريع نبت الإبداعية'), icon: 'sparkles' }
+        'creative-tasks': { title: (typeof t === 'function' ? t('nav_creative_tasks', 'مهام مشاريع نبت الإبداعية') : 'مهام مشاريع نبت الإبداعية'), icon: 'sparkles' },
+        regulations: { title: (typeof t === 'function' ? t('nav_regulations', 'لوائح وسياسات العمل المعتمدة') : 'لوائح وسياسات العمل المعتمدة'), icon: 'shield-alert' }
     };
 
     const header = document.getElementById('current-tab-title');
@@ -619,6 +620,7 @@ function switchTab(tabId) {
     if (tabId === 'employees') { loadEmployees(); loadLeaves(); }
     if (tabId === 'purchases') loadPurchases();
     if (tabId === 'creative-tasks') loadCreativeTasks();
+    if (tabId === 'regulations') renderRegulationsAckStatus();
 
     initIcons();
 }
@@ -6343,6 +6345,64 @@ async function deleteCreativeTask(taskId) {
         console.error("Delete task failed:", err);
     }
 }
+
+// ==========================================
+// STORE REGULATIONS & POLICIES (لوائح وسياسات العمل)
+// ==========================================
+function acknowledgeRegulations() {
+    const user = currentUser ? currentUser.name : 'موظف المحل';
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ar-SA') + ' - ' + now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    
+    const key = 'regulations_ack_' + (currentUser ? currentUser.id : 'guest');
+    localStorage.setItem(key, JSON.stringify({
+        userName: user,
+        timestamp: dateStr,
+        acknowledged: true
+    }));
+
+    renderRegulationsAckStatus();
+    alert(`✓ تم توثيق إقرارك وتعهدك بالالتزام بكافة لوائح وسياسات نبت ورد يا ${user} 🌸`);
+}
+
+function renderRegulationsAckStatus() {
+    const box = document.getElementById('regulations-ack-box');
+    const statusEl = document.getElementById('regulations-ack-status');
+    const btn = document.getElementById('btn-regulations-ack');
+    if (!box || !statusEl || !btn) return;
+
+    const key = 'regulations_ack_' + (currentUser ? currentUser.id : 'guest');
+    const saved = localStorage.getItem(key);
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            statusEl.innerHTML = `
+                <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                            ✓
+                        </div>
+                        <div>
+                            <strong class="block text-sm font-black text-emerald-950">تم توثيق إقرارك وتعهدك بالالتزام التام بكافة اللوائح ✍️</strong>
+                            <span class="text-xs text-emerald-700">الموظف المقر: <strong>${data.userName}</strong> • تاريخ التوثيق: ${data.timestamp}</span>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-200 text-emerald-900 border border-emerald-300 w-fit">
+                        موثق ومعتمد رسمياً ✅
+                    </span>
+                </div>
+            `;
+            btn.classList.add('hidden');
+        } catch (e) {
+            btn.classList.remove('hidden');
+        }
+    } else {
+        statusEl.innerHTML = '';
+        btn.classList.remove('hidden');
+    }
+}
+window.acknowledgeRegulations = acknowledgeRegulations;
+window.renderRegulationsAckStatus = renderRegulationsAckStatus;
 
 
 
