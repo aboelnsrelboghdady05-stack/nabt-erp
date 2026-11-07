@@ -6405,16 +6405,23 @@ window.acknowledgeRegulations = acknowledgeRegulations;
 window.renderRegulationsAckStatus = renderRegulationsAckStatus;
 
 function printRegulations() {
-    const printWindow = window.open('', '_blank', 'width=900,height=1000');
-    if (!printWindow) {
-        // Fallback for popup blockers
-        document.body.classList.add('printing-regulations');
-        window.print();
-        setTimeout(() => document.body.classList.remove('printing-regulations'), 2000);
-        return;
-    }
+    try {
+        let iframe = document.getElementById('regulations-print-iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'regulations-print-iframe';
+            iframe.style.position = 'fixed';
+            iframe.style.right = '0';
+            iframe.style.bottom = '0';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = '0';
+            iframe.style.opacity = '0';
+            iframe.style.pointerEvents = 'none';
+            document.body.appendChild(iframe);
+        }
 
-    const html = `<!DOCTYPE html>
+        const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -6649,20 +6656,25 @@ function printRegulations() {
             <div class="sig-line">الاعتماد الرسمي: معتمد وموثق</div>
         </div>
     </div>
-
-    <script>
-        window.onload = function() {
-            setTimeout(function() {
-                window.print();
-            }, 300);
-        };
-    </script>
 </body>
 </html>`;
 
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        setTimeout(() => {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        }, 300);
+    } catch (e) {
+        console.error("Print regulations error:", e);
+        // Fallback: standard window.print()
+        document.body.classList.add('printing-regulations');
+        window.print();
+        setTimeout(() => document.body.classList.remove('printing-regulations'), 2000);
+    }
 }
 window.printRegulations = printRegulations;
 
