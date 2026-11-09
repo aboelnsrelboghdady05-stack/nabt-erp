@@ -479,12 +479,15 @@ def init_db():
     CREATE TABLE IF NOT EXISTS employee_evaluations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         employee_id INTEGER NOT NULL,
-        eval_month TEXT NOT NULL, -- e.g. '2026-11' or 'all'
+        eval_month TEXT NOT NULL, -- e.g. '2026-11'
         rating INTEGER DEFAULT 5, -- 1 to 5
         score INTEGER DEFAULT 95, -- 0 to 100
+        orders_score INTEGER DEFAULT 5, -- 1 to 5 (تقييم إنجاز عدد الطلبات)
+        tasks_score INTEGER DEFAULT 5, -- 1 to 5 (تقييم إنجاز المهام المطلوبة)
         quality_score INTEGER DEFAULT 5, -- 1 to 5
         speed_score INTEGER DEFAULT 5, -- 1 to 5
         discipline_score INTEGER DEFAULT 5, -- 1 to 5
+        bonus_recommendation TEXT, -- مكافأة تميز / شكر وتقدير
         manager_feedback TEXT,
         evaluator_name TEXT NOT NULL, -- فيصل / ياسر
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

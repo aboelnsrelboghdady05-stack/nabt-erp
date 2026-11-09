@@ -6886,6 +6886,10 @@ function renderEvaluationsCards(evaluations) {
 
     if (emptyState) emptyState.classList.add('hidden');
 
+    const monthSelect = document.getElementById('filter-eval-month');
+    const selectedMonth = monthSelect ? monthSelect.value : '2026-11';
+    const monthLabel = selectedMonth === 'all' ? 'كافة الفترات' : `شهر ${selectedMonth}`;
+
     // Separate into florists (coordinators) and other employees
     const florists = evaluations.filter(e => e.employee_role === 'florist');
     const others = evaluations.filter(e => e.employee_role !== 'florist');
@@ -6893,13 +6897,13 @@ function renderEvaluationsCards(evaluations) {
 
     let html = '';
 
-    sortedList.forEach((emp, idx) => {
+    sortedList.forEach((emp) => {
         const isFlorist = emp.employee_role === 'florist';
         const starsCount = emp.rating || 5;
         const starsHtml = '⭐'.repeat(starsCount);
         const scorePct = emp.score || 95;
 
-        // Status badge color
+        // Status badge
         const isDuty = emp.employee_status === 'on_duty';
         const statusBadge = isDuty 
             ? '<span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>في المحل (دوام)</span>'
@@ -6911,8 +6915,42 @@ function renderEvaluationsCards(evaluations) {
 
         // Card Border highlight
         const borderClass = isFlorist 
-            ? 'border-2 border-amber-300/80 hover:border-amber-400 bg-white shadow-md' 
+            ? 'border-2 border-amber-300/90 hover:border-amber-400 bg-white shadow-md' 
             : 'border border-slate-200 bg-white/90 shadow-xs';
+
+        // Tasks assigned HTML snippet
+        let tasksHtml = '';
+        if (emp.assigned_tasks && emp.assigned_tasks.length > 0) {
+            tasksHtml = `
+            <div class="mt-2.5 space-y-2">
+                ${emp.assigned_tasks.map(t => `
+                    <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                        <div class="flex items-center justify-between mb-1">
+                            <strong class="text-slate-900 font-bold flex items-center gap-1.5">
+                                <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                ${t.target_title}
+                            </strong>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === 'completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}">
+                                ${t.status === 'completed' ? 'منجزة بالكامل ✅' : 'قيد التنفيذ ⏳'}
+                            </span>
+                        </div>
+                        <p class="text-slate-700 leading-relaxed font-medium whitespace-pre-line text-[11px] bg-white p-2.5 rounded-xl border border-slate-100">
+                            ${t.description || 'مهام تنسيق وباقات'}
+                        </p>
+                    </div>
+                `).join('')}
+            </div>
+            `;
+        } else {
+            tasksHtml = `
+                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+                    <span>لم يتم كتابة مهام شهرية مسندة لهذا المنسق في ${monthLabel} بعد.</span>
+                    <button onclick="switchTab('monthly-targets')" class="text-emerald-700 font-bold hover:underline cursor-pointer">
+                        + كتابة مهام الشهر ✍️
+                    </button>
+                </div>
+            `;
+        }
 
         html += `
         <div class="rounded-3xl p-5 md:p-6 transition-all ${borderClass}">
@@ -6938,115 +6976,134 @@ function renderEvaluationsCards(evaluations) {
                     </div>
                 </div>
 
-                <!-- Star Rating & Evaluation Action -->
+                <!-- Monthly Overall Evaluation Stamp -->
                 <div class="flex items-center gap-3 self-end md:self-auto">
                     <div class="text-right">
                         <div class="text-amber-500 text-sm font-black flex items-center gap-1 justify-end">
                             <span>${starsHtml}</span>
                             <span class="text-xs text-slate-800 font-mono font-bold mr-1">(${emp.rating}/5)</span>
                         </div>
-                        <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md inline-block mt-0.5">
-                            درجة الأداء: ${scorePct}%
+                        <span class="text-[11px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full inline-block mt-0.5">
+                            درجة نهاية الشهر: ${scorePct}%
                         </span>
                     </div>
 
-                    <button onclick="openNewEvaluationModal(${emp.employee_id})" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95">
-                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-                        <span>تقييم المدير ⭐</span>
+                    <button onclick="openNewEvaluationModal(${emp.employee_id})" class="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 to-terracotta-600 hover:from-amber-700 hover:to-terracotta-700 text-white text-xs font-black shadow-md shadow-amber-900/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95">
+                        <i data-lucide="award" class="w-4 h-4"></i>
+                        <span>${emp.is_evaluated ? 'تعديل تقييم نهاية الشهر ⭐' : '✍️ تسجيل تقييم نهاية الشهر'}</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Performance Metrics Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4">
-                <!-- Orders Count Highlight (طلب المنسق المحدد) -->
-                <div class="bg-gradient-to-br from-amber-50 via-cream-50 to-amber-100/50 rounded-2xl p-4 border-2 border-amber-300/80 shadow-xs">
-                    <span class="text-[11px] font-black text-amber-900 block flex items-center gap-1.5">
-                        <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-amber-700"></i>
-                        الطلبات المنفذة بواسطة المنسق:
-                    </span>
-                    <div class="flex items-baseline gap-1.5 mt-1.5">
-                        <span class="text-2xl sm:text-3xl font-black text-amber-950 font-mono">${emp.total_orders}</span>
-                        <span class="text-xs font-bold text-amber-800">باقة / طلب</span>
+            <!-- Two Core Criteria Sections for the Month -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 my-5">
+                <!-- 1. Orders Completed in this Month (معيار الطلبات) -->
+                <div class="bg-gradient-to-br from-amber-50/90 via-cream-50 to-amber-100/50 rounded-3xl p-5 border-2 border-amber-300/80 shadow-xs space-y-3">
+                    <div class="flex items-center justify-between border-b border-amber-200/80 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black text-sm shadow-xs">
+                                1
+                            </span>
+                            <div>
+                                <h4 class="text-xs sm:text-sm font-black text-amber-950">إنجاز عدد الطلبات (${monthLabel})</h4>
+                                <span class="text-[10px] text-amber-800">حصر الباقات والطلبات المنفذة بواسطة المنسق</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-black font-mono text-amber-900 bg-amber-200/80 px-2.5 py-1 rounded-xl">
+                            ${emp.orders_score}/5 ⭐
+                        </span>
                     </div>
-                    <span class="text-[10px] text-amber-700 font-semibold block mt-1">
-                        ${emp.completed_orders} مكتمل ومسلم • ${emp.in_progress_orders} جاري
-                    </span>
+
+                    <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                        <div class="bg-white/90 p-3 rounded-2xl border border-amber-200">
+                            <span class="text-[10px] text-slate-500 font-bold block mb-1">الطلبات المنفذة</span>
+                            <span class="text-xl sm:text-2xl font-black text-amber-950 font-mono">${emp.total_orders}</span>
+                            <span class="text-[10px] text-amber-800 block">باقة / طلب</span>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-2xl border border-amber-200">
+                            <span class="text-[10px] text-slate-500 font-bold block mb-1">إجمالي المبيعات</span>
+                            <span class="text-base sm:text-lg font-black text-emerald-700 font-mono">${Number(emp.total_sales || 0).toLocaleString()}</span>
+                            <span class="text-[10px] text-emerald-800 block">ر.س</span>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-2xl border border-amber-200">
+                            <span class="text-[10px] text-slate-500 font-bold block mb-1">متوسط الطلب</span>
+                            <span class="text-base sm:text-lg font-black text-slate-800 font-mono">${Number(emp.avg_order_value || 0).toLocaleString()}</span>
+                            <span class="text-[10px] text-slate-600 block">ر.س</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2">
+                        <span class="text-[11px] text-amber-900 font-bold">
+                            ${emp.completed_orders} مكتمل ومسلّم للعميل • ${emp.in_progress_orders} جاري تجهيزه
+                        </span>
+                        <button onclick="toggleOrdersAccordion(${emp.employee_id})" class="text-xs font-black text-amber-800 hover:text-amber-950 underline flex items-center gap-1 cursor-pointer">
+                            <span>استعراض الطلبات (${emp.orders_list.length})</span>
+                            <i id="accordion-arrow-${emp.employee_id}" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Total Sales Handled -->
-                <div class="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-200">
-                    <span class="text-[11px] font-bold text-emerald-900 block flex items-center gap-1.5">
-                        <i data-lucide="dollar-sign" class="w-3.5 h-3.5 text-emerald-600"></i>
-                        إجمالي قيمة المبيعات:
-                    </span>
-                    <div class="flex items-baseline gap-1 mt-1.5">
-                        <span class="text-xl sm:text-2xl font-black text-emerald-950 font-mono">${Number(emp.total_sales || 0).toLocaleString()}</span>
-                        <span class="text-xs font-bold text-emerald-800">ر.س</span>
+                <!-- 2. Tasks Completed in this Month (معيار المهام الشهرية المكتوبة) -->
+                <div class="bg-gradient-to-br from-emerald-50/90 via-cream-50 to-emerald-100/50 rounded-3xl p-5 border-2 border-emerald-300/80 shadow-xs space-y-3">
+                    <div class="flex items-center justify-between border-b border-emerald-200/80 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-sm shadow-xs">
+                                2
+                            </span>
+                            <div>
+                                <h4 class="text-xs sm:text-sm font-black text-emerald-950">إنجاز المهام المطلوبة (${monthLabel})</h4>
+                                <span class="text-[10px] text-emerald-800">الالتزام بالواجبات والمهام المكتوبة من الإدارة</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-black font-mono text-emerald-900 bg-emerald-200/80 px-2.5 py-1 rounded-xl">
+                            ${emp.tasks_score}/5 📝
+                        </span>
                     </div>
-                    <span class="text-[10px] text-emerald-700 font-medium block mt-1">
-                        مجموع مبالغ طلبات المنسق
-                    </span>
-                </div>
 
-                <!-- Average Order Value -->
-                <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                    <span class="text-[11px] font-bold text-slate-700 block flex items-center gap-1.5">
-                        <i data-lucide="trending-up" class="w-3.5 h-3.5 text-slate-500"></i>
-                        متوسط قيمة الباقة / الطلب:
-                    </span>
-                    <div class="flex items-baseline gap-1 mt-1.5">
-                        <span class="text-xl sm:text-2xl font-black text-slate-900 font-mono">${Number(emp.avg_order_value || 0).toLocaleString()}</span>
-                        <span class="text-xs font-bold text-slate-600">ر.س</span>
+                    <!-- Tasks Completion Badge -->
+                    <div class="flex items-center justify-between bg-white/90 p-3 rounded-2xl border border-emerald-200">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="clipboard-check" class="w-5 h-5 text-emerald-600"></i>
+                            <div>
+                                <span class="text-[11px] text-slate-500 font-bold block">حالة المهام المسندة:</span>
+                                <strong class="text-xs font-black text-emerald-950">${emp.tasks_status_summary}</strong>
+                            </div>
+                        </div>
+                        <div class="text-right font-mono text-xs font-black text-slate-800">
+                            ${emp.completed_tasks_count} منجز / ${emp.total_tasks_count} إجمالي
+                        </div>
                     </div>
-                    <span class="text-[10px] text-slate-500 font-medium block mt-1">
-                        معدل الطلب الواحد
-                    </span>
-                </div>
 
-                <!-- Quality & Speed Scores -->
-                <div class="bg-purple-50/60 rounded-2xl p-4 border border-purple-200 text-xs space-y-1.5">
-                    <span class="text-[11px] font-bold text-purple-900 block">معايير التقييم الإداري:</span>
-                    <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-slate-600">إتقان التنسيق:</span>
-                        <span class="font-bold text-purple-900">${emp.quality_score}/5 ⭐</span>
-                    </div>
-                    <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-slate-600">سرعة التجهيز:</span>
-                        <span class="font-bold text-purple-900">${emp.speed_score}/5 ⚡</span>
-                    </div>
-                    <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-slate-600">الانضباط:</span>
-                        <span class="font-bold text-purple-900">${emp.discipline_score}/5 ⏰</span>
-                    </div>
+                    <!-- Tasks Preview -->
+                    ${tasksHtml}
                 </div>
             </div>
 
-            <!-- Manager Feedback Banner -->
-            ${emp.manager_feedback ? `
-            <div class="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3.5 flex items-start gap-3 my-3 text-xs">
-                <span class="text-lg shrink-0">💬</span>
-                <div class="flex-1">
-                    <strong class="text-amber-950 font-bold block">ملاحظات واعتماد المدير (${emp.evaluator_name || 'الإدارة'}):</strong>
-                    <p class="text-amber-900 leading-relaxed font-medium mt-0.5">«${emp.manager_feedback}»</p>
-                </div>
-            </div>
-            ` : ''}
+            <!-- 3. Quality & Evaluation Decision Box -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
+                <div class="flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="font-bold text-slate-800">معايير التقييم:</span>
+                        <span class="bg-white px-2.5 py-1 rounded-xl border border-slate-200 font-bold text-purple-900">الجودة: ${emp.quality_score}/5 ⭐</span>
+                        <span class="bg-white px-2.5 py-1 rounded-xl border border-slate-200 font-bold text-amber-900">السرعة: ${emp.speed_score}/5 ⚡</span>
+                        <span class="bg-white px-2.5 py-1 rounded-xl border border-slate-200 font-bold text-blue-900">الانضباط: ${emp.discipline_score}/5 ⏰</span>
+                        ${emp.bonus_recommendation ? `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-1 rounded-xl">🎁 ${emp.bonus_recommendation}</span>` : ''}
+                    </div>
 
-            <!-- Accordion Button: View Coordinator's Orders -->
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <button onclick="toggleOrdersAccordion(${emp.employee_id})" class="inline-flex items-center gap-2 text-xs font-black text-amber-800 hover:text-amber-950 bg-amber-100/70 hover:bg-amber-200/80 px-4 py-2 rounded-xl transition-all cursor-pointer">
-                    <i data-lucide="list-checks" class="w-4 h-4 text-amber-700"></i>
-                    <span>استعراض كافة طلبات ${emp.employee_name} (${emp.orders_list.length} طلب) 📋</span>
-                    <i id="accordion-arrow-${emp.employee_id}" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
+                    ${emp.manager_feedback ? `
+                        <p class="text-slate-700 font-medium leading-relaxed pt-1">
+                            <strong>ملاحظات المدير (${emp.evaluator_name || 'الإدارة'}):</strong> «${emp.manager_feedback}»
+                            ${emp.evaluated_at ? `<span class="text-slate-400 font-mono mr-1">(${emp.evaluated_at})</span>` : ''}
+                        </p>
+                    ` : '<p class="text-slate-400 pt-1">لم يتم تسجيل ملاحظات نهاية الشهر بعد.</p>'}
+                </div>
+
+                <button onclick="openNewEvaluationModal(${emp.employee_id})" class="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-xs shadow-2xs transition-all cursor-pointer whitespace-nowrap self-end md:self-auto">
+                    تعديل التقييم ✍️
                 </button>
-
-                <span class="text-xs text-slate-400 font-mono">
-                    ${emp.orders_list.length > 0 ? `آخر طلب: ${emp.orders_list[0].delivery_date || emp.orders_list[0].created_at}` : 'لا توجد طلبات مسندة بعد'}
-                </span>
             </div>
 
-            <!-- Collapsible Orders Table -->
+            <!-- Collapsible Orders Table (Accordion) -->
             <div id="orders-accordion-${emp.employee_id}" class="hidden mt-4 pt-4 border-t border-dashed border-slate-200 animate-fade-in">
                 ${renderCoordinatorOrdersTable(emp.orders_list, emp.employee_name)}
             </div>
@@ -7129,6 +7186,7 @@ function toggleOrdersAccordion(employeeId) {
 function openNewEvaluationModal(defaultEmployeeId = null) {
     const empSelect = document.getElementById('eval-form-employee');
     const monthInput = document.getElementById('eval-form-month');
+    const monthFilter = document.getElementById('filter-eval-month');
 
     // Populate employees select
     if (empSelect) {
@@ -7144,37 +7202,68 @@ function openNewEvaluationModal(defaultEmployeeId = null) {
         });
     }
 
-    // Default month
+    // Default month from filter or current date
     if (monthInput) {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        monthInput.value = `${y}-${m}`;
-    }
-
-    // If an existing evaluation is present for this employee, pre-populate
-    if (defaultEmployeeId) {
-        const target = allEvaluationRecords.find(e => e.employee_id == defaultEmployeeId);
-        if (target) {
-            const ratingSelect = document.getElementById('eval-form-rating');
-            const scoreInput = document.getElementById('eval-form-score');
-            const qualitySelect = document.getElementById('eval-form-quality');
-            const speedSelect = document.getElementById('eval-form-speed');
-            const discSelect = document.getElementById('eval-form-discipline');
-            const feedbackInput = document.getElementById('eval-form-feedback');
-
-            if (ratingSelect) ratingSelect.value = target.rating || 5;
-            if (scoreInput) scoreInput.value = target.score || 95;
-            if (qualitySelect) qualitySelect.value = target.quality_score || 5;
-            if (speedSelect) speedSelect.value = target.speed_score || 5;
-            if (discSelect) discSelect.value = target.discipline_score || 5;
-            if (feedbackInput) feedbackInput.value = target.manager_feedback || '';
+        if (monthFilter && monthFilter.value && monthFilter.value !== 'all') {
+            monthInput.value = monthFilter.value;
+        } else {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            monthInput.value = `${y}-${m}`;
         }
     }
+
+    // Pre-populate values
+    handleEvalEmployeeChange();
 
     const modal = document.getElementById('modal-employee-evaluation');
     if (modal) modal.classList.remove('hidden');
     initIcons();
+}
+
+function handleEvalEmployeeChange() {
+    const empSelect = document.getElementById('eval-form-employee');
+    const previewEl = document.getElementById('eval-form-summary-preview');
+    if (!empSelect || !previewEl) return;
+
+    const empId = parseInt(empSelect.value);
+    const target = allEvaluationRecords.find(e => e.employee_id == empId);
+
+    if (target) {
+        previewEl.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span>إنجاز المنسق (${target.employee_name}) للشهر:</span>
+                <strong class="font-mono text-amber-950">${target.total_orders} طلب • ${Number(target.total_sales || 0).toLocaleString()} ر.س</strong>
+            </div>
+            <div class="text-[11px] text-emerald-800 font-semibold">
+                حالة المهام المكتوبة: ${target.tasks_status_summary} (${target.completed_tasks_count} منجز من ${target.total_tasks_count})
+            </div>
+        `;
+
+        // Pre-populate fields
+        const ratingSelect = document.getElementById('eval-form-rating');
+        const scoreInput = document.getElementById('eval-form-score');
+        const ordersScore = document.getElementById('eval-form-orders-score');
+        const tasksScore = document.getElementById('eval-form-tasks-score');
+        const qualitySelect = document.getElementById('eval-form-quality');
+        const speedSelect = document.getElementById('eval-form-speed');
+        const discSelect = document.getElementById('eval-form-discipline');
+        const bonusInput = document.getElementById('eval-form-bonus');
+        const feedbackInput = document.getElementById('eval-form-feedback');
+
+        if (ratingSelect) ratingSelect.value = target.rating || 5;
+        if (scoreInput) scoreInput.value = target.score || 95;
+        if (ordersScore) ordersScore.value = target.orders_score || 5;
+        if (tasksScore) tasksScore.value = target.tasks_score || 5;
+        if (qualitySelect) qualitySelect.value = target.quality_score || 5;
+        if (speedSelect) speedSelect.value = target.speed_score || 5;
+        if (discSelect) discSelect.value = target.discipline_score || 5;
+        if (bonusInput) bonusInput.value = target.bonus_recommendation || '';
+        if (feedbackInput) feedbackInput.value = target.manager_feedback || '';
+    } else {
+        previewEl.innerHTML = 'اختر المنسق وشهر التقييم لاستعراض أدائه';
+    }
 }
 
 async function handleEmployeeEvaluationSubmit(event) {
@@ -7184,9 +7273,12 @@ async function handleEmployeeEvaluationSubmit(event) {
     const monthInput = document.getElementById('eval-form-month');
     const ratingSelect = document.getElementById('eval-form-rating');
     const scoreInput = document.getElementById('eval-form-score');
+    const ordersScore = document.getElementById('eval-form-orders-score');
+    const tasksScore = document.getElementById('eval-form-tasks-score');
     const qualitySelect = document.getElementById('eval-form-quality');
     const speedSelect = document.getElementById('eval-form-speed');
     const discSelect = document.getElementById('eval-form-discipline');
+    const bonusInput = document.getElementById('eval-form-bonus');
     const managerSelect = document.getElementById('eval-form-manager');
     const feedbackInput = document.getElementById('eval-form-feedback');
 
@@ -7195,9 +7287,12 @@ async function handleEmployeeEvaluationSubmit(event) {
         eval_month: monthInput.value,
         rating: parseInt(ratingSelect.value) || 5,
         score: parseInt(scoreInput.value) || 95,
+        orders_score: parseInt(ordersScore ? ordersScore.value : 5) || 5,
+        tasks_score: parseInt(tasksScore ? tasksScore.value : 5) || 5,
         quality_score: parseInt(qualitySelect.value) || 5,
         speed_score: parseInt(speedSelect.value) || 5,
         discipline_score: parseInt(discSelect.value) || 5,
+        bonus_recommendation: bonusInput ? bonusInput.value.trim() : null,
         evaluator_name: managerSelect ? managerSelect.value : 'فيصل (مدير تشغيلي)',
         manager_feedback: feedbackInput ? feedbackInput.value.trim() : ''
     };
@@ -7213,7 +7308,7 @@ async function handleEmployeeEvaluationSubmit(event) {
         if (data.success) {
             closeModal('modal-employee-evaluation');
             loadEmployeeEvaluations();
-            alert("✓ تم حفظ واعتماد تقييم المنسق بنجاح ⭐");
+            alert("✓ تم حفظ واعتماد تقييم نهاية الشهر للمنسق بنجاح ⭐");
         } else {
             alert(data.detail || "تعذر حفظ التقييم");
         }
@@ -7227,7 +7322,9 @@ window.loadEmployeeEvaluations = loadEmployeeEvaluations;
 window.renderEvaluationsCards = renderEvaluationsCards;
 window.toggleOrdersAccordion = toggleOrdersAccordion;
 window.openNewEvaluationModal = openNewEvaluationModal;
+window.handleEvalEmployeeChange = handleEvalEmployeeChange;
 window.handleEmployeeEvaluationSubmit = handleEmployeeEvaluationSubmit;
+
 
 
 

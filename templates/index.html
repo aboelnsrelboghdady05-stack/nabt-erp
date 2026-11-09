@@ -4070,8 +4070,8 @@
                         ⭐️
                     </div>
                     <div>
-                        <h3 class="font-black text-white text-base">تسجيل واعتماد تقييم المنسق 🌸</h3>
-                        <p class="text-xs text-amber-200/90">تقييم الأداء والجودة والسرعة وحصر الملاحظات الإدارية</p>
+                        <h3 class="font-black text-white text-base">تسجيل تقييم نهاية الشهر للمنسق 🌸📅</h3>
+                        <p class="text-xs text-amber-200/90">تقييم شامل بناءً على عدد الطلبات وإنجاز المهام الشهرية المكتوبة</p>
                     </div>
                 </div>
                 <button onclick="closeModal('modal-employee-evaluation')" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all cursor-pointer">
@@ -4083,75 +4083,119 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">المنسق / الموظف <span class="text-red-500">*</span></label>
-                        <select id="eval-form-employee" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                        <select id="eval-form-employee" required onchange="handleEvalEmployeeChange()" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
                             <!-- Populated with florists and employees -->
                         </select>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">شهر التقييم <span class="text-red-500">*</span></label>
-                        <input type="month" id="eval-form-month" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold font-mono text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                        <input type="month" id="eval-form-month" required onchange="handleEvalEmployeeChange()" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold font-mono text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
                     </div>
                 </div>
 
-                <!-- Rating Criteria Grid -->
-                <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200/80 space-y-3">
-                    <div class="grid grid-cols-2 gap-3">
+                <!-- Preview summary banner for the selected employee in this month -->
+                <div id="eval-form-summary-preview" class="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-cream-100 border border-amber-300 text-xs space-y-1">
+                    <!-- Populated dynamically via JS -->
+                </div>
+
+                <!-- Monthly Criteria 1 & 2: Orders Count and Tasks Completion Evaluation -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-1.5">
+                        <label class="block text-xs font-black text-amber-950 flex items-center gap-1.5">
+                            <span>🛍️ تقييم إنجاز عدد الطلبات:</span>
+                        </label>
+                        <select id="eval-form-orders-score" class="w-full bg-white border border-amber-300 rounded-xl px-2.5 py-2 text-xs font-black text-amber-800 outline-hidden">
+                            <option value="5">⭐⭐⭐⭐⭐ ممتاز (إنجاز عالي جداً)</option>
+                            <option value="4">⭐⭐⭐⭐ جيد جداً (فوق المتوسط)</option>
+                            <option value="3">⭐⭐⭐ جيد (إنجاز مرضي)</option>
+                            <option value="2">⭐⭐ يحتاج تحسين ومتابعة</option>
+                            <option value="1">⭐ ضعيف (لم يحقق المعدل)</option>
+                        </select>
+                        <span class="text-[10px] text-slate-500 block">يقيم المدير سرعة وكثافة تنسيق الطلبات</span>
+                    </div>
+
+                    <div class="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-1.5">
+                        <label class="block text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                            <span>📝 تقييم إنجاز المهام المطلوبة:</span>
+                        </label>
+                        <select id="eval-form-tasks-score" class="w-full bg-white border border-emerald-300 rounded-xl px-2.5 py-2 text-xs font-black text-emerald-800 outline-hidden">
+                            <option value="5">⭐⭐⭐⭐⭐ ممتاز (أنجز كافة المهام بدقة)</option>
+                            <option value="4">⭐⭐⭐⭐ جيد جداً (أنجز معظم المهام)</option>
+                            <option value="3">⭐⭐⭐ جيد (إنجاز مقبول)</option>
+                            <option value="2">⭐⭐ يحتاج التزام أكثر بالمهام</option>
+                            <option value="1">⭐ ضعيف (إهمال للمهام المكتوبة)</option>
+                        </select>
+                        <span class="text-[10px] text-slate-500 block">يقيم التزام المنسق بالمهام المكتوبة له</span>
+                    </div>
+                </div>
+
+                <!-- Quality, Speed, Discipline Grid -->
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                        <label class="block text-[11px] font-bold text-slate-700 mb-1">جودة التنسيق 🌸</label>
+                        <select id="eval-form-quality" class="w-full text-xs font-black text-amber-800 bg-slate-50 rounded-lg p-1 outline-hidden">
+                            <option value="5">5 / 5 ممتاز</option>
+                            <option value="4">4 / 5 جيد جداً</option>
+                            <option value="3">3 / 5 جيد</option>
+                        </select>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                        <label class="block text-[11px] font-bold text-slate-700 mb-1">سرعة التجهيز ⚡</label>
+                        <select id="eval-form-speed" class="w-full text-xs font-black text-amber-800 bg-slate-50 rounded-lg p-1 outline-hidden">
+                            <option value="5">5 / 5 سريع جداً</option>
+                            <option value="4">4 / 5 متوسط</option>
+                            <option value="3">3 / 5 بطيء</option>
+                        </select>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                        <label class="block text-[11px] font-bold text-slate-700 mb-1">الحضور والدوام ⏰</label>
+                        <select id="eval-form-discipline" class="w-full text-xs font-black text-amber-800 bg-slate-50 rounded-lg p-1 outline-hidden">
+                            <option value="5">5 / 5 منضبط تماماً</option>
+                            <option value="4">4 / 5 جيد</option>
+                            <option value="3">3 / 5 تأخيرات</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Overall Grade & Bonus -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">التقييم بالنجوم ⭐</label>
-                            <select id="eval-form-rating" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-black text-amber-700 outline-hidden">
-                                <option value="5">⭐⭐⭐⭐⭐ ممتاز (5)</option>
-                                <option value="4">⭐⭐⭐⭐ جيد جداً (4)</option>
-                                <option value="3">⭐⭐⭐ جيد (3)</option>
-                                <option value="2">⭐⭐ مقبول (2)</option>
-                                <option value="1">⭐ ضعيف (1)</option>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">التقييم العام ⭐</label>
+                            <select id="eval-form-rating" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-black text-amber-700 outline-hidden">
+                                <option value="5">⭐⭐⭐⭐⭐ 5</option>
+                                <option value="4">⭐⭐⭐⭐ 4</option>
+                                <option value="3">⭐⭐⭐ 3</option>
+                                <option value="2">⭐⭐ 2</option>
+                                <option value="1">⭐ 1</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">درجة الأداء (%) 🎯</label>
-                            <input type="number" id="eval-form-score" min="50" max="100" value="95" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-hidden">
+                            <input type="number" id="eval-form-score" min="50" max="100" value="95" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-slate-800 outline-hidden">
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2 pt-1 text-center">
-                        <div class="bg-white p-2 rounded-xl border border-slate-200">
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">إتقان التنسيق</label>
-                            <select id="eval-form-quality" class="w-full text-xs font-bold text-amber-700 bg-slate-50 rounded-lg p-1 outline-hidden">
-                                <option value="5">5 / 5 ⭐</option>
-                                <option value="4">4 / 5</option>
-                                <option value="3">3 / 5</option>
-                            </select>
-                        </div>
-                        <div class="bg-white p-2 rounded-xl border border-slate-200">
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">سرعة التجهيز</label>
-                            <select id="eval-form-speed" class="w-full text-xs font-bold text-amber-700 bg-slate-50 rounded-lg p-1 outline-hidden">
-                                <option value="5">5 / 5 ⚡</option>
-                                <option value="4">4 / 5</option>
-                                <option value="3">3 / 5</option>
-                            </select>
-                        </div>
-                        <div class="bg-white p-2 rounded-xl border border-slate-200">
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">الحضور والانضباط</label>
-                            <select id="eval-form-discipline" class="w-full text-xs font-bold text-amber-700 bg-slate-50 rounded-lg p-1 outline-hidden">
-                                <option value="5">5 / 5 ⏰</option>
-                                <option value="4">4 / 5</option>
-                                <option value="3">3 / 5</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">توصية المكافأة / التقدير 🎁</label>
+                        <input type="text" id="eval-form-bonus" placeholder="مثال: مكافأة تميز ٥٠٠ ر.س أو شكر وتقدير" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">المدير واضع التقييم <span class="text-red-500">*</span></label>
-                    <select id="eval-form-manager" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
-                        <option value="فيصل (مدير تشغيلي)">فيصل (مدير تشغيلي) 👑</option>
-                        <option value="ياسر (المدير العام)">ياسر (المدير العام) 👑</option>
-                        <option value="نادر (مدير فرع)">نادر (مدير فرع) 🌸</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظات وتقييم الإدارة للأداء</label>
-                    <textarea id="eval-form-feedback" rows="3" placeholder="اكتب إشادة بالأداء، أو توجيهات إدارية، أو ملاحظات على جودة الباقات وسرعة التنسيق..." class="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3 text-xs text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden"></textarea>
+                <!-- Manager & Notes -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">المدير واضع التقييم <span class="text-red-500">*</span></label>
+                        <select id="eval-form-manager" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                            <option value="فيصل (مدير تشغيلي)">فيصل (مدير تشغيلي) 👑</option>
+                            <option value="ياسر (المدير العام)">ياسر (المدير العام) 👑</option>
+                            <option value="نادر (مدير فرع)">نادر (مدير فرع) 🌸</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">قرار وملاحظات نهاية الشهر</label>
+                        <input type="text" id="eval-form-feedback" placeholder="مثال: أداء رائع والتزام كامل بالمهام المطلوبة وجودة التنسيق" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                    </div>
                 </div>
 
                 <div class="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
@@ -4159,8 +4203,8 @@
                         إلغاء
                     </button>
                     <button type="submit" class="px-6 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md shadow-amber-900/20 transition-all cursor-pointer flex items-center gap-2">
-                        <i data-lucide="check" class="w-4 h-4"></i>
-                        <span>حفظ واعتماد التقييم ⭐</span>
+                        <i data-lucide="check-check" class="w-4 h-4"></i>
+                        <span>اعتماد وحفظ تقييم نهاية الشهر ⭐️</span>
                     </button>
                 </div>
             </form>

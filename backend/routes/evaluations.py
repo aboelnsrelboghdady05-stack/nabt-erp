@@ -4,16 +4,19 @@ from typing import Optional, List
 from database import get_db
 from datetime import datetime
 
-router = APIRouter(prefix="/api/evaluations", tags=["Employee Evaluations & Florist Performance"])
+router = APIRouter(prefix="/api/evaluations", tags=["Employee Monthly Evaluations"])
 
 class EvaluationSubmitSchema(BaseModel):
     employee_id: int
     eval_month: Optional[str] = None
     rating: int = 5
     score: int = 95
-    quality_score: int = 5
-    speed_score: int = 5
-    discipline_score: int = 5
+    orders_score: int = 5       # تقييم إنجاز عدد الطلبات (1-5)
+    tasks_score: int = 5        # تقييم إنجاز المهام المطلوبة المكتوبة (1-5)
+    quality_score: int = 5      # تقييم جودة التنسيق
+    speed_score: int = 5        # تقييم سرعة التجهيز
+    discipline_score: int = 5   # تقييم الحضور والانضباط
+    bonus_recommendation: Optional[str] = None
     manager_feedback: Optional[str] = None
     evaluator_name: str = "فيصل (مدير تشغيلي)"
 
@@ -22,6 +25,12 @@ def get_evaluations_and_performance(
     month: Optional[str] = Query(None, description="Month format YYYY-MM or 'all'"),
     employee_id: Optional[int] = Query(None, description="Filter by specific employee ID")
 ):
+    """
+    جلب تقرير تقييم نهاية الشهر للمنسقين والموظفين بناءً على:
+    1. عدد الطلبات المنفذة في هذا الشهر.
+    2. إنجاز المهام الشهرية المكتوبة المطلوبة من الموظف.
+    3. تقييم واعتماد المدير لنهاية الشهر.
+    """
     if not isinstance(month, str):
         month = None
     if not isinstance(employee_id, int):
@@ -33,7 +42,7 @@ def get_evaluations_and_performance(
     cursor = conn.cursor()
     
     try:
-        # 1. Fetch employees (prioritizing florists)
+        # 1. Fetch employees (florists first)
         emp_query = "SELECT id, name, phone, role, status, specialty, weekly_off_day FROM employees"
         params = []
         if employee_id:
@@ -51,7 +60,7 @@ def get_evaluations_and_performance(
         for emp in employees:
             e_id = emp["id"]
             
-            # 2. Fetch orders assigned/executed by this florist
+            # 2. Fetch orders executed by this florist for the active month
             order_query = """
             SELECT id, order_number, customer_name, customer_phone, delivery_date, delivery_time_slot,
                    total_amount, status, payment_status, created_at, notes, flower_colors, completed_image,
@@ -79,10 +88,27 @@ def get_evaluations_and_performance(
             total_orders_all += total_orders
             total_sales_all += total_sales
             
-            # 3. Fetch latest evaluation for this employee
+            # 3. Fetch monthly tasks assigned to this employee from employee_monthly_targets
+            tasks_query = """
+            SELECT id, target_title, description, special_instructions, status, set_by_name, updated_at
+            FROM employee_monthly_targets
+            WHERE employee_id = ?
+            """
+            tasks_params = [e_id]
+            if active_month and active_month != "all":
+                tasks_query += " AND target_month = ?"
+                tasks_params.append(active_month)
+            tasks_query += " ORDER BY id DESC"
+            cursor.execute(tasks_query, tasks_params)
+            assigned_tasks = [dict(t) for t in cursor.fetchall()]
+            
+            total_tasks_count = len(assigned_tasks)
+            completed_tasks_count = sum(1 for t in assigned_tasks if t.get("status") == "completed")
+            
+            # 4. Fetch monthly evaluation record from employee_evaluations
             eval_query = """
-            SELECT id, eval_month, rating, score, quality_score, speed_score, discipline_score,
-                   manager_feedback, evaluator_name, created_at, updated_at
+            SELECT id, eval_month, rating, score, orders_score, tasks_score, quality_score, speed_score,
+                   discipline_score, bonus_recommendation, manager_feedback, evaluator_name, created_at, updated_at
             FROM employee_evaluations
             WHERE employee_id = ?
             """
@@ -95,15 +121,19 @@ def get_evaluations_and_performance(
             cursor.execute(eval_query, eval_params)
             eval_row = cursor.fetchone()
             
+            is_evaluated = bool(eval_row)
             eval_data = dict(eval_row) if eval_row else {
                 "id": None,
                 "eval_month": active_month,
                 "rating": 5 if total_orders > 0 else 0,
                 "score": 95 if total_orders > 0 else 80,
+                "orders_score": 5 if total_orders > 0 else 0,
+                "tasks_score": 5 if completed_tasks_count > 0 else (4 if total_tasks_count > 0 else 0),
                 "quality_score": 5 if total_orders > 0 else 0,
                 "speed_score": 5 if total_orders > 0 else 0,
                 "discipline_score": 5 if total_orders > 0 else 0,
-                "manager_feedback": "في انتظار تسجيل تقييم الإدارة لهذا الشهر" if total_orders == 0 else "أداء ممتاز في تنفيذ طلبات وباقات الورد",
+                "bonus_recommendation": "مكافأة تميز للأداء العالي 🏆" if total_orders >= 3 else None,
+                "manager_feedback": "في انتظار تسجيل تقييم الإدارة لنهاية هذا الشهر ⏳" if total_orders == 0 else "أداء ممتاز في تنسيق وتنفيذ باقات وطلبات الشهر.",
                 "evaluator_name": "إدارة نبت ورد",
                 "created_at": None,
                 "updated_at": None
@@ -118,7 +148,7 @@ def get_evaluations_and_performance(
                 "employee_specialty": emp["specialty"] or "تنسيق ورد وتغليف",
                 "weekly_off_day": emp["weekly_off_day"] or "الثلاثاء",
                 
-                # Performance metrics
+                # 1. Orders Performance this month
                 "total_orders": total_orders,
                 "total_sales": round(total_sales, 2),
                 "avg_order_value": avg_order_val,
@@ -126,20 +156,29 @@ def get_evaluations_and_performance(
                 "in_progress_orders": in_progress_orders,
                 "orders_list": orders_rows,
                 
-                # Manager evaluation
+                # 2. Tasks Performance this month
+                "total_tasks_count": total_tasks_count,
+                "completed_tasks_count": completed_tasks_count,
+                "assigned_tasks": assigned_tasks,
+                "tasks_status_summary": "تم إنجاز كافة المهام بالكامل ✅" if (total_tasks_count > 0 and completed_tasks_count == total_tasks_count) else ("جاري استكمال المهام ⏳" if total_tasks_count > 0 else "لم تُسند مهام مكتوبة بعد"),
+                
+                # 3. Monthly Evaluation details
+                "is_evaluated": is_evaluated,
                 "evaluation_id": eval_data.get("id"),
                 "eval_month": eval_data.get("eval_month") or active_month,
                 "rating": eval_data.get("rating") or 5,
                 "score": eval_data.get("score") or 95,
+                "orders_score": eval_data.get("orders_score") or 5,
+                "tasks_score": eval_data.get("tasks_score") or 5,
                 "quality_score": eval_data.get("quality_score") or 5,
                 "speed_score": eval_data.get("speed_score") or 5,
                 "discipline_score": eval_data.get("discipline_score") or 5,
+                "bonus_recommendation": eval_data.get("bonus_recommendation"),
                 "manager_feedback": eval_data.get("manager_feedback"),
                 "evaluator_name": eval_data.get("evaluator_name"),
                 "evaluated_at": eval_data.get("updated_at") or eval_data.get("created_at")
             })
             
-        # Top Florist calculation
         florists_only = [e for e in evaluations_list if e["employee_role"] == "florist"]
         top_florist = max(florists_only, key=lambda x: x["total_orders"], default=None) if florists_only else None
         top_sales_florist = max(florists_only, key=lambda x: x["total_sales"], default=None) if florists_only else None
@@ -168,7 +207,7 @@ def get_evaluations_and_performance(
 @router.post("")
 def submit_evaluation(payload: EvaluationSubmitSchema):
     """
-    إدخال أو تعديل تقييم المنسق / الموظف
+    تسجيل أو اعتماد تقييم نهاية الشهر للمنسق / الموظف
     """
     month_val = payload.eval_month or datetime.now().strftime("%Y-%m")
     
@@ -195,43 +234,49 @@ def submit_evaluation(payload: EvaluationSubmitSchema):
         if existing:
             cursor.execute("""
             UPDATE employee_evaluations
-            SET rating = ?, score = ?, quality_score = ?, speed_score = ?, discipline_score = ?,
-                manager_feedback = ?, evaluator_name = ?, updated_at = ?
+            SET rating = ?, score = ?, orders_score = ?, tasks_score = ?, quality_score = ?, speed_score = ?, discipline_score = ?,
+                bonus_recommendation = ?, manager_feedback = ?, evaluator_name = ?, updated_at = ?
             WHERE id = ?
             """, (
                 payload.rating,
                 payload.score,
+                payload.orders_score,
+                payload.tasks_score,
                 payload.quality_score,
                 payload.speed_score,
                 payload.discipline_score,
-                payload.manager_feedback or f"أداء مميز للمنسق {emp_name}",
+                payload.bonus_recommendation,
+                payload.manager_feedback or f"أداء مميز للمنسق {emp_name} لشهر {month_val}",
                 payload.evaluator_name,
                 now_str,
                 existing["id"]
             ))
             eval_id = existing["id"]
-            msg = f"تم تحديث تقييم المنسق ({emp_name}) بنجاح ⭐"
+            msg = f"تم تحديث تقييم نهاية شهر ({month_val}) للمنسق ({emp_name}) بنجاح ⭐"
         else:
             cursor.execute("""
             INSERT INTO employee_evaluations (
-                employee_id, eval_month, rating, score, quality_score, speed_score, discipline_score,
-                manager_feedback, evaluator_name, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                employee_id, eval_month, rating, score, orders_score, tasks_score, quality_score, speed_score, discipline_score,
+                bonus_recommendation, manager_feedback, evaluator_name, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 payload.employee_id,
                 month_val,
                 payload.rating,
                 payload.score,
+                payload.orders_score,
+                payload.tasks_score,
                 payload.quality_score,
                 payload.speed_score,
                 payload.discipline_score,
-                payload.manager_feedback or f"أداء مميز للمنسق {emp_name}",
+                payload.bonus_recommendation,
+                payload.manager_feedback or f"أداء مميز للمنسق {emp_name} لشهر {month_val}",
                 payload.evaluator_name,
                 now_str,
                 now_str
             ))
             eval_id = cursor.lastrowid
-            msg = f"تم تسجيل واعتماد تقييم المنسق ({emp_name}) بنجاح ⭐"
+            msg = f"تم تسجيل واعتماد تقييم نهاية شهر ({month_val}) للمنسق ({emp_name}) بنجاح ⭐"
             
         conn.commit()
         return {
