@@ -4,29 +4,31 @@ from typing import Optional, List
 from database import get_db
 from datetime import datetime
 
-router = APIRouter(prefix="/api/monthly-targets", tags=["Employee Monthly Targets"])
+router = APIRouter(prefix="/api/monthly-targets", tags=["Employee Monthly Tasks & Goals"])
 
 class TargetCreateSchema(BaseModel):
     employee_id: int
     target_month: str  # Format: YYYY-MM e.g. '2026-11'
     target_title: str
-    description: Optional[str] = None
-    orders_target: Optional[int] = 0
-    sales_target: Optional[float] = 0.0
+    description: Optional[str] = ""  # النص الكامل للمهام والأهداف المكتوبة
     special_instructions: Optional[str] = None
     set_by_name: Optional[str] = "الإدارة (فيصل / ياسر)"
     set_by_role: Optional[str] = "operations_manager"
     set_by_id: Optional[int] = None
+    priority: Optional[str] = "normal"  # normal, urgent, mandatory
 
 class TargetUpdateSchema(BaseModel):
     target_title: Optional[str] = None
     description: Optional[str] = None
-    orders_target: Optional[int] = None
-    sales_target: Optional[float] = None
     special_instructions: Optional[str] = None
-    status: Optional[str] = None # in_progress, achieved, exceeded, needs_improvement
+    status: Optional[str] = None  # in_progress, completed, reviewed
     manager_feedback: Optional[str] = None
     rating: Optional[int] = None
+    priority: Optional[str] = None
+
+class TargetStatusSchema(BaseModel):
+    status: str  # in_progress, completed
+    notes: Optional[str] = None
 
 @router.get("")
 def get_monthly_targets(
@@ -37,7 +39,6 @@ def get_monthly_targets(
     conn = get_db()
     cursor = conn.cursor()
 
-    # Default to current month if not provided
     current_month = month or datetime.now().strftime("%Y-%m")
 
     query = """
@@ -65,70 +66,27 @@ def get_monthly_targets(
     rows = cursor.fetchall()
 
     targets = []
-    total_target_orders = 0
-    total_achieved_orders = 0
-    total_target_sales = 0.0
-    total_achieved_sales = 0.0
+    in_progress_count = 0
+    completed_count = 0
+    reviewed_count = 0
 
     for row in rows:
         item = dict(row)
-        emp_id = item.get("employee_id")
-        t_month = item.get("target_month") or current_month
-
-        # Calculate live stats from orders for this employee during the target month
-        try:
-            cursor.execute("""
-                SELECT COUNT(*), COALESCE(SUM(total_amount), 0.0)
-                FROM orders
-                WHERE florist_id = ?
-                  AND created_at LIKE ?
-                  AND status != 'cancelled'
-            """, (emp_id, f"{t_month}%"))
-            ord_res = cursor.fetchone()
-            actual_orders = ord_res[0] if ord_res else 0
-            actual_sales = float(ord_res[1]) if ord_res else 0.0
-        except Exception:
-            actual_orders = item.get("achieved_orders") or 0
-            actual_sales = float(item.get("achieved_sales") or 0.0)
-
-        # Merge live count if greater than manually recorded
-        final_orders = max(actual_orders, item.get("achieved_orders") or 0)
-        final_sales = max(actual_sales, float(item.get("achieved_sales") or 0.0))
-
-        item["achieved_orders"] = final_orders
-        item["achieved_sales"] = final_sales
-
-        target_orders = item.get("orders_target") or 0
-        target_sales = float(item.get("sales_target") or 0.0)
-
-        item["orders_progress_pct"] = round((final_orders / target_orders * 100), 1) if target_orders > 0 else 0
-        item["sales_progress_pct"] = round((final_sales / target_sales * 100), 1) if target_sales > 0 else 0
-
-        # Auto status helper
-        if item.get("orders_progress_pct", 0) >= 100:
-            item["auto_status"] = "achieved"
-        elif item.get("orders_progress_pct", 0) >= 50:
-            item["auto_status"] = "in_progress"
+        st = item.get("status") or "in_progress"
+        if st in ("completed", "achieved", "exceeded"):
+            completed_count += 1
+        elif st == "reviewed":
+            reviewed_count += 1
         else:
-            item["auto_status"] = item.get("status") or "in_progress"
+            in_progress_count += 1
 
         targets.append(item)
 
-        total_target_orders += target_orders
-        total_achieved_orders += final_orders
-        total_target_sales += target_sales
-        total_achieved_sales += final_sales
-
-    # Month overview stats
-    overall_progress_pct = round((total_achieved_orders / total_target_orders * 100), 1) if total_target_orders > 0 else 0
-
     stats = {
-        "targets_count": len(targets),
-        "total_target_orders": total_target_orders,
-        "total_achieved_orders": total_achieved_orders,
-        "total_target_sales": total_target_sales,
-        "total_achieved_sales": total_achieved_sales,
-        "overall_progress_pct": overall_progress_pct,
+        "total_tasks": len(targets),
+        "in_progress": in_progress_count,
+        "completed": completed_count,
+        "reviewed": reviewed_count,
         "active_month": current_month
     }
 
@@ -155,7 +113,7 @@ def get_target_employees():
 @router.post("")
 def create_monthly_target(payload: TargetCreateSchema):
     if not payload.target_title or not payload.target_title.strip():
-        raise HTTPException(status_code=400, detail="يرجى كتابة عنوان الهدف الشهري.")
+        raise HTTPException(status_code=400, detail="يرجى كتابة عنوان الهدف / المهمة.")
     if not payload.target_month or not payload.target_month.strip():
         raise HTTPException(status_code=400, detail="يرجى تحديد الشهر المستهدف (مثال: 2026-11).")
 
@@ -178,7 +136,7 @@ def create_monthly_target(payload: TargetCreateSchema):
             target_title, description, orders_target, sales_target,
             special_instructions, set_by_name, set_by_role, set_by_id,
             status, achieved_orders, achieved_sales
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', 0, 0.0)
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, 0.0, ?, ?, ?, ?, 'in_progress', 0, 0.0)
     """, (
         payload.target_month.strip(),
         payload.employee_id,
@@ -186,8 +144,6 @@ def create_monthly_target(payload: TargetCreateSchema):
         emp_role,
         payload.target_title.strip(),
         payload.description.strip() if payload.description else "",
-        payload.orders_target or 0,
-        payload.sales_target or 0.0,
         payload.special_instructions.strip() if payload.special_instructions else "",
         payload.set_by_name or "الإدارة (فيصل / ياسر)",
         payload.set_by_role or "operations_manager",
@@ -200,7 +156,7 @@ def create_monthly_target(payload: TargetCreateSchema):
 
     return {
         "success": True,
-        "message": f"تم تحديد هدف شهر {payload.target_month} للموظف ({emp_name}) بنجاح 🎯",
+        "message": f"تم حفظ وإسناد مهام شهر {payload.target_month} للموظف ({emp_name}) بنجاح 📝✅",
         "target_id": target_id
     }
 
@@ -213,7 +169,7 @@ def update_monthly_target(target_id: int, payload: TargetUpdateSchema):
     existing = cursor.fetchone()
     if not existing:
         conn.close()
-        raise HTTPException(status_code=404, detail="الهدف المطلوب غير موجود.")
+        raise HTTPException(status_code=404, detail="المهمة / الهدف غير موجود.")
 
     updates = []
     params = []
@@ -224,12 +180,6 @@ def update_monthly_target(target_id: int, payload: TargetUpdateSchema):
     if payload.description is not None:
         updates.append("description = ?")
         params.append(payload.description.strip())
-    if payload.orders_target is not None:
-        updates.append("orders_target = ?")
-        params.append(payload.orders_target)
-    if payload.sales_target is not None:
-        updates.append("sales_target = ?")
-        params.append(payload.sales_target)
     if payload.special_instructions is not None:
         updates.append("special_instructions = ?")
         params.append(payload.special_instructions.strip())
@@ -251,7 +201,29 @@ def update_monthly_target(target_id: int, payload: TargetUpdateSchema):
         conn.commit()
 
     conn.close()
-    return {"success": True, "message": "تم تحديث الهدف بنجاح ✅"}
+    return {"success": True, "message": "تم تحديث المهمة بنجاح ✅"}
+
+@router.put("/{target_id}/status")
+def toggle_target_status(target_id: int, payload: TargetStatusSchema):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, employee_name, target_title FROM employee_monthly_targets WHERE id = ?", (target_id,))
+    existing = cursor.fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="المهمة غير موجودة.")
+
+    cursor.execute("""
+        UPDATE employee_monthly_targets
+        SET status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (payload.status, target_id))
+    conn.commit()
+    conn.close()
+
+    msg = "تم تحديث حالة المهمة إلى مكتملة بنجاح ✅" if payload.status == "completed" else "تم إعادة المهمة إلى قيد التنفيذ ⏳"
+    return {"success": True, "message": msg}
 
 @router.delete("/{target_id}")
 def delete_monthly_target(target_id: int):
@@ -262,10 +234,10 @@ def delete_monthly_target(target_id: int):
     row = cursor.fetchone()
     if not row:
         conn.close()
-        raise HTTPException(status_code=404, detail="الهدف غير موجود.")
+        raise HTTPException(status_code=404, detail="المهمة غير موجودة.")
 
     cursor.execute("DELETE FROM employee_monthly_targets WHERE id = ?", (target_id,))
     conn.commit()
     conn.close()
 
-    return {"success": True, "message": "تم حذف الهدف بنجاح 🗑️"}
+    return {"success": True, "message": "تم حذف المهمة بنجاح 🗑️"}

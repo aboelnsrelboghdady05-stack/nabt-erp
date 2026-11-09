@@ -548,9 +548,14 @@ function switchTab(tabId) {
         tabId = 'dashboard';
     }
 
+    // Forward any legacy creative-tasks request directly to monthly-targets
+    if (tabId === 'creative-tasks') {
+        tabId = 'monthly-targets';
+    }
+
     currentActiveTab = tabId;
 
-    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'creative-tasks', 'monthly-targets', 'regulations'];
+    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'monthly-targets', 'regulations'];
     tabs.forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const nav = document.getElementById(`nav-${t}`);
@@ -588,8 +593,8 @@ function switchTab(tabId) {
         products: { title: (typeof t === 'function' ? t('nav_products', 'كتالوج الورد والهدايا') : 'كتالوج الورد والهدايا'), icon: 'boxes' },
         employees: { title: (typeof t === 'function' ? t('nav_employees', 'إدارة المنسقين والموظفين والإجازات') : 'إدارة المنسقين والموظفين والإجازات'), icon: 'user-check' },
         purchases: { title: (typeof t === 'function' ? t('nav_purchases', 'طلبات المشتريات والتعميد والموافقات') : 'طلبات المشتريات والتعميد والموافقات'), icon: 'shopping-cart' },
-        'creative-tasks': { title: (typeof t === 'function' ? t('nav_creative_tasks', 'مهام مشاريع نبت الإبداعية') : 'مهام مشاريع نبت الإبداعية'), icon: 'sparkles' },
-        'monthly-targets': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'أهداف الشهر ومؤشرات الأداء') : 'أهداف الشهر ومؤشرات الأداء'), icon: 'target' },
+        'creative-tasks': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' },
+        'monthly-targets': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' },
         regulations: { title: (typeof t === 'function' ? t('nav_regulations', 'لوائح وسياسات العمل المعتمدة') : 'لوائح وسياسات العمل المعتمدة'), icon: 'shield-alert' }
     };
 
@@ -6736,18 +6741,14 @@ async function loadMonthlyTargets() {
         // Update Stats
         const stats = data.stats || {};
         const totalTargetsEl = document.getElementById('stat-total-targets');
-        const achievedOrdersEl = document.getElementById('stat-achieved-orders');
-        const targetOrdersEl = document.getElementById('stat-target-orders');
-        const targetSalesEl = document.getElementById('stat-target-sales');
-        const achievedSalesSubEl = document.getElementById('stat-achieved-sales-sub');
-        const overallProgEl = document.getElementById('stat-overall-progress');
+        const inProgressEl = document.getElementById('stat-inprogress-targets');
+        const completedEl = document.getElementById('stat-completed-targets');
+        const reviewedEl = document.getElementById('stat-reviewed-targets');
 
-        if (totalTargetsEl) totalTargetsEl.textContent = stats.targets_count || 0;
-        if (achievedOrdersEl) achievedOrdersEl.textContent = stats.total_achieved_orders || 0;
-        if (targetOrdersEl) targetOrdersEl.textContent = stats.total_target_orders || 0;
-        if (targetSalesEl) targetSalesEl.innerHTML = `${(stats.total_target_sales || 0).toLocaleString()} <span class="text-xs font-normal">ر.س</span>`;
-        if (achievedSalesSubEl) achievedSalesSubEl.textContent = `المحقق: ${(stats.total_achieved_sales || 0).toLocaleString()} ر.س`;
-        if (overallProgEl) overallProgEl.textContent = `${stats.overall_progress_pct || 0}%`;
+        if (totalTargetsEl) totalTargetsEl.textContent = stats.total_tasks || 0;
+        if (inProgressEl) inProgressEl.textContent = stats.in_progress || 0;
+        if (completedEl) completedEl.textContent = stats.completed || 0;
+        if (reviewedEl) reviewedEl.textContent = stats.reviewed || 0;
 
         // Render Targets
         renderMonthlyTargetCards(data.targets || []);
@@ -6824,12 +6825,10 @@ function renderMonthlyTargetCards(targets) {
 
         // Status badge
         let statusBadge = '';
-        if (t.status === 'achieved' || t.orders_progress_pct >= 100) {
-            statusBadge = '<span class="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">🎯 تم التحقيق 100%</span>';
-        } else if (t.status === 'exceeded') {
-            statusBadge = '<span class="text-xs font-black px-2.5 py-1 rounded-xl bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">🌟 متفوق ومتجاوز</span>';
-        } else if (t.status === 'needs_improvement') {
-            statusBadge = '<span class="text-xs font-black px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">⚠️ يحتاج متابعة</span>';
+        if (t.status === 'completed' || t.status === 'achieved') {
+            statusBadge = '<span class="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">✅ تم الإنجاز</span>';
+        } else if (t.status === 'reviewed') {
+            statusBadge = '<span class="text-xs font-black px-2.5 py-1 rounded-xl bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">👑 معتمد ومقيم</span>';
         } else {
             statusBadge = '<span class="text-xs font-black px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">⏳ قيد التنفيذ</span>';
         }
@@ -6840,27 +6839,53 @@ function renderMonthlyTargetCards(targets) {
             starsHtml = '⭐'.repeat(Math.min(5, t.rating));
         }
 
+        // Action button for Employee (Toggle completion)
+        let toggleCompleteBtn = '';
+        if (t.status !== 'completed' && t.status !== 'achieved' && t.status !== 'reviewed') {
+            toggleCompleteBtn = `
+                <button onclick="toggleMonthlyTaskStatus(${t.id}, 'completed')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer">
+                    <i data-lucide="check-check" class="w-4 h-4"></i>
+                    <span>أكدت إنجاز المهام المطلوبة ✅</span>
+                </button>
+            `;
+        } else {
+            toggleCompleteBtn = `
+                <button onclick="toggleMonthlyTaskStatus(${t.id}, 'in_progress')" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1 transition-all cursor-pointer">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span>إعادة إلى قيد التنفيذ ⏳</span>
+                </button>
+            `;
+        }
+
         // Manager action buttons (Edit, Evaluate, Delete)
         let actionsHtml = '';
         if (isManager) {
             actionsHtml = `
-                <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
-                    <button onclick="openEvaluateTargetModal(${t.id}, '${escapeHtml(t.employee_name)}', '${t.status}', ${t.rating || 0}, '${escapeHtml(t.manager_feedback || '')}')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs border border-amber-200 flex items-center gap-1 transition-all cursor-pointer">
-                        <span>⭐ تقييم الإنجاز</span>
-                    </button>
-                    <button onclick="openMonthlyTargetModal(${t.id})" class="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200 flex items-center gap-1 transition-all cursor-pointer">
-                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-                        <span>تعديل</span>
-                    </button>
-                    <button onclick="deleteMonthlyTarget(${t.id}, '${escapeHtml(t.employee_name)}')" class="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 transition-all cursor-pointer" title="حذف الهدف">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    </button>
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
+                    <div class="flex items-center gap-2">
+                        ${toggleCompleteBtn}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openEvaluateTargetModal(${t.id}, '${escapeHtml(t.employee_name)}', '${t.status}', ${t.rating || 0}, '${escapeHtml(t.manager_feedback || '')}')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs border border-amber-200 flex items-center gap-1 transition-all cursor-pointer">
+                            <span>⭐ تقييم الإنجاز</span>
+                        </button>
+                        <button onclick="openMonthlyTargetModal(${t.id})" class="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200 flex items-center gap-1 transition-all cursor-pointer">
+                            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                            <span>تعديل</span>
+                        </button>
+                        <button onclick="deleteMonthlyTarget(${t.id}, '${escapeHtml(t.employee_name)}')" class="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 transition-all cursor-pointer" title="حذف المهمة">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            actionsHtml = `
+                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
+                    ${toggleCompleteBtn}
                 </div>
             `;
         }
-
-        const ordersPct = Math.min(100, t.orders_progress_pct || 0);
-        const salesPct = Math.min(100, t.sales_progress_pct || 0);
 
         card.innerHTML = `
             <!-- Card Header: Employee Info + Status -->
@@ -6886,69 +6911,36 @@ function renderMonthlyTargetCards(targets) {
                 </div>
             </div>
 
-            <!-- Target Title & Description -->
-            <div class="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 space-y-1.5">
-                <div class="text-xs font-black text-slate-900 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>${escapeHtml(t.target_title)}</span>
-                </div>
-                ${t.description ? `<p class="text-xs text-slate-600 leading-relaxed">${escapeHtml(t.description)}</p>` : ''}
+            <!-- Task / Goal Title -->
+            <div class="bg-emerald-50/60 rounded-2xl p-3 border border-emerald-100 text-xs font-black text-emerald-950 flex items-center gap-2">
+                <i data-lucide="target" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                <span>${escapeHtml(t.target_title)}</span>
             </div>
 
-            <!-- Progress Bars: Orders & Sales -->
-            <div class="space-y-3">
-                <!-- Orders Progress -->
-                <div class="space-y-1">
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="font-bold text-slate-700 flex items-center gap-1.5">
-                            <i data-lucide="flower" class="w-3.5 h-3.5 text-pink-600"></i>
-                            <span>طلبات الورد المنجزة:</span>
-                        </span>
-                        <div class="font-mono text-xs">
-                            <strong class="text-emerald-700 font-bold">${t.achieved_orders || 0}</strong>
-                            <span class="text-slate-400">/</span>
-                            <span class="text-slate-600 font-bold">${t.orders_target || 0} طلب</span>
-                            <span class="text-emerald-600 font-black mr-1">(${t.orders_progress_pct || 0}%)</span>
-                        </div>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                        <div class="bg-gradient-to-r from-emerald-500 to-teal-500 h-2.5 rounded-full transition-all duration-500" style="width: ${ordersPct}%"></div>
-                    </div>
+            <!-- Written Tasks Section (نص المهام والأهداف المكتوبة بالتفصيل) -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2">
+                <div class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                    <i data-lucide="list-checks" class="w-4 h-4 text-emerald-600"></i>
+                    <span>المهام والأهداف المحددة للشهر:</span>
                 </div>
-
-                <!-- Sales Progress -->
-                <div class="space-y-1">
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="font-bold text-slate-700 flex items-center gap-1.5">
-                            <i data-lucide="coins" class="w-3.5 h-3.5 text-amber-600"></i>
-                            <span>المبيعات المحققة:</span>
-                        </span>
-                        <div class="font-mono text-xs">
-                            <strong class="text-amber-700 font-bold">${(t.achieved_sales || 0).toLocaleString()}</strong>
-                            <span class="text-slate-400">/</span>
-                            <span class="text-slate-600 font-bold">${(t.sales_target || 0).toLocaleString()} ر.س</span>
-                            <span class="text-amber-600 font-black mr-1">(${t.sales_progress_pct || 0}%)</span>
-                        </div>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                        <div class="bg-gradient-to-r from-amber-500 to-orange-500 h-2.5 rounded-full transition-all duration-500" style="width: ${salesPct}%"></div>
-                    </div>
+                <div class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed whitespace-pre-line">
+${escapeHtml(t.description || 'لم يتم كتابة تفاصيل إضافية')}
                 </div>
             </div>
 
             <!-- Special Instructions -->
             ${t.special_instructions ? `
-                <div class="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
+                <div class="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
                     <span class="text-sm">📌</span>
                     <div>
-                        <strong class="font-bold">توجيهات الإدارة:</strong> ${escapeHtml(t.special_instructions)}
+                        <strong class="font-bold">توجيهات وملاحظات المدير:</strong> ${escapeHtml(t.special_instructions)}
                     </div>
                 </div>
             ` : ''}
 
             <!-- Manager Feedback & Rating -->
             ${(t.manager_feedback || starsHtml) ? `
-                <div class="p-3 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-xs text-purple-950 space-y-1">
+                <div class="p-3.5 rounded-2xl bg-purple-50/80 border border-purple-200/80 text-xs text-purple-950 space-y-1.5">
                     <div class="flex items-center justify-between">
                         <span class="font-bold text-[11px] text-purple-800">تقييم المدير (فيصل / ياسر):</span>
                         <span class="text-sm">${starsHtml}</span>
@@ -6975,8 +6967,6 @@ function openMonthlyTargetModal(targetId = null) {
     const monthInput = document.getElementById('target-form-month');
     const managerSelect = document.getElementById('target-form-manager');
     const titleInput = document.getElementById('target-form-title');
-    const ordersInput = document.getElementById('target-form-orders');
-    const salesInput = document.getElementById('target-form-sales');
     const descInput = document.getElementById('target-form-description');
     const instInput = document.getElementById('target-form-instructions');
 
@@ -7000,15 +6990,13 @@ function openMonthlyTargetModal(targetId = null) {
     }
 
     if (!targetId) {
-        if (titleEl) titleEl.textContent = 'تحديد هدف شهري للموظف 🎯';
+        if (titleEl) titleEl.textContent = 'إسناد مهام وأهداف الشهر للموظف 📝';
         if (empSelect) empSelect.value = '';
         if (titleInput) titleInput.value = '';
-        if (ordersInput) ordersInput.value = 100;
-        if (salesInput) salesInput.value = 15000;
         if (descInput) descInput.value = '';
         if (instInput) instInput.value = '';
     } else {
-        if (titleEl) titleEl.textContent = 'تعديل الهدف الشهري ✏️';
+        if (titleEl) titleEl.textContent = 'تعديل مهام وأهداف الشهر ✏️';
     }
 
     openModal('modal-monthly-target');
@@ -7023,8 +7011,6 @@ async function handleMonthlyTargetSubmit(e) {
     const monthInput = document.getElementById('target-form-month');
     const managerSelect = document.getElementById('target-form-manager');
     const titleInput = document.getElementById('target-form-title');
-    const ordersInput = document.getElementById('target-form-orders');
-    const salesInput = document.getElementById('target-form-sales');
     const descInput = document.getElementById('target-form-description');
     const instInput = document.getElementById('target-form-instructions');
 
@@ -7033,8 +7019,6 @@ async function handleMonthlyTargetSubmit(e) {
         target_month: monthInput.value,
         target_title: titleInput.value.trim(),
         description: descInput ? descInput.value.trim() : '',
-        orders_target: parseInt(ordersInput.value) || 0,
-        sales_target: parseFloat(salesInput.value) || 0.0,
         special_instructions: instInput ? instInput.value.trim() : '',
         set_by_name: managerSelect ? managerSelect.value : 'فيصل (مدير تشغيلي)',
         set_by_role: (managerSelect && managerSelect.value.includes('ياسر')) ? 'general_manager' : 'operations_manager',
@@ -7059,20 +7043,39 @@ async function handleMonthlyTargetSubmit(e) {
 
         const data = await res.json();
         if (data.success) {
-            alert(data.message || "تم حفظ الهدف الشهري بنجاح 🎯");
+            alert(data.message || "تم حفظ وإسناد المهام بنجاح 📝✅");
             closeModal('modal-monthly-target');
             loadMonthlyTargets();
         } else {
-            alert(data.detail || "تعذر حفظ الهدف");
+            alert(data.detail || "تعذر حفظ المهام");
         }
     } catch (err) {
         console.error("Save target error:", err);
-        alert("حدث خطأ أثناء حفظ الهدف الشهري");
+        alert("حدث خطأ أثناء حفظ المهمة");
+    }
+}
+
+async function toggleMonthlyTaskStatus(targetId, newStatus) {
+    try {
+        const res = await fetch(`/api/monthly-targets/${targetId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            loadMonthlyTargets();
+        } else {
+            alert(data.detail || "تعذر تحديث حالة المهمة");
+        }
+    } catch (err) {
+        console.error("Toggle task error:", err);
+        alert("حدث خطأ أثناء تحديث حالة المهمة");
     }
 }
 
 async function deleteMonthlyTarget(targetId, empName) {
-    if (!confirm(`هل أنت متأكد من حذف هذا الهدف الشهري الخاص بالموظف (${empName})؟`)) {
+    if (!confirm(`هل أنت متأكد من حذف هذه المهمة الخاصة بالموظف (${empName})؟`)) {
         return;
     }
     try {
@@ -7081,11 +7084,11 @@ async function deleteMonthlyTarget(targetId, empName) {
         if (data.success) {
             loadMonthlyTargets();
         } else {
-            alert(data.detail || "تعذر حذف الهدف");
+            alert(data.detail || "تعذر حذف المهمة");
         }
     } catch (err) {
         console.error("Delete target error:", err);
-        alert("حدث خطأ أثناء حذف الهدف");
+        alert("حدث خطأ أثناء حذف المهمة");
     }
 }
 
@@ -7147,6 +7150,7 @@ async function handleTargetEvaluationSubmit(e) {
 window.loadMonthlyTargets = loadMonthlyTargets;
 window.openMonthlyTargetModal = openMonthlyTargetModal;
 window.handleMonthlyTargetSubmit = handleMonthlyTargetSubmit;
+window.toggleMonthlyTaskStatus = toggleMonthlyTaskStatus;
 window.deleteMonthlyTarget = deleteMonthlyTarget;
 window.openEvaluateTargetModal = openEvaluateTargetModal;
 window.handleTargetEvaluationSubmit = handleTargetEvaluationSubmit;
