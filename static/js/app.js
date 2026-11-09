@@ -548,14 +548,17 @@ function switchTab(tabId) {
         tabId = 'dashboard';
     }
 
-    // Forward any legacy creative-tasks request directly to monthly-targets
+    // Forward any legacy creative-tasks or regulations request directly
     if (tabId === 'creative-tasks') {
         tabId = 'monthly-targets';
+    }
+    if (tabId === 'regulations') {
+        tabId = 'dashboard';
     }
 
     currentActiveTab = tabId;
 
-    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'monthly-targets', 'regulations'];
+    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'monthly-targets'];
     tabs.forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const nav = document.getElementById(`nav-${t}`);
@@ -594,8 +597,7 @@ function switchTab(tabId) {
         employees: { title: (typeof t === 'function' ? t('nav_employees', 'إدارة المنسقين والموظفين والإجازات') : 'إدارة المنسقين والموظفين والإجازات'), icon: 'user-check' },
         purchases: { title: (typeof t === 'function' ? t('nav_purchases', 'طلبات المشتريات والتعميد والموافقات') : 'طلبات المشتريات والتعميد والموافقات'), icon: 'shopping-cart' },
         'creative-tasks': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' },
-        'monthly-targets': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' },
-        regulations: { title: (typeof t === 'function' ? t('nav_regulations', 'لوائح وسياسات العمل المعتمدة') : 'لوائح وسياسات العمل المعتمدة'), icon: 'shield-alert' }
+        'monthly-targets': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' }
     };
 
     const header = document.getElementById('current-tab-title');
@@ -627,7 +629,6 @@ function switchTab(tabId) {
     if (tabId === 'purchases') loadPurchases();
     if (tabId === 'creative-tasks') loadCreativeTasks();
     if (tabId === 'monthly-targets') loadMonthlyTargets();
-    if (tabId === 'regulations') renderRegulationsAckStatus();
 
     initIcons();
 }
@@ -6353,337 +6354,7 @@ async function deleteCreativeTask(taskId) {
     }
 }
 
-// ==========================================
-// STORE REGULATIONS & POLICIES (لوائح وسياسات العمل)
-// ==========================================
-function acknowledgeRegulations() {
-    const user = currentUser ? currentUser.name : 'موظف المحل';
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('ar-SA') + ' - ' + now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-    
-    const key = 'regulations_ack_' + (currentUser ? currentUser.id : 'guest');
-    localStorage.setItem(key, JSON.stringify({
-        userName: user,
-        timestamp: dateStr,
-        acknowledged: true
-    }));
 
-    renderRegulationsAckStatus();
-    alert(`✓ تم توثيق إقرارك وتعهدك بالالتزام بكافة لوائح وسياسات نبت ورد يا ${user} 🌸`);
-}
-
-function renderRegulationsAckStatus() {
-    const box = document.getElementById('regulations-ack-box');
-    const statusEl = document.getElementById('regulations-ack-status');
-    const btn = document.getElementById('btn-regulations-ack');
-    if (!box || !statusEl || !btn) return;
-
-    const key = 'regulations_ack_' + (currentUser ? currentUser.id : 'guest');
-    const saved = localStorage.getItem(key);
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            statusEl.innerHTML = `
-                <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
-                            ✓
-                        </div>
-                        <div>
-                            <strong class="block text-sm font-black text-emerald-950">تم توثيق إقرارك وتعهدك بالالتزام التام بكافة اللوائح ✍️</strong>
-                            <span class="text-xs text-emerald-700">الموظف المقر: <strong>${data.userName}</strong> • تاريخ التوثيق: ${data.timestamp}</span>
-                        </div>
-                    </div>
-                    <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-200 text-emerald-900 border border-emerald-300 w-fit">
-                        موثق ومعتمد رسمياً ✅
-                    </span>
-                </div>
-            `;
-            btn.classList.add('hidden');
-        } catch (e) {
-            btn.classList.remove('hidden');
-        }
-    } else {
-        statusEl.innerHTML = '';
-        btn.classList.remove('hidden');
-    }
-}
-window.acknowledgeRegulations = acknowledgeRegulations;
-window.renderRegulationsAckStatus = renderRegulationsAckStatus;
-
-function printRegulations() {
-    try {
-        let iframe = document.getElementById('regulations-print-iframe');
-        if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'regulations-print-iframe';
-            iframe.style.position = 'fixed';
-            iframe.style.right = '0';
-            iframe.style.bottom = '0';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = '0';
-            iframe.style.opacity = '0';
-            iframe.style.pointerEvents = 'none';
-            document.body.appendChild(iframe);
-        }
-
-        const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>لوائح وسياسات العمل المعتمدة - نبت ورد</title>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <style>
-        @page {
-            size: A4 portrait;
-            margin: 10mm 14mm;
-        }
-        * {
-            box-sizing: border-box;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        body {
-            font-family: 'Tajawal', sans-serif;
-            color: #0f172a;
-            background: #ffffff;
-            margin: 0;
-            padding: 8px;
-            line-height: 1.45;
-            font-size: 12.5px;
-        }
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 2.5px solid #283618;
-            padding-bottom: 10px;
-            margin-bottom: 12px;
-        }
-        .logo {
-            height: 55px;
-            object-fit: contain;
-        }
-        .header-text h1 {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 900;
-            color: #283618;
-        }
-        .header-text p {
-            margin: 2px 0 0;
-            font-size: 10.5px;
-            color: #64748b;
-        }
-        .doc-title-box {
-            background: #fdf8f6;
-            border: 1px solid #fed7aa;
-            border-right: 4px solid #c2410c;
-            padding: 8px 12px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
-        .doc-title-box h2 {
-            margin: 0;
-            font-size: 14px;
-            font-weight: 900;
-            color: #9a3412;
-        }
-        .doc-title-box p {
-            margin: 3px 0 0;
-            font-size: 10.5px;
-            color: #431407;
-        }
-        .rule-card {
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 9px 12px;
-            margin-bottom: 8px;
-            page-break-inside: avoid;
-            background: #ffffff;
-        }
-        .rule-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-        .rule-num {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            background: #283618;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            font-size: 11px;
-            flex-shrink: 0;
-        }
-        .rule-title {
-            font-weight: 900;
-            font-size: 12.5px;
-            color: #0f172a;
-            margin: 0;
-        }
-        .rule-desc {
-            margin: 0 0 5px;
-            font-size: 11.5px;
-            color: #334155;
-            line-height: 1.45;
-        }
-        .translations {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 5px 8px;
-            font-size: 10px;
-            color: #475569;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .signatures {
-            margin-top: 14px;
-            border-top: 1px dashed #cbd5e1;
-            padding-top: 10px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            text-align: center;
-            page-break-inside: avoid;
-        }
-        .sig-box {
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 6px;
-            background: #fafafa;
-        }
-        .sig-title {
-            font-weight: 700;
-            font-size: 10.5px;
-            color: #334155;
-            margin-bottom: 20px;
-        }
-        .sig-line {
-            border-top: 1px solid #94a3b8;
-            padding-top: 4px;
-            font-size: 9.5px;
-            color: #64748b;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="header-text">
-            <h1>مؤسسة نبت للورد وتنسيق الحفلات والمناسبات</h1>
-            <p>المملكة العربية السعودية • الرياض • نظام الإدارة والتشغيل السحابي ERP</p>
-        </div>
-        <img src="/static/images/logo.png" alt="NABT WARD" class="logo">
-    </div>
-
-    <div class="doc-title-box">
-        <h2>وثيقة لوائح وسياسات العمل والمنسقين المعتمدة ⚖️🌸</h2>
-        <p>هذه البنود واللوائح ملزمة لجميع منسقي الورد والموظفين داخل المحل، وأي إخلال بها يعرض للمساءلة والمحاسبة الإدارية والخصم المباشر لحفظ جودة الخدمة وسمعة المتجر.</p>
-    </div>
-
-    <div class="rule-card">
-        <div class="rule-header">
-            <div class="rule-num">1</div>
-            <h3 class="rule-title">عدم قبول الطلب المسند يعرضك للمحاسبة الإدارية ⚠️</h3>
-        </div>
-        <p class="rule-desc">يلتزم منسق الورد بمجرد إسناد أي طلب إليه في السيستم بقبوله فوراً خلال مهلة الاستجابة المحددة نظامياً (5 دقائق) والبدء في التنسيق. يمنع منعاً باتاً تجاهل الطلب أو تركه معلقاً أو التباطؤ فيه لأن ذلك يعطل دورة التوصيل وتجهيز المندوب، وأي عدم قبول أو تأخير يعرض المنسق للمساءلة والمحاسبة والخصم المباشر.</p>
-        <div class="translations">
-            <div><strong>English:</strong> Failure to accept assigned orders within 5 minutes leads to administrative accountability and penalties.</div>
-            <div><strong>বাংলা:</strong> অর্ডার আসার সাথে সাথে গ্রহণ করতে হবে। ৫ মিনিটের মধ্যে অর্ডার গ্রহণ না করলে জবাবদিহিতা ও জরিমানা হবে।</div>
-        </div>
-    </div>
-
-    <div class="rule-card">
-        <div class="rule-header">
-            <div class="rule-num">2</div>
-            <h3 class="rule-title">عدم تصوير المنتج في الموقع يعرضك للمحاسبة 📸</h3>
-        </div>
-        <p class="rule-desc">يمنع منعاً باتاً خروج أي باقة ورد أو فازة أو هدية أو تسليمها للعميل أو لمندوب التوصيل دون تصويرها بدقة ووضوح في استوديو المحل ورفع صورة الإنجاز (Completed Image) في الموقع الرسمي. عدم تصوير المنتج ورفعه بالنظام يعتبر مخالفة صريحة توجب المساءلة والمحاسبة الفورية.</p>
-        <div class="translations">
-            <div><strong>English:</strong> You must photograph and upload the finished product to the website before dispatching. No photo leads to accountability.</div>
-            <div><strong>বাংলা:</strong> ডেলিভারির আগে প্রস্তুত করা ফুলের ছবি ওয়েবসাইটে আপলোড করা বাধ্যতামূলক। ছবি না তুললে কঠোর ব্যবস্থা নেওয়া হবে।</div>
-        </div>
-    </div>
-
-    <div class="rule-card">
-        <div class="rule-header">
-            <div class="rule-num">3</div>
-            <h3 class="rule-title">الطلب والتنفيذ عن طريق الموقع فقط 🌐</h3>
-        </div>
-        <p class="rule-desc">جميع الطلبات والمبيعات داخل المحل أو خارجه يجب أن تتم وتُسجل حصرياً عبر الموقع الرسمي لنبت (nabtward.cc) وإصدار فاتورة إلكترونية معتمدة. يمنع منعاً كلياً بيع أي منتج أو استلام أموال شفهياً أو جانبياً دون تسجيله في السيستم رسمياً.</p>
-        <div class="translations">
-            <div><strong>English:</strong> All customer orders must strictly be placed and processed through the website only. No offline or unrecorded orders.</div>
-            <div><strong>বাংলা:</strong> দোকানের প্রতিটি অর্ডার অবশ্যই অফিসিয়াল ওয়েবসাইটের মাধ্যমে এন্ট্রি করতে হবে। ওয়েবসাইটের বাইরে কোনো কাজ করা যাবে না।</div>
-        </div>
-    </div>
-
-    <div class="rule-card">
-        <div class="rule-header">
-            <div class="rule-num">4</div>
-            <h3 class="rule-title">الالتزام التام بالحضور في المحل دائم الوقت ⏰</h3>
-        </div>
-        <p class="rule-desc">الالتزام التام بالحضور والتواجد المستمر داخل المحل طوال ساعات العمل والورديات المعتمدة، والاستعداد الكامل لاستقبال وتنسيق الطلبات وخدمة العملاء. يمنع مغادرة مقر المحل أثناء ساعات الدوام إلا بإذن مسبق وموثق من مدير الفرع (أ. نادر) أو إدارة التشغيل.</p>
-        <div class="translations">
-            <div><strong>English:</strong> Strict commitment to being present at the shop at all times during your working shift. Leaving without permission is prohibited.</div>
-            <div><strong>বাংলা:</strong> কাজের পুরো সময় অবশ্যই দোকানে উপস্থিত থাকতে হবে। ম্যানেজারের অনুমতি ছাড়া কর্মস্থল ত্যাগ করা সম্পূর্ণ নিষেধ।</div>
-        </div>
-    </div>
-
-    <div class="rule-card">
-        <div class="rule-header">
-            <div class="rule-num">5</div>
-            <h3 class="rule-title">إرسال مهامك اليومية التي تمت خلال ساعات العمل 📝</h3>
-        </div>
-        <p class="rule-desc">يلتزم كل منسق وموظف في نهاية ساعات العمل اليومية بحصر وإرسال تقرير بالمهام التي تمت وعدد الباقات المنجزة، وحالة ثلاجة الورد ونظافتها، وأي ملاحظات تشغيلية للإدارة عبر قسم المهام الإبداعية أو مجموعة الواتساب المعتمدة لتقييم واعتماد الأداء اليومي.</p>
-        <div class="translations">
-            <div><strong>English:</strong> Submit your daily report of all completed tasks, arranged bouquets, and shop readiness at the end of every shift.</div>
-            <div><strong>বাংলা:</strong> প্রতিটি শিফটের শেষে সারা দিনে কী কী কাজ সম্পন্ন হয়েছে তার দৈনিক রিপোর্ট জমা দেওয়া বাধ্যতামূলক।</div>
-        </div>
-    </div>
-
-    <div class="signatures">
-        <div class="sig-box">
-            <div class="sig-title">إقرار وتوقيع المنسق / الموظف</div>
-            <div class="sig-line">الاسم والتوقيع: ............................</div>
-        </div>
-        <div class="sig-box">
-            <div class="sig-title">اعتماد مدير الفرع (نادر)</div>
-            <div class="sig-line">التوقيع والختم: ............................</div>
-        </div>
-        <div class="sig-box">
-            <div class="sig-title">اعتماد الإدارة العامة (ياسر / فيصل)</div>
-            <div class="sig-line">الاعتماد الرسمي: معتمد وموثق</div>
-        </div>
-    </div>
-</body>
-</html>`;
-
-        const doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(html);
-        doc.close();
-
-        setTimeout(() => {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-        }, 300);
-    } catch (e) {
-        console.error("Print regulations error:", e);
-        // Fallback: standard window.print()
-        document.body.classList.add('printing-regulations');
-        window.print();
-        setTimeout(() => document.body.classList.remove('printing-regulations'), 2000);
-    }
-}
-window.printRegulations = printRegulations;
 
 // ==========================================
 // EMPLOYEE MONTHLY TARGETS (أهداف الشهر ومؤشرات الأداء)
