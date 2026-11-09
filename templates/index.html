@@ -478,6 +478,14 @@
                     <span id="badge-nav-monthly-targets" class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">مهام الموظفين 📝</span>
                 </button>
 
+                <button onclick="switchTab('evaluations')" id="nav-evaluations" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-cream-200/80 hover:bg-olive-800 hover:text-white transition-all">
+                    <span class="flex items-center gap-3">
+                        <i data-lucide="award" class="w-4 h-4 text-amber-300"></i>
+                        <span data-i18n="nav_evaluations">تقييم وأداء المنسقين</span>
+                    </span>
+                    <span id="badge-nav-evaluations" class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">أداء الموظفين ⭐</span>
+                </button>
+
 
                 <button onclick="openAccountingSyncModal()" id="nav-sync" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-peach-200 bg-olive-950/60 border border-peach-300/20 hover:bg-olive-800 transition-all mt-2">
                     <span class="flex items-center gap-3">
@@ -1734,6 +1742,87 @@
                     <h3 class="text-lg font-black text-slate-800">لا توجد مهام أو أهداف مسجلة لهذا الشهر حتى الآن</h3>
                     <p class="text-xs text-slate-500 max-w-md mx-auto">
                         يمكن للمدير (فيصل أو ياسر) الضغط على زر «إضافة مهمة / هدف شهري ✍️» بالأعلى لاختيار الموظف وكتابة المهام المطلوبة منه.
+                    </p>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- TAB: EMPLOYEE EVALUATIONS (تقييم وأداء المنسقين والموظفين) -->
+            <!-- ======================================================== -->
+            <div id="view-evaluations" class="space-y-6 hidden animate-fade-in">
+                <!-- Header Banner -->
+                <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-950 via-olive-900 to-amber-900 p-6 md:p-8 text-white shadow-xl border border-amber-600/30">
+                    <div class="absolute -right-12 -top-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div class="space-y-2">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 text-xs font-bold tracking-wide">
+                                <i data-lucide="award" class="w-3.5 h-3.5 text-amber-300"></i>
+                                <span>تقييم إنجاز المنسقين وإحصائيات الطلبات 🌸</span>
+                            </div>
+                            <h2 class="text-xl md:text-3xl font-black text-white flex items-center gap-3">
+                                <span>تقييم أداء منسقي الورد وفريق العمل</span>
+                                <span class="text-2xl">⭐️👑</span>
+                            </h2>
+                            <p class="text-xs md:text-sm text-cream-200/90 max-w-2xl leading-relaxed">
+                                متابعة فورية ودقيقة لعدد الطلبات التي أنجزها كل منسق (عمر، ريكو، وغيرهم)، إجمالي قيمة المبيعات المنفذة، وتقييم الجودة والسرعة مع إمكانية استعراض قائمة طلبات كل منسق بالتفصيل.
+                            </p>
+                        </div>
+
+                        <!-- Top Toolbar / Filters -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="flex items-center gap-2 bg-black/25 backdrop-blur-xs p-1.5 rounded-2xl border border-white/10">
+                                <select id="filter-eval-month" onchange="loadEmployeeEvaluations()" class="bg-transparent text-white text-xs font-bold px-3 py-1.5 rounded-xl outline-hidden cursor-pointer">
+                                    <option value="all" class="text-slate-900">جميع الفترات (إجمالي الطلبات 📊)</option>
+                                    <option value="2026-11" selected class="text-slate-900">شهر نوفمبر 2026 (الحالي 📅)</option>
+                                    <option value="2026-10" class="text-slate-900">شهر أكتوبر 2026</option>
+                                </select>
+                            </div>
+
+                            <button onclick="openNewEvaluationModal()" class="bg-gradient-to-r from-amber-500 to-terracotta-600 hover:from-amber-600 hover:to-terracotta-700 text-white font-black px-5 py-2.5 rounded-2xl text-xs shadow-lg shadow-amber-950/30 transition-all flex items-center gap-2 cursor-pointer active:scale-95">
+                                <i data-lucide="star" class="w-4 h-4 fill-amber-300 text-amber-300"></i>
+                                <span>تسجيل تقييم منسق ⭐️</span>
+                            </button>
+
+                            <button onclick="loadEmployeeEvaluations()" title="تحديث البيانات" class="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Fast Stat Strip -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-white/10 text-xs">
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                            <span class="text-cream-300 text-[11px] block font-medium">إجمالي الطلبات المنفذة</span>
+                            <span id="eval-stat-total-orders" class="text-xl font-black text-amber-300 font-mono">0</span>
+                        </div>
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                            <span class="text-cream-300 text-[11px] block font-medium">إجمالي مبيعات المنسقين</span>
+                            <span id="eval-stat-total-sales" class="text-xl font-black text-emerald-300 font-mono">0 ر.س</span>
+                        </div>
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                            <span class="text-cream-300 text-[11px] block font-medium">المنسق الأكثر تنفيذاً 🏆</span>
+                            <span id="eval-stat-top-florist" class="text-sm font-black text-white truncate block">—</span>
+                        </div>
+                        <div class="bg-white/5 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                            <span class="text-cream-300 text-[11px] block font-medium">أعلى قيمة مبيعات 💰</span>
+                            <span id="eval-stat-top-sales" class="text-sm font-black text-amber-300 truncate block">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coordinators List Cards Container -->
+                <div id="evaluations-cards-container" class="space-y-6">
+                    <!-- Populated dynamically via JS -->
+                </div>
+
+                <!-- Empty State (Fallback) -->
+                <div id="evaluations-empty-state" class="hidden bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs space-y-3">
+                    <div class="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+                        ⭐️
+                    </div>
+                    <h3 class="text-lg font-black text-slate-800">لا توجد بيانات تقييم أو طلبات لهذه الفترة</h3>
+                    <p class="text-xs text-slate-500 max-w-md mx-auto">
+                        يمكنك تغيير الشهر أو اختيار «جميع الفترات» لاستعراض كافة طلبات المنسقين.
                     </p>
                 </div>
             </div>
@@ -3972,6 +4061,110 @@
                 </div>
             </form>
         </div>
+    <!-- MODAL: EMPLOYEE PERFORMANCE EVALUATION (تسجيل تقييم منسق / موظف) -->
+    <div id="modal-employee-evaluation" class="fixed inset-0 bg-olive-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 md:p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-cream-200 w-full max-w-lg flex flex-col overflow-hidden animate-scale-up">
+            <div class="p-5 border-b border-cream-200 flex items-center justify-between bg-gradient-to-r from-amber-700 via-amber-800 to-terracotta-800 text-white">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center text-xl shadow-inner">
+                        ⭐️
+                    </div>
+                    <div>
+                        <h3 class="font-black text-white text-base">تسجيل واعتماد تقييم المنسق 🌸</h3>
+                        <p class="text-xs text-amber-200/90">تقييم الأداء والجودة والسرعة وحصر الملاحظات الإدارية</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-employee-evaluation')" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleEmployeeEvaluationSubmit(event)" class="p-5 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">المنسق / الموظف <span class="text-red-500">*</span></label>
+                        <select id="eval-form-employee" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                            <!-- Populated with florists and employees -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">شهر التقييم <span class="text-red-500">*</span></label>
+                        <input type="month" id="eval-form-month" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold font-mono text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                    </div>
+                </div>
+
+                <!-- Rating Criteria Grid -->
+                <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200/80 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">التقييم بالنجوم ⭐</label>
+                            <select id="eval-form-rating" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-black text-amber-700 outline-hidden">
+                                <option value="5">⭐⭐⭐⭐⭐ ممتاز (5)</option>
+                                <option value="4">⭐⭐⭐⭐ جيد جداً (4)</option>
+                                <option value="3">⭐⭐⭐ جيد (3)</option>
+                                <option value="2">⭐⭐ مقبول (2)</option>
+                                <option value="1">⭐ ضعيف (1)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">درجة الأداء (%) 🎯</label>
+                            <input type="number" id="eval-form-score" min="50" max="100" value="95" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-hidden">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+                        <div class="bg-white p-2 rounded-xl border border-slate-200">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">إتقان التنسيق</label>
+                            <select id="eval-form-quality" class="w-full text-xs font-bold text-amber-700 bg-slate-50 rounded-lg p-1 outline-hidden">
+                                <option value="5">5 / 5 ⭐</option>
+                                <option value="4">4 / 5</option>
+                                <option value="3">3 / 5</option>
+                            </select>
+                        </div>
+                        <div class="bg-white p-2 rounded-xl border border-slate-200">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">سرعة التجهيز</label>
+                            <select id="eval-form-speed" class="w-full text-xs font-bold text-amber-700 bg-slate-50 rounded-lg p-1 outline-hidden">
+                                <option value="5">5 / 5 ⚡</option>
+                                <option value="4">4 / 5</option>
+                                <option value="3">3 / 5</option>
+                            </select>
+                        </div>
+                        <div class="bg-white p-2 rounded-xl border border-slate-200">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">الحضور والانضباط</label>
+                            <select id="eval-form-discipline" class="w-full text-xs font-bold text-amber-700 bg-slate-50 rounded-lg p-1 outline-hidden">
+                                <option value="5">5 / 5 ⏰</option>
+                                <option value="4">4 / 5</option>
+                                <option value="3">3 / 5</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">المدير واضع التقييم <span class="text-red-500">*</span></label>
+                    <select id="eval-form-manager" required class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden">
+                        <option value="فيصل (مدير تشغيلي)">فيصل (مدير تشغيلي) 👑</option>
+                        <option value="ياسر (المدير العام)">ياسر (المدير العام) 👑</option>
+                        <option value="نادر (مدير فرع)">نادر (مدير فرع) 🌸</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظات وتقييم الإدارة للأداء</label>
+                    <textarea id="eval-form-feedback" rows="3" placeholder="اكتب إشادة بالأداء، أو توجيهات إدارية، أو ملاحظات على جودة الباقات وسرعة التنسيق..." class="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3 text-xs text-slate-800 focus:bg-white focus:border-amber-500 outline-hidden"></textarea>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modal-employee-evaluation')" class="px-5 py-2.5 rounded-2xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md shadow-amber-900/20 transition-all cursor-pointer flex items-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>حفظ واعتماد التقييم ⭐</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Mobile Bottom Navigation Bar (Floating, Touch-Friendly, Native App Feel) -->
@@ -3996,9 +4189,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261109_remove_regulations_v3"></script>
+    <script src="/static/js/i18n.js?v=20261109_florist_evaluations_v4"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261109_remove_regulations_v3"></script>
+    <script src="/static/js/app.js?v=20261109_florist_evaluations_v4"></script>
     <script>
     // Inline guarantee for setOrderType in case of browser cache
     function setOrderType(type) {

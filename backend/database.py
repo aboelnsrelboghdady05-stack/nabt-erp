@@ -474,6 +474,25 @@ def init_db():
     )
     """)
 
+    # 16. Employee Evaluations & Florist Performance (تقييم وأداء المنسقين والموظفين)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS employee_evaluations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL,
+        eval_month TEXT NOT NULL, -- e.g. '2026-11' or 'all'
+        rating INTEGER DEFAULT 5, -- 1 to 5
+        score INTEGER DEFAULT 95, -- 0 to 100
+        quality_score INTEGER DEFAULT 5, -- 1 to 5
+        speed_score INTEGER DEFAULT 5, -- 1 to 5
+        discipline_score INTEGER DEFAULT 5, -- 1 to 5
+        manager_feedback TEXT,
+        evaluator_name TEXT NOT NULL, -- فيصل / ياسر
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    )
+    """)
+
     conn.commit()
     conn.close()
 
