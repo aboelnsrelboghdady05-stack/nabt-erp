@@ -103,8 +103,7 @@ def get_target_employees():
     cursor.execute("""
         SELECT id, name, role, phone, specialty
         FROM employees
-        WHERE status = 'active' OR status IS NULL
-        ORDER BY role DESC, name ASC
+        ORDER BY CASE WHEN role = 'florist' THEN 0 ELSE 1 END, id ASC
     """)
     emps = [dict(r) for r in cursor.fetchall()]
     conn.close()

@@ -6675,6 +6675,10 @@ function openMonthlyTargetModal(targetId = null) {
 
     if (!modal) return;
 
+    if (!allTargetEmployees || allTargetEmployees.length === 0) {
+        loadTargetEmployeesList();
+    }
+
     if (idInput) idInput.value = targetId || '';
 
     // Set default month
