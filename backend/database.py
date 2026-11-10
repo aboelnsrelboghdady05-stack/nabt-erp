@@ -496,6 +496,28 @@ def init_db():
     )
     """)
 
+    # 17. Employee Daily Reports (التقارير اليومية للموظفين والمنسقين)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS employee_daily_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL,
+        report_date TEXT NOT NULL, -- 'YYYY-MM-DD'
+        shift_type TEXT DEFAULT 'morning', -- 'morning', 'evening', 'full'
+        work_hours TEXT, -- ساعات العمل e.g. '8 ساعات (9 ص - 5 م)'
+        tasks_completed TEXT NOT NULL, -- ما تم إنجازه خلال أوقات العمل
+        orders_count INTEGER DEFAULT 0, -- عدد الطلبات المنسقة أو المجهزة
+        challenges_or_notes TEXT, -- صعوبات أو نواقص
+        handover_notes TEXT, -- تسليم الوردية / ملاحظات للزميل التالي
+        manager_status TEXT DEFAULT 'pending', -- 'pending', 'reviewed', 'appreciated'
+        manager_review TEXT, -- رد / تعليق المدير
+        reviewed_by TEXT, -- اسم المدير المعتمد (فيصل / ياسر)
+        reviewed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    )
+    """)
+
     conn.commit()
     conn.close()
 

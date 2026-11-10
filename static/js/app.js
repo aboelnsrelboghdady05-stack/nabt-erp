@@ -558,7 +558,7 @@ function switchTab(tabId) {
 
     currentActiveTab = tabId;
 
-    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'monthly-targets', 'evaluations'];
+    const tabs = ['dashboard', 'orders', 'whatsapp', 'invoices', 'drivers', 'customers', 'expenses', 'products', 'employees', 'purchases', 'monthly-targets', 'evaluations', 'daily-reports'];
     tabs.forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const nav = document.getElementById(`nav-${t}`);
@@ -598,7 +598,8 @@ function switchTab(tabId) {
         purchases: { title: (typeof t === 'function' ? t('nav_purchases', 'طلبات المشتريات والتعميد والموافقات') : 'طلبات المشتريات والتعميد والموافقات'), icon: 'shopping-cart' },
         'creative-tasks': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' },
         'monthly-targets': { title: (typeof t === 'function' ? t('nav_monthly_targets', 'مهام وأهداف الشهر') : 'مهام وأهداف الشهر'), icon: 'check-square' },
-        evaluations: { title: 'تقييم إنجاز المنسقين والطلبات', icon: 'award' }
+        evaluations: { title: 'تقييم إنجاز المنسقين والطلبات', icon: 'award' },
+        'daily-reports': { title: 'التقرير اليومي للموظفين والمنسقين', icon: 'clipboard-list' }
     };
 
     const header = document.getElementById('current-tab-title');
@@ -631,6 +632,7 @@ function switchTab(tabId) {
     if (tabId === 'creative-tasks') loadCreativeTasks();
     if (tabId === 'monthly-targets') loadMonthlyTargets();
     if (tabId === 'evaluations') loadEmployeeEvaluations();
+    if (tabId === 'daily-reports') loadDailyReports();
 
     initIcons();
 }
@@ -7324,6 +7326,536 @@ window.toggleOrdersAccordion = toggleOrdersAccordion;
 window.openNewEvaluationModal = openNewEvaluationModal;
 window.handleEvalEmployeeChange = handleEvalEmployeeChange;
 window.handleEmployeeEvaluationSubmit = handleEmployeeEvaluationSubmit;
+
+// ============================================================================
+// 17. EMPLOYEE DAILY REPORTS LOGIC (التقارير اليومية للموظفين والمنسقين)
+// ============================================================================
+
+let cachedDailyReports = [];
+let cachedDailyReportsStats = null;
+
+async function loadDailyReports() {
+    const dateInput = document.getElementById('daily-reports-filter-date');
+    const employeeSelect = document.getElementById('daily-reports-filter-employee');
+    const statusSelect = document.getElementById('daily-reports-filter-status');
+
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    const dateVal = dateInput ? dateInput.value : '';
+    const empVal = employeeSelect ? employeeSelect.value : '';
+    const statusVal = statusSelect ? statusSelect.value : 'all';
+
+    let url = `/api/daily-reports?`;
+    if (dateVal) url += `date=${encodeURIComponent(dateVal)}&`;
+    else url += `date=all&`;
+    if (empVal) url += `employee_id=${encodeURIComponent(empVal)}&`;
+    if (statusVal && statusVal !== 'all') url += `status=${encodeURIComponent(statusVal)}&`;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.success) {
+            console.error("Failed to load daily reports:", data);
+            return;
+        }
+
+        cachedDailyReports = data.reports || [];
+        cachedDailyReportsStats = data.stats || null;
+
+        // 1. Update Stats KPIs
+        const stats = data.stats;
+        if (stats) {
+            const ratioEl = document.getElementById('dr-stat-submitted-ratio');
+            if (ratioEl) ratioEl.textContent = `${stats.submitted_count} / ${stats.total_employees}`;
+
+            const ordersEl = document.getElementById('dr-stat-total-orders');
+            if (ordersEl) ordersEl.textContent = stats.total_orders_reported || 0;
+
+            const pendingEl = document.getElementById('dr-stat-pending-employees');
+            if (pendingEl) {
+                if (stats.pending_employees && stats.pending_employees.length > 0) {
+                    const names = stats.pending_employees.map(e => e.name.split(' ')[0]).join('، ');
+                    pendingEl.innerHTML = `<span class="text-amber-800 font-bold">${names}</span> <span class="text-[10px] text-amber-600">(لم يسلموا بعد ⏳)</span>`;
+                } else {
+                    pendingEl.innerHTML = `<span class="text-emerald-700 font-bold">جميع الموظفين سلموا التقرير ✅</span>`;
+                }
+            }
+
+            const reviewedEl = document.getElementById('dr-stat-reviewed-count');
+            if (reviewedEl) reviewedEl.textContent = `${stats.reviewed_count} معتمد`;
+        }
+
+        // 2. Render Cards
+        renderDailyReportsCards(cachedDailyReports);
+
+        if (typeof initIcons === 'function') initIcons();
+    } catch (err) {
+        console.error("Error loading daily reports:", err);
+    }
+}
+
+function setDailyReportsQuickDate(mode) {
+    const dateInput = document.getElementById('daily-reports-filter-date');
+    const btnToday = document.getElementById('btn-dr-quick-today');
+    const btnYest = document.getElementById('btn-dr-quick-yesterday');
+    const btnAll = document.getElementById('btn-dr-quick-all');
+
+    [btnToday, btnYest, btnAll].forEach(b => {
+        if (b) {
+            b.classList.remove('bg-white', 'shadow-xs', 'text-sky-800');
+            b.classList.add('text-slate-600');
+        }
+    });
+
+    const now = new Date();
+    if (mode === 'today') {
+        if (dateInput) dateInput.value = now.toISOString().split('T')[0];
+        if (btnToday) {
+            btnToday.classList.add('bg-white', 'shadow-xs', 'text-sky-800');
+            btnToday.classList.remove('text-slate-600');
+        }
+    } else if (mode === 'yesterday') {
+        const yest = new Date(now);
+        yest.setDate(yest.getDate() - 1);
+        if (dateInput) dateInput.value = yest.toISOString().split('T')[0];
+        if (btnYest) {
+            btnYest.classList.add('bg-white', 'shadow-xs', 'text-sky-800');
+            btnYest.classList.remove('text-slate-600');
+        }
+    } else if (mode === 'all') {
+        if (dateInput) dateInput.value = '';
+        if (btnAll) {
+            btnAll.classList.add('bg-white', 'shadow-xs', 'text-sky-800');
+            btnAll.classList.remove('text-slate-600');
+        }
+    }
+
+    loadDailyReports();
+}
+
+function renderDailyReportsCards(reports) {
+    const container = document.getElementById('daily-reports-cards-container');
+    const emptyState = document.getElementById('daily-reports-empty-state');
+    if (!container) return;
+
+    if (!reports || reports.length === 0) {
+        container.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+    }
+
+    if (emptyState) emptyState.classList.add('hidden');
+
+    const cardsHtml = reports.map(r => {
+        const shiftMap = {
+            morning: { label: 'وردية صباحية ☀️', bg: 'bg-amber-50 text-amber-800 border-amber-200' },
+            evening: { label: 'وردية مسائية 🌙', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
+            full: { label: 'دوام كامل ⏰', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+        };
+        const shiftInfo = shiftMap[r.shift_type] || shiftMap.morning;
+
+        const isAppreciated = r.manager_status === 'appreciated';
+        const isReviewed = r.manager_status === 'reviewed';
+
+        const statusBadge = isAppreciated
+            ? `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm shadow-amber-900/20">
+                    <span>👏</span> <span>شكر وتقدير متميز</span>
+               </span>`
+            : (isReviewed
+                ? `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                        <i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                        <span>تم الاطلاع والاعتماد</span>
+                   </span>`
+                : `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 animate-pulse">
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i>
+                        <span>بانتظار مراجعة الإدارة</span>
+                   </span>`);
+
+        // Format tasks
+        const tasksFormatted = (r.tasks_completed || '').split('\n').filter(line => line.trim()).map(line => {
+            const cleanLine = line.replace(/^[-*•]\s*/, '');
+            return `<li class="flex items-start gap-2 text-xs text-slate-800 font-medium leading-relaxed">
+                <span class="text-sky-600 font-bold mt-0.5">•</span>
+                <span>${escapeHtml(cleanLine)}</span>
+            </li>`;
+        }).join('') || `<p class="text-xs text-slate-600">${escapeHtml(r.tasks_completed || 'لا يوجد تفاصيل')}</p>`;
+
+        const repJson = encodeURIComponent(JSON.stringify(r));
+
+        return `
+        <div class="bg-white rounded-3xl p-5 md:p-6 border border-slate-200/90 shadow-sm hover:shadow-md transition-all space-y-4">
+            <!-- Card Top: Employee, Shift, Status -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-600 to-indigo-700 text-white flex items-center justify-center font-black text-lg shadow-md shadow-sky-600/20">
+                        ${(r.employee_name || 'م')[0]}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-base font-black text-slate-900">${escapeHtml(r.employee_name)}</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                ${escapeHtml(r.employee_specialty || r.employee_role || 'منسق')}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs text-slate-500 font-mono mt-0.5">
+                            <span class="flex items-center gap-1 font-bold text-sky-700">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                                <span>${r.report_date}</span>
+                            </span>
+                            ${r.work_hours ? `<span>• ساعات الدوام: ${escapeHtml(r.work_hours)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    <span class="text-xs font-bold px-3 py-1 rounded-full border ${shiftInfo.bg}">
+                        ${shiftInfo.label}
+                    </span>
+                    ${statusBadge}
+                </div>
+            </div>
+
+            <!-- Card Center: Tasks Accomplished & Orders -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <!-- Tasks List (2 cols) -->
+                <div class="lg:col-span-2 bg-sky-50/40 rounded-2xl p-4 border border-sky-100/80 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black text-sky-950 flex items-center gap-1.5">
+                            <i data-lucide="check-square" class="w-4 h-4 text-sky-600"></i>
+                            <span>ما تم إنجازه خلال أوقات العمل:</span>
+                        </span>
+                        <span class="text-[10px] bg-white px-2 py-0.5 rounded-md font-bold text-sky-700 border border-sky-200">
+                            توثيق الإنجاز ✅
+                        </span>
+                    </div>
+                    <ul class="space-y-1.5 pt-1">
+                        ${tasksFormatted}
+                    </ul>
+                </div>
+
+                <!-- Orders & Shift Metrics (1 col) -->
+                <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-[11px] font-bold text-slate-500 block mb-1">الطلبات المنسقة والمنفذة اليوم</span>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-3xl font-black text-emerald-700 font-mono">${r.orders_count || 0}</span>
+                            <span class="text-xs font-bold text-emerald-600">باقات / طلبات 🌸</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">تم إنجازها وتوثيقها خلال ساعات العمل</p>
+                    </div>
+
+                    ${r.handover_notes ? `
+                    <div class="pt-2 border-t border-slate-200 text-xs">
+                        <span class="font-bold text-slate-700 block text-[10px] mb-0.5 flex items-center gap-1">
+                            <i data-lucide="arrow-right-left" class="w-3 h-3 text-indigo-600"></i>
+                            <span>تسليم الوردية:</span>
+                        </span>
+                        <p class="text-slate-600 text-[11px] leading-relaxed bg-white p-2 rounded-xl border border-slate-200">
+                            ${escapeHtml(r.handover_notes)}
+                        </p>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Challenges / Missing Items (if any) -->
+            ${r.challenges_or_notes ? `
+            <div class="bg-amber-50/60 rounded-2xl p-3 border border-amber-200/70 text-xs text-amber-900 flex items-start gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+                <div>
+                    <span class="font-black text-amber-950">صعوبات أو نواقص في المحل أو الورد: </span>
+                    <span class="font-medium">${escapeHtml(r.challenges_or_notes)}</span>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Manager Review / Feedback Box -->
+            <div class="rounded-2xl p-3.5 border ${isAppreciated ? 'bg-amber-50/80 border-amber-300' : (isReviewed ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50 border-slate-200')} text-xs">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5">
+                    <span class="font-black flex items-center gap-1.5 ${isAppreciated ? 'text-amber-950' : (isReviewed ? 'text-emerald-950' : 'text-slate-700')}">
+                        <i data-lucide="crown" class="w-3.5 h-3.5 ${isAppreciated ? 'text-amber-600' : (isReviewed ? 'text-emerald-600' : 'text-slate-400')}"></i>
+                        <span>مراجعة واعتماد الإدارة:</span>
+                    </span>
+                    ${r.reviewed_by ? `
+                    <span class="text-[10px] text-slate-500 font-mono">
+                        معتمد من: <strong class="text-slate-800">${escapeHtml(r.reviewed_by)}</strong> • ${r.reviewed_at ? r.reviewed_at.split(' ')[0] : ''}
+                    </span>
+                    ` : ''}
+                </div>
+                <p class="text-xs ${isAppreciated ? 'text-amber-900 font-bold' : (isReviewed ? 'text-emerald-900' : 'text-slate-500 italic')} leading-relaxed">
+                    ${escapeHtml(r.manager_review || 'في انتظار اطلاع واعتماد الإدارة على تقرير اليوم.')}
+                </p>
+            </div>
+
+            <!-- Card Bottom Actions -->
+            <div class="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100">
+                <button onclick="editDailyReport(JSON.parse(decodeURIComponent('${repJson}')))" class="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                    <span>تعديل التقرير</span>
+                </button>
+                <button onclick="openReviewDailyReportModal(JSON.parse(decodeURIComponent('${repJson}')))" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="crown" class="w-3.5 h-3.5"></i>
+                    <span>${isReviewed || isAppreciated ? 'تحديث اعتماد الإدارة 👑' : 'اعتماد ورد الإدارة 👑'}</span>
+                </button>
+                <button onclick="deleteDailyReport(${r.id})" class="px-2.5 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all cursor-pointer" title="حذف التقرير">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    container.innerHTML = cardsHtml;
+}
+
+function openNewDailyReportModal() {
+    const editId = document.getElementById('dr-form-edit-id');
+    const empSelect = document.getElementById('dr-form-employee');
+    const dateInput = document.getElementById('dr-form-date');
+    const shiftSelect = document.getElementById('dr-form-shift');
+    const hoursInput = document.getElementById('dr-form-hours');
+    const ordersCount = document.getElementById('dr-form-orders-count');
+    const tasksInput = document.getElementById('dr-form-tasks');
+    const challengesInput = document.getElementById('dr-form-challenges');
+    const handoverInput = document.getElementById('dr-form-handover');
+    const titleEl = document.getElementById('modal-dr-title');
+
+    if (editId) editId.value = '';
+    if (titleEl) titleEl.textContent = 'كتابة التقرير اليومي للموظف ✍️';
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateInput) dateInput.value = todayStr;
+
+    // Auto-select current logged-in employee if available
+    if (empSelect) {
+        if (currentUser && currentUser.id) {
+            empSelect.value = currentUser.id;
+        } else {
+            empSelect.value = '4'; // Default to Omar
+        }
+    }
+
+    if (shiftSelect) shiftSelect.value = 'morning';
+    if (hoursInput) hoursInput.value = '8 ساعات (من 9 ص إلى 5 م)';
+    if (ordersCount) ordersCount.value = '0';
+    if (tasksInput) tasksInput.value = '';
+    if (challengesInput) challengesInput.value = '';
+    if (handoverInput) handoverInput.value = '';
+
+    suggestDailyReportOrders();
+    openModal('modal-daily-report');
+}
+
+function editDailyReport(rep) {
+    if (!rep) return;
+
+    const editId = document.getElementById('dr-form-edit-id');
+    const empSelect = document.getElementById('dr-form-employee');
+    const dateInput = document.getElementById('dr-form-date');
+    const shiftSelect = document.getElementById('dr-form-shift');
+    const hoursInput = document.getElementById('dr-form-hours');
+    const ordersCount = document.getElementById('dr-form-orders-count');
+    const tasksInput = document.getElementById('dr-form-tasks');
+    const challengesInput = document.getElementById('dr-form-challenges');
+    const handoverInput = document.getElementById('dr-form-handover');
+    const titleEl = document.getElementById('modal-dr-title');
+
+    if (editId) editId.value = rep.id || '';
+    if (titleEl) titleEl.textContent = `تعديل التقرير اليومي (${rep.employee_name || ''}) ✏️`;
+
+    if (empSelect) empSelect.value = rep.employee_id || '';
+    if (dateInput) dateInput.value = rep.report_date || '';
+    if (shiftSelect) shiftSelect.value = rep.shift_type || 'morning';
+    if (hoursInput) hoursInput.value = rep.work_hours || '';
+    if (ordersCount) ordersCount.value = rep.orders_count || 0;
+    if (tasksInput) tasksInput.value = rep.tasks_completed || '';
+    if (challengesInput) challengesInput.value = rep.challenges_or_notes || '';
+    if (handoverInput) handoverInput.value = rep.handover_notes || '';
+
+    openModal('modal-daily-report');
+}
+
+function handleDailyReportEmployeeChange() {
+    suggestDailyReportOrders();
+}
+
+async function suggestDailyReportOrders() {
+    const empSelect = document.getElementById('dr-form-employee');
+    const dateInput = document.getElementById('dr-form-date');
+    const ordersCount = document.getElementById('dr-form-orders-count');
+    if (!empSelect || !ordersCount) return;
+
+    const empId = empSelect.value;
+    const dateVal = dateInput ? dateInput.value : '';
+    if (!empId) return;
+
+    try {
+        const res = await fetch(`/api/daily-reports/suggest-orders-count?employee_id=${empId}&date=${dateVal}`);
+        const data = await res.json();
+        if (data.success && typeof data.suggested_orders_count === 'number') {
+            ordersCount.value = data.suggested_orders_count;
+        }
+    } catch (e) {
+        console.warn("Could not suggest orders count:", e);
+    }
+}
+
+async function handleDailyReportSubmit(e) {
+    e.preventDefault();
+
+    const empSelect = document.getElementById('dr-form-employee');
+    const dateInput = document.getElementById('dr-form-date');
+    const shiftSelect = document.getElementById('dr-form-shift');
+    const hoursInput = document.getElementById('dr-form-hours');
+    const ordersCount = document.getElementById('dr-form-orders-count');
+    const tasksInput = document.getElementById('dr-form-tasks');
+    const challengesInput = document.getElementById('dr-form-challenges');
+    const handoverInput = document.getElementById('dr-form-handover');
+
+    const payload = {
+        employee_id: parseInt(empSelect.value),
+        report_date: dateInput.value,
+        shift_type: shiftSelect ? shiftSelect.value : 'morning',
+        work_hours: hoursInput ? hoursInput.value.trim() : null,
+        tasks_completed: tasksInput ? tasksInput.value.trim() : '',
+        orders_count: parseInt(ordersCount ? ordersCount.value : 0) || 0,
+        challenges_or_notes: challengesInput ? challengesInput.value.trim() : null,
+        handover_notes: handoverInput ? handoverInput.value.trim() : null
+    };
+
+    if (!payload.employee_id) {
+        alert("يرجى اختيار الموظف كاتب التقرير");
+        return;
+    }
+    if (!payload.tasks_completed) {
+        alert("يرجى كتابة ما تم إنجازه خلال أوقات العمل");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/daily-reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            closeModal('modal-daily-report');
+            loadDailyReports();
+            alert("✓ " + (data.message || "تم تسجيل التقرير اليومي بنجاح ✨"));
+        } else {
+            alert(data.detail || "تعذر حفظ التقرير اليومي");
+        }
+    } catch (err) {
+        console.error("Submit daily report error:", err);
+        alert("حدث خطأ أثناء حفظ التقرير اليومي");
+    }
+}
+
+function openReviewDailyReportModal(rep) {
+    if (!rep) return;
+
+    const idInput = document.getElementById('dr-review-id');
+    const infoEl = document.getElementById('dr-review-report-info');
+    const statusSelect = document.getElementById('dr-review-status');
+    const notesInput = document.getElementById('dr-review-notes');
+
+    if (idInput) idInput.value = rep.id;
+    if (infoEl) {
+        infoEl.innerHTML = `
+            <div class="flex items-center justify-between pb-1 border-b border-slate-200">
+                <span class="font-black text-slate-800">${escapeHtml(rep.employee_name)}</span>
+                <span class="font-mono text-slate-600 font-bold">${rep.report_date}</span>
+            </div>
+            <div class="text-[11px] text-slate-600 pt-1">
+                <strong>الطلبات المنفذة:</strong> ${rep.orders_count || 0} طلبات • <strong>الوردية:</strong> ${rep.shift_type === 'morning' ? 'صباحية' : (rep.shift_type === 'evening' ? 'مسائية' : 'دوام كامل')}
+            </div>
+        `;
+    }
+
+    if (statusSelect) statusSelect.value = rep.manager_status === 'appreciated' ? 'appreciated' : 'reviewed';
+    if (notesInput) notesInput.value = rep.manager_review || '';
+
+    openModal('modal-review-daily-report');
+}
+
+async function handleDailyReportReviewSubmit(e) {
+    e.preventDefault();
+
+    const idInput = document.getElementById('dr-review-id');
+    const statusSelect = document.getElementById('dr-review-status');
+    const managerSelect = document.getElementById('dr-review-manager');
+    const notesInput = document.getElementById('dr-review-notes');
+
+    const reportId = idInput ? idInput.value : null;
+    if (!reportId) return;
+
+    const payload = {
+        manager_status: statusSelect ? statusSelect.value : 'reviewed',
+        reviewed_by: managerSelect ? managerSelect.value : 'فيصل (مدير تشغيلي)',
+        manager_review: notesInput ? notesInput.value.trim() : ''
+    };
+
+    try {
+        const res = await fetch(`/api/daily-reports/${reportId}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            closeModal('modal-review-daily-report');
+            loadDailyReports();
+            alert("✓ " + (data.message || "تم اعتماد التقرير اليومي بنجاح 👑"));
+        } else {
+            alert(data.detail || "تعذر حفظ اعتماد التقرير");
+        }
+    } catch (err) {
+        console.error("Review daily report error:", err);
+        alert("حدث خطأ أثناء اعتماد التقرير");
+    }
+}
+
+async function deleteDailyReport(id) {
+    if (!confirm("هل أنت متأكد من رغبتك في حذف هذا التقرير اليومي؟")) return;
+
+    try {
+        const res = await fetch(`/api/daily-reports/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            loadDailyReports();
+            alert("✓ تم حذف التقرير اليومي بنجاح");
+        } else {
+            alert(data.detail || "تعذر حذف التقرير");
+        }
+    } catch (e) {
+        console.error("Delete report error:", e);
+        alert("حدث خطأ أثناء حذف التقرير");
+    }
+}
+
+function printDailyReports() {
+    window.print();
+}
+
+window.loadDailyReports = loadDailyReports;
+window.setDailyReportsQuickDate = setDailyReportsQuickDate;
+window.renderDailyReportsCards = renderDailyReportsCards;
+window.openNewDailyReportModal = openNewDailyReportModal;
+window.editDailyReport = editDailyReport;
+window.handleDailyReportEmployeeChange = handleDailyReportEmployeeChange;
+window.suggestDailyReportOrders = suggestDailyReportOrders;
+window.handleDailyReportSubmit = handleDailyReportSubmit;
+window.openReviewDailyReportModal = openReviewDailyReportModal;
+window.handleDailyReportReviewSubmit = handleDailyReportReviewSubmit;
+window.deleteDailyReport = deleteDailyReport;
+window.printDailyReports = printDailyReports;
+
 
 
 

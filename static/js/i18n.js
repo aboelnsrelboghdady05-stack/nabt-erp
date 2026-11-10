@@ -25,6 +25,7 @@ const i18nTranslations = {
         nav_creative_tasks: 'مهام مشاريع نبت الإبداعية',
         nav_monthly_targets: 'مهام وأهداف الشهر',
         nav_evaluations: 'تقييم وأداء المنسقين',
+        nav_daily_reports: 'التقرير اليومي',
         nav_sync: 'ربط فواتير دفترة (Daftra)',
         
         // Badges & Statuses
@@ -176,6 +177,7 @@ const i18nTranslations = {
         nav_creative_tasks: 'Creative Projects Tasks',
         nav_monthly_targets: 'Monthly Tasks & Goals',
         nav_evaluations: 'Florist Performance & Evaluations',
+        nav_daily_reports: 'Daily Work Reports',
         nav_sync: 'Accounting Sync',
         
         // Badges & Statuses
@@ -327,6 +329,7 @@ const i18nTranslations = {
         nav_creative_tasks: 'নাবত ক্রিয়েটিভ প্রজেক্টস',
         nav_monthly_targets: 'মাসিক কাজ ও লক্ষ্য',
         nav_evaluations: 'ফ্লোরিস্ট মূল্যায়ন ও পারফরম্যান্স',
+        nav_daily_reports: 'দৈনিক কাজের রিপোর্ট',
         nav_sync: 'হিসাব লিঙ্ক (Webhook)',
         
         // Badges & Statuses
