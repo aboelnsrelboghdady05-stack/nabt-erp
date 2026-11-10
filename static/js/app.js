@@ -7624,15 +7624,15 @@ function renderDailyReportsCards(reports) {
 
             <!-- Card Bottom Actions -->
             <div class="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100">
-                <button onclick="editDailyReport(JSON.parse(decodeURIComponent('${repJson}')))" class="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
+                <button type="button" onclick="editDailyReportById(${r.id})" class="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                     <span>تعديل التقرير</span>
                 </button>
-                <button onclick="openReviewDailyReportModal(JSON.parse(decodeURIComponent('${repJson}')))" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                <button type="button" onclick="openReviewDailyReportModalById(${r.id})" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
                     <i data-lucide="crown" class="w-3.5 h-3.5"></i>
                     <span>${isReviewed || isAppreciated ? 'تحديث اعتماد الإدارة 👑' : 'اعتماد ورد الإدارة 👑'}</span>
                 </button>
-                <button onclick="deleteDailyReport(${r.id})" class="px-2.5 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all cursor-pointer" title="حذف التقرير">
+                <button type="button" onclick="deleteDailyReport(${r.id})" class="px-2.5 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all cursor-pointer" title="حذف التقرير">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
             </div>
@@ -7644,41 +7644,60 @@ function renderDailyReportsCards(reports) {
 }
 
 function openNewDailyReportModal() {
-    const editId = document.getElementById('dr-form-edit-id');
-    const empSelect = document.getElementById('dr-form-employee');
-    const dateInput = document.getElementById('dr-form-date');
-    const shiftSelect = document.getElementById('dr-form-shift');
-    const hoursInput = document.getElementById('dr-form-hours');
-    const ordersCount = document.getElementById('dr-form-orders-count');
-    const tasksInput = document.getElementById('dr-form-tasks');
-    const challengesInput = document.getElementById('dr-form-challenges');
-    const handoverInput = document.getElementById('dr-form-handover');
-    const titleEl = document.getElementById('modal-dr-title');
+    try {
+        const editId = document.getElementById('dr-form-edit-id');
+        const empSelect = document.getElementById('dr-form-employee');
+        const dateInput = document.getElementById('dr-form-date');
+        const shiftSelect = document.getElementById('dr-form-shift');
+        const hoursInput = document.getElementById('dr-form-hours');
+        const ordersCount = document.getElementById('dr-form-orders-count');
+        const tasksInput = document.getElementById('dr-form-tasks');
+        const challengesInput = document.getElementById('dr-form-challenges');
+        const handoverInput = document.getElementById('dr-form-handover');
+        const titleEl = document.getElementById('modal-dr-title');
 
-    if (editId) editId.value = '';
-    if (titleEl) titleEl.textContent = 'كتابة التقرير اليومي للموظف ✍️';
+        if (editId) editId.value = '';
+        if (titleEl) titleEl.textContent = 'كتابة التقرير اليومي للموظف ✍️';
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (dateInput) dateInput.value = todayStr;
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (dateInput) dateInput.value = todayStr;
 
-    // Auto-select current logged-in employee if available
-    if (empSelect) {
-        if (currentUser && currentUser.id) {
-            empSelect.value = currentUser.id;
-        } else {
-            empSelect.value = '4'; // Default to Omar
+        // Auto-select current logged-in employee if available
+        if (empSelect) {
+            if (currentUser && currentUser.id) {
+                empSelect.value = currentUser.id;
+            } else if (!empSelect.value) {
+                empSelect.value = '4'; // Default to Omar
+            }
         }
+
+        if (shiftSelect) shiftSelect.value = 'morning';
+        if (hoursInput) hoursInput.value = '8 ساعات (من 9 ص إلى 5 م)';
+        if (ordersCount) ordersCount.value = '0';
+        if (tasksInput) tasksInput.value = '';
+        if (challengesInput) challengesInput.value = '';
+        if (handoverInput) handoverInput.value = '';
+
+        openModal('modal-daily-report');
+        suggestDailyReportOrders();
+    } catch (e) {
+        console.error("openNewDailyReportModal error:", e);
+        openModal('modal-daily-report');
     }
+}
 
-    if (shiftSelect) shiftSelect.value = 'morning';
-    if (hoursInput) hoursInput.value = '8 ساعات (من 9 ص إلى 5 م)';
-    if (ordersCount) ordersCount.value = '0';
-    if (tasksInput) tasksInput.value = '';
-    if (challengesInput) challengesInput.value = '';
-    if (handoverInput) handoverInput.value = '';
+function editDailyReportById(reportId) {
+    const rep = (cachedDailyReports || []).find(r => r.id === reportId);
+    if (rep) {
+        editDailyReport(rep);
+    }
+}
 
-    suggestDailyReportOrders();
-    openModal('modal-daily-report');
+function openReviewDailyReportModalById(reportId) {
+    const rep = (cachedDailyReports || []).find(r => r.id === reportId);
+    if (rep) {
+        openReviewDailyReportModal(rep);
+    }
 }
 
 function editDailyReport(rep) {
@@ -7875,11 +7894,14 @@ function printDailyReports() {
     window.print();
 }
 
+window.switchTab = switchTab;
 window.loadDailyReports = loadDailyReports;
 window.setDailyReportsQuickDate = setDailyReportsQuickDate;
 window.renderDailyReportsCards = renderDailyReportsCards;
 window.openNewDailyReportModal = openNewDailyReportModal;
 window.editDailyReport = editDailyReport;
+window.editDailyReportById = editDailyReportById;
+window.openReviewDailyReportModalById = openReviewDailyReportModalById;
 window.handleDailyReportEmployeeChange = handleDailyReportEmployeeChange;
 window.suggestDailyReportOrders = suggestDailyReportOrders;
 window.handleDailyReportSubmit = handleDailyReportSubmit;
