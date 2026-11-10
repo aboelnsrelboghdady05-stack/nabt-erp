@@ -77,6 +77,14 @@ app.include_router(daily_reports_router)
 
 import asyncio
 
+@app.middleware("http")
+async def add_performance_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=3600"
+    return response
+
 @app.on_event("startup")
 async def start_florist_sla_checker():
     async def loop():
@@ -86,7 +94,7 @@ async def start_florist_sla_checker():
                 check_and_process_florist_timeouts()
             except Exception as e:
                 print(f"[Florist SLA Check Error]: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(30)
     asyncio.create_task(loop())
 
 from fastapi.responses import FileResponse

@@ -304,16 +304,19 @@ function startLiveClock() {
     liveClockInterval = setInterval(updateLiveDateTime, 1000);
 }
 
+let isFetchingOrders = false;
+let isFetchingDashboard = false;
+
 function startLiveOrdersPolling() {
     if (liveOrdersPollingInterval) clearInterval(liveOrdersPollingInterval);
     liveOrdersPollingInterval = setInterval(() => {
         if (document.hidden || !currentUser) return;
-        if (currentActiveTab === 'orders') {
+        if (currentActiveTab === 'orders' && !isFetchingOrders) {
             loadOrders();
-        } else if (currentActiveTab === 'dashboard') {
+        } else if (currentActiveTab === 'dashboard' && !isFetchingDashboard) {
             loadDashboardData();
         }
-    }, 5000);
+    }, 10000);
 }
 
 let allProducts = [];
@@ -504,13 +507,17 @@ async function handlePageLogin(event) {
     }
 }
 
+let _iconRafId = null;
 function initIcons() {
     if (typeof lucide !== 'undefined' && lucide.createIcons) {
-        try {
-            lucide.createIcons();
-        } catch (e) {
-            console.warn("Lucide createIcons warning:", e);
-        }
+        if (_iconRafId) cancelAnimationFrame(_iconRafId);
+        _iconRafId = requestAnimationFrame(() => {
+            try {
+                lucide.createIcons();
+            } catch (e) {
+                console.warn("Lucide createIcons warning:", e);
+            }
+        });
     }
 }
 
@@ -639,6 +646,8 @@ function switchTab(tabId) {
 
 // 1. DASHBOARD LOGIC
 async function loadDashboardData() {
+    if (isFetchingDashboard) return;
+    isFetchingDashboard = true;
     try {
         let statsUrl = '/api/dashboard/stats';
         if (currentUser && currentUser.role === 'florist' && currentUser.id) {
@@ -856,6 +865,8 @@ async function loadDashboardData() {
         initIcons();
     } catch (err) {
         console.error("Dashboard stats error:", err);
+    } finally {
+        isFetchingDashboard = false;
     }
 }
 
@@ -1226,6 +1237,8 @@ function getDeliveryCountdownText(deliveryDateStr) {
 }
 
 async function loadOrders() {
+    if (isFetchingOrders) return;
+    isFetchingOrders = true;
     try {
         const search = document.getElementById('order-search-input')?.value || '';
         let url = `/api/orders?status=all`;
@@ -1615,6 +1628,8 @@ async function loadOrders() {
         initIcons();
     } catch (err) {
         console.error("Load orders error:", err);
+    } finally {
+        isFetchingOrders = false;
     }
 }
 
@@ -4019,10 +4034,17 @@ function updateDriversNavBadge() {
     }
 }
 
-async function loadDrivers() {
+let lastDriversFetchTime = 0;
+async function loadDrivers(force = false) {
+    const now = Date.now();
+    if (!force && allDrivers && allDrivers.length > 0 && (now - lastDriversFetchTime < 30000)) {
+        updateDriversNavBadge();
+        return;
+    }
     try {
         const res = await fetch('/api/drivers');
         allDrivers = await res.json();
+        lastDriversFetchTime = now;
         updateDriversNavBadge();
     } catch (err) {
         console.error("Load drivers list error:", err);
@@ -4548,12 +4570,18 @@ async function handleCreateExpense(event) {
 }
 
 // 9. PRODUCTS CATALOG
-async function loadProducts() {
+let lastProductsFetchTime = 0;
+async function loadProducts(force = false) {
+    const now = Date.now();
+    const grid = document.getElementById('products-grid');
+    if (!force && allProducts && allProducts.length > 0 && (now - lastProductsFetchTime < 60000) && grid && grid.children.length > 0) {
+        return;
+    }
     try {
         const res = await fetch('/api/products');
         allProducts = await res.json();
+        lastProductsFetchTime = now;
 
-        const grid = document.getElementById('products-grid');
         if (!grid) return;
         grid.innerHTML = '';
 

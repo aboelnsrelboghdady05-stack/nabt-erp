@@ -156,11 +156,6 @@ def get_orders(
     florist_id: Optional[int] = None,
     order_type: Optional[str] = None
 ):
-    try:
-        check_and_process_florist_timeouts()
-    except Exception as e:
-        print(f"[Timeout Check Warning]: {e}")
-
     conn = get_db()
     cursor = conn.cursor()
 
@@ -197,10 +192,19 @@ def get_orders(
     cursor.execute(query, params)
     orders = [dict(row) for row in cursor.fetchall()]
 
-    # Fetch items and parse JSON for each order
+    # High-Performance Batch Item Fetching (1 Query instead of N queries)
+    items_by_order = {}
+    if orders:
+        order_ids = [o["id"] for o in orders]
+        placeholders = ",".join("?" for _ in order_ids)
+        cursor.execute(f"SELECT * FROM order_items WHERE order_id IN ({placeholders})", order_ids)
+        for r in cursor.fetchall():
+            row_dict = dict(r)
+            items_by_order.setdefault(row_dict["order_id"], []).append(row_dict)
+
+    # Parse images and attach items
     for o in orders:
-        cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (o["id"],))
-        o["items"] = [dict(r) for r in cursor.fetchall()]
+        o["items"] = items_by_order.get(o["id"], [])
 
         # Parse reference_images list
         ref_imgs = []

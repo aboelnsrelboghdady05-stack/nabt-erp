@@ -7,8 +7,20 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 from typing import Optional
 
+import time
+
+_DASH_CACHE = {}
+_DASH_CACHE_TTL = 3.0  # 3 seconds cache
+
 @router.get("/stats")
 def get_dashboard_stats(florist_id: Optional[int] = None):
+    cache_key = f"dash:{florist_id}"
+    now_ts = time.time()
+    if cache_key in _DASH_CACHE:
+        cached_ts, cached_val = _DASH_CACHE[cache_key]
+        if now_ts - cached_ts < _DASH_CACHE_TTL:
+            return cached_val
+
     conn = get_db()
     cursor = conn.cursor()
     today_str = date.today().strftime("%Y-%m-%d")
@@ -96,11 +108,11 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
         """, (today_str,))
         urgent_orders = [dict(row) for row in cursor.fetchall()]
 
-    # Active Drivers
-    cursor.execute("SELECT COUNT(*) FROM drivers WHERE status = 'on_delivery'")
-    drivers_on_delivery = int(cursor.fetchone()[0])
-    cursor.execute("SELECT COUNT(*) FROM drivers WHERE status = 'available'")
-    drivers_available = int(cursor.fetchone()[0])
+    # Active Drivers (Combined query)
+    cursor.execute("SELECT status, COUNT(*) FROM drivers GROUP BY status")
+    driver_counts = {r[0]: int(r[1]) for r in cursor.fetchall()}
+    drivers_on_delivery = driver_counts.get("on_delivery", 0)
+    drivers_available = driver_counts.get("available", 0)
 
     # Top Selling Products
     cursor.execute("""
@@ -124,7 +136,7 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
     special_orders = [dict(row) for row in cursor.fetchall()]
 
     # Customers with special occasions
-    cursor.execute("SELECT id, name, phone, special_occasions FROM customers WHERE special_occasions IS NOT NULL AND special_occasions != '[]'")
+    cursor.execute("SELECT id, name, phone, special_occasions FROM customers WHERE special_occasions IS NOT NULL AND special_occasions != '[]' LIMIT 20")
     upcoming_occasions = []
     for row in cursor.fetchall():
         try:
@@ -143,7 +155,7 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
 
     conn.close()
 
-    return {
+    result = {
         "today_sales": today_sales,
         "today_orders_count": today_orders_count,
         "monthly_sales": monthly_sales,
@@ -163,3 +175,5 @@ def get_dashboard_stats(florist_id: Optional[int] = None):
         "special_orders": special_orders,
         "upcoming_occasions": upcoming_occasions[:5]
     }
+    _DASH_CACHE[cache_key] = (time.time(), result)
+    return result

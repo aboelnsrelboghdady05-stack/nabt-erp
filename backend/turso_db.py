@@ -1,6 +1,7 @@
 import os
 import httpx
 import base64
+import time
 from typing import Any, List, Dict, Optional, Tuple, Union
 
 class TursoRow:
@@ -83,6 +84,31 @@ def _from_turso_value(cell: dict) -> Any:
     return v
 
 
+# ==============================================================================
+# Global Shared Client Pool & Micro-Cache for Sub-Millisecond Speed
+# ==============================================================================
+_SHARED_CLIENT: Optional[httpx.Client] = None
+_QUERY_CACHE: Dict[str, Tuple[float, List[str], List[List[Any]], Optional[int], int]] = {}
+CACHE_TTL = 2.5  # 2.5 seconds cache for read-only queries during burst requests
+
+def _get_shared_client(auth_token: str) -> httpx.Client:
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
+        _SHARED_CLIENT = httpx.Client(
+            headers={
+                "Authorization": f"Bearer {auth_token}",
+                "Content-Type": "application/json"
+            },
+            timeout=httpx.Timeout(20.0, connect=5.0),
+            limits=httpx.Limits(max_keepalive_connections=30, max_connections=60, keepalive_expiry=120.0)
+        )
+    return _SHARED_CLIENT
+
+def clear_query_cache():
+    global _QUERY_CACHE
+    _QUERY_CACHE.clear()
+
+
 class TursoCursor:
     def __init__(self, conn: "TursoConnection"):
         self.conn = conn
@@ -94,10 +120,10 @@ class TursoCursor:
 
     def execute(self, sql: str, params: Optional[Union[List, Tuple, dict]] = None) -> "TursoCursor":
         sql_stripped = sql.strip().rstrip(";")
-        
+        upper_sql = sql_stripped.upper()
+
         # Handle SQLite PRAGMA statements gracefully
-        if sql_stripped.upper().startswith("PRAGMA"):
-            # If PRAGMA table_info(tbl)
+        if upper_sql.startswith("PRAGMA"):
             if "table_info" in sql_stripped.lower():
                 pass # let it run
             else:
@@ -106,6 +132,28 @@ class TursoCursor:
                 self.lastrowid = None
                 self.rowcount = 0
                 return self
+
+        # Mutation check: Clear cache if this is a write query
+        is_read_query = upper_sql.startswith("SELECT") or upper_sql.startswith("WITH")
+        if not is_read_query:
+            clear_query_cache()
+
+        # Check in-memory query cache for read queries
+        cache_key = None
+        if is_read_query:
+            try:
+                cache_key = f"{sql_stripped}:{str(params)}"
+                if cache_key in _QUERY_CACHE:
+                    cached_time, cols, raw_rows, last_id, affected = _QUERY_CACHE[cache_key]
+                    if time.time() - cached_time < CACHE_TTL:
+                        self.description = [(c, None, None, None, None, None, None) for c in cols]
+                        self._rows = [TursoRow(cols, list(r)) for r in raw_rows]
+                        self._row_idx = 0
+                        self.lastrowid = last_id
+                        self.rowcount = affected
+                        return self
+            except Exception:
+                cache_key = None
 
         stmt: Dict[str, Any] = {"sql": sql_stripped}
         if params is not None:
@@ -138,13 +186,23 @@ class TursoCursor:
         self.description = [(c, None, None, None, None, None, None) for c in cols]
         
         raw_rows = result_data.get("rows", [])
-        self._rows = [
-            TursoRow(cols, [_from_turso_value(cell) for cell in r])
+        parsed_matrix = [
+            [_from_turso_value(cell) for cell in r]
             for r in raw_rows
+        ]
+        
+        self._rows = [
+            TursoRow(cols, row_vals)
+            for row_vals in parsed_matrix
         ]
         self._row_idx = 0
         self.lastrowid = result_data.get("last_insert_rowid")
         self.rowcount = result_data.get("affected_row_count", 0)
+
+        # Store in cache if read query
+        if is_read_query and cache_key:
+            _QUERY_CACHE[cache_key] = (time.time(), cols, parsed_matrix, self.lastrowid, self.rowcount)
+
         return self
 
     def executemany(self, sql: str, seq_of_params: List[Union[List, Tuple]]) -> "TursoCursor":
@@ -191,13 +249,7 @@ class TursoConnection:
 
         self.auth_token = auth_token.strip()
         self.row_factory = None
-        self._client = httpx.Client(
-            headers={
-                "Authorization": f"Bearer {self.auth_token}",
-                "Content-Type": "application/json"
-            },
-            timeout=30.0
-        )
+        self._client = _get_shared_client(self.auth_token)
 
     def _post_pipeline(self, payload: dict) -> dict:
         r = self._client.post(self.endpoint, json=payload)
@@ -219,7 +271,5 @@ class TursoConnection:
         pass
 
     def close(self):
-        try:
-            self._client.close()
-        except Exception:
-            pass
+        # Do NOT close the shared HTTP client pool! Keep TCP/SSL connections warm!
+        pass

@@ -49,80 +49,88 @@ def get_evaluations_and_performance(
             emp_query += " WHERE id = ?"
             params.append(employee_id)
         emp_query += " ORDER BY CASE WHEN role = 'florist' THEN 0 ELSE 1 END, id ASC"
-        
         cursor.execute(emp_query, params)
         employees = [dict(r) for r in cursor.fetchall()]
-        
+
+        # 1. High-Performance Batch Fetch: All orders for active month
+        orders_by_emp = {}
+        order_query = """
+        SELECT id, order_number, customer_name, customer_phone, delivery_date, delivery_time_slot,
+               total_amount, status, payment_status, created_at, notes, flower_colors, completed_image,
+               order_type, florist_id
+        FROM orders
+        WHERE florist_id IS NOT NULL
+        """
+        order_params = []
+        if active_month and active_month != "all":
+            order_query += " AND (delivery_date LIKE ? OR created_at LIKE ?)"
+            order_params.extend([f"{active_month}%", f"{active_month}%"])
+        order_query += " ORDER BY id DESC"
+        cursor.execute(order_query, order_params)
+        for r in cursor.fetchall():
+            row_dict = dict(r)
+            orders_by_emp.setdefault(row_dict["florist_id"], []).append(row_dict)
+
+        # 2. High-Performance Batch Fetch: All monthly targets
+        tasks_by_emp = {}
+        tasks_query = """
+        SELECT id, employee_id, target_title, description, special_instructions, status, set_by_name, updated_at
+        FROM employee_monthly_targets
+        WHERE 1=1
+        """
+        tasks_params = []
+        if active_month and active_month != "all":
+            tasks_query += " AND target_month = ?"
+            tasks_params.append(active_month)
+        tasks_query += " ORDER BY id DESC"
+        cursor.execute(tasks_query, tasks_params)
+        for t in cursor.fetchall():
+            t_dict = dict(t)
+            tasks_by_emp.setdefault(t_dict["employee_id"], []).append(t_dict)
+
+        # 3. High-Performance Batch Fetch: All employee evaluations
+        evals_by_emp = {}
+        eval_query = """
+        SELECT id, employee_id, eval_month, rating, score, orders_score, tasks_score, quality_score, speed_score,
+               discipline_score, bonus_recommendation, manager_feedback, evaluator_name, created_at, updated_at
+        FROM employee_evaluations
+        WHERE 1=1
+        """
+        eval_params = []
+        if active_month and active_month != "all":
+            eval_query += " AND eval_month = ?"
+            eval_params.append(active_month)
+        eval_query += " ORDER BY id DESC"
+        cursor.execute(eval_query, eval_params)
+        for ev in cursor.fetchall():
+            ev_dict = dict(ev)
+            if ev_dict["employee_id"] not in evals_by_emp:
+                evals_by_emp[ev_dict["employee_id"]] = ev_dict
+
         evaluations_list = []
         total_orders_all = 0
         total_sales_all = 0.0
-        
+
         for emp in employees:
             e_id = emp["id"]
-            
-            # 2. Fetch orders executed by this florist for the active month
-            order_query = """
-            SELECT id, order_number, customer_name, customer_phone, delivery_date, delivery_time_slot,
-                   total_amount, status, payment_status, created_at, notes, flower_colors, completed_image,
-                   order_type
-            FROM orders
-            WHERE florist_id = ?
-            """
-            order_params = [e_id]
-            
-            if active_month and active_month != "all":
-                order_query += " AND (delivery_date LIKE ? OR created_at LIKE ?)"
-                order_params.extend([f"{active_month}%", f"{active_month}%"])
-                
-            order_query += " ORDER BY id DESC"
-            cursor.execute(order_query, order_params)
-            orders_rows = [dict(r) for r in cursor.fetchall()]
-            
+            orders_rows = orders_by_emp.get(e_id, [])
             total_orders = len(orders_rows)
             total_sales = sum(float(r.get("total_amount") or 0.0) for r in orders_rows)
             avg_order_val = round(total_sales / total_orders, 2) if total_orders > 0 else 0.0
-            
+
             completed_orders = sum(1 for r in orders_rows if r.get("status") in ("delivered", "completed", "prepared"))
             in_progress_orders = sum(1 for r in orders_rows if r.get("status") in ("new", "preparing"))
-            
+
             total_orders_all += total_orders
             total_sales_all += total_sales
-            
-            # 3. Fetch monthly tasks assigned to this employee from employee_monthly_targets
-            tasks_query = """
-            SELECT id, target_title, description, special_instructions, status, set_by_name, updated_at
-            FROM employee_monthly_targets
-            WHERE employee_id = ?
-            """
-            tasks_params = [e_id]
-            if active_month and active_month != "all":
-                tasks_query += " AND target_month = ?"
-                tasks_params.append(active_month)
-            tasks_query += " ORDER BY id DESC"
-            cursor.execute(tasks_query, tasks_params)
-            assigned_tasks = [dict(t) for t in cursor.fetchall()]
-            
+
+            assigned_tasks = tasks_by_emp.get(e_id, [])
             total_tasks_count = len(assigned_tasks)
             completed_tasks_count = sum(1 for t in assigned_tasks if t.get("status") == "completed")
-            
-            # 4. Fetch monthly evaluation record from employee_evaluations
-            eval_query = """
-            SELECT id, eval_month, rating, score, orders_score, tasks_score, quality_score, speed_score,
-                   discipline_score, bonus_recommendation, manager_feedback, evaluator_name, created_at, updated_at
-            FROM employee_evaluations
-            WHERE employee_id = ?
-            """
-            eval_params = [e_id]
-            if active_month and active_month != "all":
-                eval_query += " AND eval_month = ?"
-                eval_params.append(active_month)
-            eval_query += " ORDER BY id DESC LIMIT 1"
-            
-            cursor.execute(eval_query, eval_params)
-            eval_row = cursor.fetchone()
-            
+
+            eval_row = evals_by_emp.get(e_id)
             is_evaluated = bool(eval_row)
-            eval_data = dict(eval_row) if eval_row else {
+            eval_data = eval_row if eval_row else {
                 "id": None,
                 "eval_month": active_month,
                 "rating": 5 if total_orders > 0 else 0,
