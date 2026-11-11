@@ -9,8 +9,8 @@ router = APIRouter(prefix="/api/daily-reports", tags=["Employee Daily Reports"])
 class DailyReportCreateSchema(BaseModel):
     employee_id: int
     report_date: Optional[str] = None  # Format: YYYY-MM-DD, defaults to today
-    shift_type: Optional[str] = "morning"  # morning (صباحية), evening (مسائية), full (دوام كامل)
-    work_hours: Optional[str] = None  # ساعات العمل e.g. "8 ساعات (من 9 ص إلى 5 م)"
+    shift_type: Optional[str] = "unified"  # unified (وردية موحدة: 1:00 ظهراً - 11:00 مساءً)
+    work_hours: Optional[str] = "10 ساعات (من 1:00 ظهراً إلى 11:00 مساءً)"  # ساعات العمل الرسمية الموحدة
     tasks_completed: str  # ما تم إنجازه خلال أوقات العمل
     orders_count: Optional[int] = 0  # عدد الطلبات المنسقة أو المنفذة
     challenges_or_notes: Optional[str] = None  # التحديات أو النواقص أو متطلبات العمل

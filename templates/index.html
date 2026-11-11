@@ -4413,15 +4413,17 @@
                 <!-- Employee & Date -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الموظف كاتب التقرير <span class="text-red-500">*</span></label>
-                        <select id="dr-form-employee" required onchange="handleDailyReportEmployeeChange()" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-sky-500 outline-hidden">
-                            <option value="">-- اختر الموظف --</option>
-                            <option value="4">عمر (منسق ورد) 🌸</option>
-                            <option value="5">ريكو (منسق ورد) 🌸</option>
-                            <option value="3">نادر (مدير فرع) 🏢</option>
-                            <option value="2">فيصل (مدير تشغيلي) 👑</option>
-                            <option value="1">ياسر (المدير العام) 👑</option>
-                        </select>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">الموظف كاتب التقرير</label>
+                        <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2">
+                            <div id="dr-form-employee-avatar" class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                                م
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <span id="dr-form-employee-name" class="text-xs font-black text-slate-900 block truncate">المستخدم المسجل</span>
+                                <span id="dr-form-employee-role" class="text-[10px] text-sky-700 font-bold block">حسابك الحالي في النظام ✅</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="dr-form-employee" value="">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">تاريخ التقرير <span class="text-red-500">*</span></label>
@@ -4432,16 +4434,21 @@
                 <!-- Shift & Hours -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الوردية / فترة العمل <span class="text-red-500">*</span></label>
-                        <select id="dr-form-shift" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-sky-500 outline-hidden">
-                            <option value="morning">وردية صباحية ☀️ (9:00 ص - 5:00 م)</option>
-                            <option value="evening">وردية مسائية 🌙 (4:00 م - 12:00 ص)</option>
-                            <option value="full">دوام كامل / تغطية إضافية ⏰</option>
-                        </select>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">الوردية ومواعيد العمل</label>
+                        <div class="flex items-center gap-2.5 bg-sky-50/70 border border-sky-200 rounded-2xl px-3.5 py-2">
+                            <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-700 border border-sky-300/60 flex items-center justify-center shrink-0">
+                                <i data-lucide="clock" class="w-4 h-4 text-sky-700"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-black text-sky-950 block">وردية موحدة (1:00 ظهراً - 11:00 مساءً)</span>
+                                <span class="text-[10px] text-sky-700 font-medium block">10 ساعات عمل رسمية لجميع الموظفين ⏰</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="dr-form-shift" value="unified">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">ساعات العمل الفعلية</label>
-                        <input type="text" id="dr-form-hours" placeholder="مثال: 8 ساعات (من 9 ص إلى 5 م)" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 focus:bg-white focus:border-sky-500 outline-hidden">
+                        <input type="text" id="dr-form-hours" value="10 ساعات (من 1:00 ظهراً إلى 11:00 مساءً)" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-sky-500 outline-hidden">
                     </div>
                 </div>
 
@@ -4589,9 +4596,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261110_daily_v9"></script>
+    <script src="/static/js/i18n.js?v=20261111_daily_unified_v10"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261110_daily_v9"></script>
+    <script src="/static/js/app.js?v=20261111_daily_unified_v10"></script>
     <script>
     // Inline guarantee for Daily Report modal opening in case of browser cache
     window.openNewDailyReportModal = function() {
@@ -4605,6 +4612,27 @@
             if (dateInput && !dateInput.value) {
                 dateInput.value = new Date().toISOString().split('T')[0];
             }
+            const empInput = document.getElementById('dr-form-employee');
+            const empNameEl = document.getElementById('dr-form-employee-name');
+            const empAvatarEl = document.getElementById('dr-form-employee-avatar');
+            const empRoleEl = document.getElementById('dr-form-employee-role');
+            let userObj = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+            if (!userObj && typeof localStorage !== 'undefined') {
+                try { userObj = JSON.parse(localStorage.getItem('nabt_current_user') || 'null'); } catch(e){}
+            }
+            const empId = (userObj && userObj.id) ? userObj.id : 4;
+            const empName = (userObj && userObj.name) ? userObj.name : 'عمر (منسق ورد)';
+            const empRoleDesc = (userObj && userObj.role === 'florist') ? 'منسق ورد 🌸' : 'فريق العمل';
+            if (empInput) empInput.value = empId;
+            if (empNameEl) empNameEl.textContent = empName;
+            if (empAvatarEl) empAvatarEl.textContent = (empName || 'م').charAt(0);
+            if (empRoleEl) empRoleEl.textContent = `حسابك الحالي: ${empRoleDesc} ✅`;
+
+            const shiftInput = document.getElementById('dr-form-shift');
+            const hoursInput = document.getElementById('dr-form-hours');
+            if (shiftInput) shiftInput.value = 'unified';
+            if (hoursInput) hoursInput.value = '10 ساعات (من 1:00 ظهراً إلى 11:00 مساءً)';
+
             if (typeof suggestDailyReportOrders === 'function') {
                 suggestDailyReportOrders();
             }

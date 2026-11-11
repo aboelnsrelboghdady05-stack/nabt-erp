@@ -7483,11 +7483,12 @@ function renderDailyReportsCards(reports) {
 
     const cardsHtml = reports.map(r => {
         const shiftMap = {
-            morning: { label: 'وردية صباحية ☀️', bg: 'bg-amber-50 text-amber-800 border-amber-200' },
-            evening: { label: 'وردية مسائية 🌙', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
-            full: { label: 'دوام كامل ⏰', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+            unified: { label: 'وردية موحدة (1:00 ظ - 11:00 م) ⏰', bg: 'bg-sky-50 text-sky-800 border-sky-200' },
+            morning: { label: 'وردية موحدة (1:00 ظ - 11:00 م) ⏰', bg: 'bg-sky-50 text-sky-800 border-sky-200' },
+            evening: { label: 'وردية موحدة (1:00 ظ - 11:00 م) ⏰', bg: 'bg-sky-50 text-sky-800 border-sky-200' },
+            full: { label: 'وردية موحدة (1:00 ظ - 11:00 م) ⏰', bg: 'bg-sky-50 text-sky-800 border-sky-200' }
         };
-        const shiftInfo = shiftMap[r.shift_type] || shiftMap.morning;
+        const shiftInfo = shiftMap[r.shift_type] || shiftMap.unified;
 
         const isAppreciated = r.manager_status === 'appreciated';
         const isReviewed = r.manager_status === 'reviewed';
@@ -7646,9 +7647,12 @@ function renderDailyReportsCards(reports) {
 function openNewDailyReportModal() {
     try {
         const editId = document.getElementById('dr-form-edit-id');
-        const empSelect = document.getElementById('dr-form-employee');
+        const empInput = document.getElementById('dr-form-employee');
+        const empNameEl = document.getElementById('dr-form-employee-name');
+        const empAvatarEl = document.getElementById('dr-form-employee-avatar');
+        const empRoleEl = document.getElementById('dr-form-employee-role');
         const dateInput = document.getElementById('dr-form-date');
-        const shiftSelect = document.getElementById('dr-form-shift');
+        const shiftInput = document.getElementById('dr-form-shift');
         const hoursInput = document.getElementById('dr-form-hours');
         const ordersCount = document.getElementById('dr-form-orders-count');
         const tasksInput = document.getElementById('dr-form-tasks');
@@ -7662,17 +7666,23 @@ function openNewDailyReportModal() {
         const todayStr = new Date().toISOString().split('T')[0];
         if (dateInput) dateInput.value = todayStr;
 
-        // Auto-select current logged-in employee if available
-        if (empSelect) {
-            if (currentUser && currentUser.id) {
-                empSelect.value = currentUser.id;
-            } else if (!empSelect.value) {
-                empSelect.value = '4'; // Default to Omar
-            }
+        // Auto-select current logged-in employee automatically
+        let userObj = currentUser;
+        if (!userObj && typeof localStorage !== 'undefined') {
+            try { userObj = JSON.parse(localStorage.getItem('nabt_current_user') || 'null'); } catch(e){}
         }
 
-        if (shiftSelect) shiftSelect.value = 'morning';
-        if (hoursInput) hoursInput.value = '8 ساعات (من 9 ص إلى 5 م)';
+        const empId = (userObj && userObj.id) ? userObj.id : 4;
+        const empName = (userObj && userObj.name) ? userObj.name : 'عمر (منسق ورد)';
+        const empRoleDesc = (userObj && userObj.role === 'florist') ? 'منسق ورد 🌸' : ((userObj && userObj.role === 'general_manager') ? 'المدير العام 👑' : 'فريق العمل');
+
+        if (empInput) empInput.value = empId;
+        if (empNameEl) empNameEl.textContent = empName;
+        if (empAvatarEl) empAvatarEl.textContent = (empName || 'م').charAt(0);
+        if (empRoleEl) empRoleEl.textContent = `حسابك الحالي: ${empRoleDesc} ✅`;
+
+        if (shiftInput) shiftInput.value = 'unified';
+        if (hoursInput) hoursInput.value = '10 ساعات (من 1:00 ظهراً إلى 11:00 مساءً)';
         if (ordersCount) ordersCount.value = '0';
         if (tasksInput) tasksInput.value = '';
         if (challengesInput) challengesInput.value = '';
@@ -7704,9 +7714,12 @@ function editDailyReport(rep) {
     if (!rep) return;
 
     const editId = document.getElementById('dr-form-edit-id');
-    const empSelect = document.getElementById('dr-form-employee');
+    const empInput = document.getElementById('dr-form-employee');
+    const empNameEl = document.getElementById('dr-form-employee-name');
+    const empAvatarEl = document.getElementById('dr-form-employee-avatar');
+    const empRoleEl = document.getElementById('dr-form-employee-role');
     const dateInput = document.getElementById('dr-form-date');
-    const shiftSelect = document.getElementById('dr-form-shift');
+    const shiftInput = document.getElementById('dr-form-shift');
     const hoursInput = document.getElementById('dr-form-hours');
     const ordersCount = document.getElementById('dr-form-orders-count');
     const tasksInput = document.getElementById('dr-form-tasks');
@@ -7717,10 +7730,14 @@ function editDailyReport(rep) {
     if (editId) editId.value = rep.id || '';
     if (titleEl) titleEl.textContent = `تعديل التقرير اليومي (${rep.employee_name || ''}) ✏️`;
 
-    if (empSelect) empSelect.value = rep.employee_id || '';
+    if (empInput) empInput.value = rep.employee_id || '';
+    if (empNameEl) empNameEl.textContent = rep.employee_name || 'موظف';
+    if (empAvatarEl) empAvatarEl.textContent = (rep.employee_name || 'م').charAt(0);
+    if (empRoleEl) empRoleEl.textContent = 'تعديل التقرير المسجل ✏️';
+
     if (dateInput) dateInput.value = rep.report_date || '';
-    if (shiftSelect) shiftSelect.value = rep.shift_type || 'morning';
-    if (hoursInput) hoursInput.value = rep.work_hours || '';
+    if (shiftInput) shiftInput.value = rep.shift_type || 'unified';
+    if (hoursInput) hoursInput.value = rep.work_hours || '10 ساعات (من 1:00 ظهراً إلى 11:00 مساءً)';
     if (ordersCount) ordersCount.value = rep.orders_count || 0;
     if (tasksInput) tasksInput.value = rep.tasks_completed || '';
     if (challengesInput) challengesInput.value = rep.challenges_or_notes || '';
