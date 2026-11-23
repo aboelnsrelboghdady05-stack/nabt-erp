@@ -415,7 +415,12 @@ function hideLoginScreen() {
     const screen = document.getElementById('login-screen');
     if (screen) {
         screen.classList.add('hidden');
+        screen.classList.remove('flex');
         screen.style.display = 'none';
+        screen.setAttribute('style', 'display: none !important');
+    }
+    if (window.location.pathname === '/login') {
+        try { window.history.replaceState({}, document.title, '/'); } catch(e){}
     }
 }
 
@@ -445,17 +450,19 @@ function handleUserLogout() {
 
 function normalizeArabicDigits(str) {
     if (!str) return '';
-    const eastern = '٠١٢٣٤٥٦٧٨٩';
-    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    const eastern = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+    const persian = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
     let res = String(str);
     for (let i = 0; i < 10; i++) {
-        res = res.replaceAll(eastern[i], String(i)).replaceAll(persian[i], String(i));
+        res = res.split(eastern[i]).join(String(i)).split(persian[i]).join(String(i));
     }
     return res.trim();
 }
 
 async function handlePageLogin(event) {
-    if (event) event.preventDefault();
+    if (event) {
+        try { event.preventDefault(); } catch(e){}
+    }
     const rawId = document.getElementById('page-login-identifier')?.value || '';
     const rawPwd = document.getElementById('page-login-password')?.value || '';
     const identifier = normalizeArabicDigits(rawId);
@@ -468,12 +475,20 @@ async function handlePageLogin(event) {
         if (err) {
             if (errText) errText.textContent = "يرجى إدخال اسم المستخدم أو الجوال وكلمة المرور";
             err.classList.remove('hidden');
+            err.style.display = 'flex';
         }
         return;
     }
 
-    if (err) err.classList.add('hidden');
-    if (btn) btn.disabled = true;
+    if (err) {
+        err.classList.add('hidden');
+        err.style.display = 'none';
+    }
+    const originalBtnHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>جاري التحقق والدخول... 🌸</span>';
+    }
 
     try {
         const res = await fetch('/api/auth/login', {
@@ -492,9 +507,13 @@ async function handlePageLogin(event) {
                 username: u.username,
                 phone: u.phone
             };
-            localStorage.setItem('nabt_current_user', JSON.stringify(currentUser));
+            window.currentUser = currentUser;
+            try {
+                localStorage.setItem('nabt_current_user', JSON.stringify(currentUser));
+            } catch(e){}
+            
             hideLoginScreen();
-            updateUserInterface();
+            try { updateUserInterface(); } catch(e){}
             
             // Safe post-login data loading
             try { loadOrders(); } catch(e){}
@@ -509,6 +528,7 @@ async function handlePageLogin(event) {
             if (err) {
                 if (errText) errText.textContent = data.detail || "اسم المستخدم أو كلمة المرور غير صحيحة";
                 err.classList.remove('hidden');
+                err.style.display = 'flex';
             }
         }
     } catch (e) {
@@ -516,9 +536,13 @@ async function handlePageLogin(event) {
         if (err) {
             if (errText) errText.textContent = "تعذر الاتصال بالخادم، يرجى المحاولة مرة أخرى";
             err.classList.remove('hidden');
+            err.style.display = 'flex';
         }
     } finally {
-        if (btn) btn.disabled = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHtml || '<span>تسجيل الدخول للمحل 🌸</span>';
+        }
     }
 }
 window.handlePageLogin = handlePageLogin;

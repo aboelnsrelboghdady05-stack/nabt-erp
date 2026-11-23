@@ -308,6 +308,153 @@
 <body class="text-slate-800 antialiased flex h-[100dvh] h-screen overflow-hidden max-w-full w-full">
 
     <!-- ======================================================== -->
+    <!-- INLINE GUARANTEED AUTHENTICATION SCRIPT (فوري وسريع بدون انتظار تحميل أي ملف) -->
+    <!-- ======================================================== -->
+    <script>
+    function normalizeArabicDigits(str) {
+        if (!str) return '';
+        var eastern = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+        var persian = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+        var res = String(str);
+        for (var i = 0; i < 10; i++) {
+            res = res.split(eastern[i]).join(String(i)).split(persian[i]).join(String(i));
+        }
+        return res.trim();
+    }
+    window.normalizeArabicDigits = normalizeArabicDigits;
+
+    function hideLoginScreen() {
+        var screen = document.getElementById('login-screen');
+        if (screen) {
+            screen.classList.add('hidden');
+            screen.classList.remove('flex');
+            screen.style.display = 'none';
+            screen.setAttribute('style', 'display: none !important');
+        }
+        if (window.location.pathname === '/login') {
+            try { window.history.replaceState({}, document.title, '/'); } catch(e){}
+        }
+    }
+    window.hideLoginScreen = hideLoginScreen;
+
+    function showLoginScreen() {
+        var screen = document.getElementById('login-screen');
+        if (screen) {
+            screen.classList.remove('hidden');
+            screen.classList.add('flex');
+            screen.style.display = 'flex';
+            screen.setAttribute('style', 'display: flex !important');
+        }
+    }
+    window.showLoginScreen = showLoginScreen;
+
+    function togglePasswordVisibility(inputId) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+    window.togglePasswordVisibility = togglePasswordVisibility;
+
+    async function handlePageLogin(event) {
+        if (event) {
+            try { event.preventDefault(); } catch(e){}
+        }
+        var rawId = (document.getElementById('page-login-identifier') || {}).value || '';
+        var rawPwd = (document.getElementById('page-login-password') || {}).value || '';
+        var identifier = normalizeArabicDigits(rawId);
+        var password = normalizeArabicDigits(rawPwd);
+        var err = document.getElementById('page-login-error');
+        var errText = document.getElementById('page-login-error-text');
+        var btn = document.getElementById('page-login-submit-btn');
+
+        if (!identifier || !password) {
+            if (err) {
+                if (errText) errText.textContent = "يرجى إدخال اسم المستخدم أو الجوال وكلمة المرور";
+                err.classList.remove('hidden');
+                err.style.display = 'flex';
+            }
+            return false;
+        }
+
+        if (err) {
+            err.classList.add('hidden');
+            err.style.display = 'none';
+        }
+        var origHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span>جاري التحقق والدخول... 🌸</span>';
+        }
+
+        try {
+            var res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: identifier, password: password })
+            });
+            var data = await res.json();
+
+            if (res.ok && data.success) {
+                var u = data.user;
+                var userObj = {
+                    role: u.role,
+                    id: u.id,
+                    name: u.name,
+                    username: u.username,
+                    phone: u.phone
+                };
+                window.currentUser = userObj;
+                try {
+                    localStorage.setItem('nabt_current_user', JSON.stringify(userObj));
+                } catch(e){}
+
+                hideLoginScreen();
+
+                if (typeof updateUserInterface === 'function') updateUserInterface();
+                if (typeof loadOrders === 'function') loadOrders();
+                if (typeof loadDashboardData === 'function') loadDashboardData();
+                if (typeof loadProducts === 'function') loadProducts();
+                if (typeof loadDrivers === 'function') loadDrivers();
+                if (typeof checkWhatsAppStatus === 'function') checkWhatsAppStatus();
+                if (typeof startLiveOrdersPolling === 'function') startLiveOrdersPolling();
+                if (typeof loadPurchases === 'function') loadPurchases();
+                if (typeof loadCreativeTasks === 'function') loadCreativeTasks();
+                return true;
+            } else {
+                if (err) {
+                    if (errText) errText.textContent = data.detail || "اسم المستخدم أو كلمة المرور غير صحيحة";
+                    err.classList.remove('hidden');
+                    err.style.display = 'flex';
+                }
+            }
+        } catch(e) {
+            console.error("Login request error:", e);
+            if (err) {
+                if (errText) errText.textContent = "تعذر الاتصال بالخادم، يرجى المحاولة مرة أخرى";
+                err.classList.remove('hidden');
+                err.style.display = 'flex';
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml || '<span>تسجيل الدخول للمحل 🌸</span>';
+            }
+        }
+        return false;
+    }
+    window.handlePageLogin = handlePageLogin;
+
+    function quickLoginUser(username, password) {
+        var idInput = document.getElementById('page-login-identifier');
+        var pwdInput = document.getElementById('page-login-password');
+        if (idInput) idInput.value = username;
+        if (pwdInput) pwdInput.value = password;
+        handlePageLogin();
+    }
+    window.quickLoginUser = quickLoginUser;
+    </script>
+
+    <!-- ======================================================== -->
     <!-- DEDICATED FULL-SCREEN LOGIN PAGE (صفحة تسجيل الدخول المستقلة) -->
     <!-- ======================================================== -->
     <div id="login-screen" class="fixed inset-0 z-[100] bg-cream-100 flex items-center justify-center p-3 sm:p-6 overflow-y-auto min-h-screen w-full">
@@ -4669,9 +4816,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261124_quick_login_v3"></script>
+    <script src="/static/js/i18n.js?v=20261124_login_instant_v5"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261124_quick_login_v3"></script>
+    <script src="/static/js/app.js?v=20261124_login_instant_v5"></script>
     <script>
     // Inline guarantee for Daily Report modal opening in case of browser cache
     window.openNewDailyReportModal = function() {
