@@ -443,10 +443,23 @@ function handleUserLogout() {
     if (mobileCards) mobileCards.innerHTML = '';
 }
 
+function normalizeArabicDigits(str) {
+    if (!str) return '';
+    const eastern = '٠١٢٣٤٥٦٧٨٩';
+    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    let res = String(str);
+    for (let i = 0; i < 10; i++) {
+        res = res.replaceAll(eastern[i], String(i)).replaceAll(persian[i], String(i));
+    }
+    return res.trim();
+}
+
 async function handlePageLogin(event) {
     if (event) event.preventDefault();
-    const identifier = document.getElementById('page-login-identifier')?.value.trim();
-    const password = document.getElementById('page-login-password')?.value.trim();
+    const rawId = document.getElementById('page-login-identifier')?.value || '';
+    const rawPwd = document.getElementById('page-login-password')?.value || '';
+    const identifier = normalizeArabicDigits(rawId);
+    const password = normalizeArabicDigits(rawPwd);
     const err = document.getElementById('page-login-error');
     const errText = document.getElementById('page-login-error-text');
     const btn = document.getElementById('page-login-submit-btn');
@@ -482,14 +495,16 @@ async function handlePageLogin(event) {
             localStorage.setItem('nabt_current_user', JSON.stringify(currentUser));
             hideLoginScreen();
             updateUserInterface();
-            loadOrders();
-            loadDashboardData();
-            loadProducts();
-            loadDrivers();
-            checkWhatsAppStatus();
-            startLiveOrdersPolling();
-            loadPurchases();
-            loadCreativeTasks();
+            
+            // Safe post-login data loading
+            try { loadOrders(); } catch(e){}
+            try { loadDashboardData(); } catch(e){}
+            try { loadProducts(); } catch(e){}
+            try { loadDrivers(); } catch(e){}
+            try { checkWhatsAppStatus(); } catch(e){}
+            try { startLiveOrdersPolling(); } catch(e){}
+            try { loadPurchases(); } catch(e){}
+            try { if (typeof loadCreativeTasks === 'function') loadCreativeTasks(); } catch(e){}
         } else {
             if (err) {
                 if (errText) errText.textContent = data.detail || "اسم المستخدم أو كلمة المرور غير صحيحة";
@@ -506,6 +521,16 @@ async function handlePageLogin(event) {
         if (btn) btn.disabled = false;
     }
 }
+window.handlePageLogin = handlePageLogin;
+
+function quickLoginUser(username, password) {
+    const idInput = document.getElementById('page-login-identifier');
+    const pwdInput = document.getElementById('page-login-password');
+    if (idInput) idInput.value = username;
+    if (pwdInput) pwdInput.value = password;
+    handlePageLogin();
+}
+window.quickLoginUser = quickLoginUser;
 
 let _iconRafId = null;
 function initIcons() {

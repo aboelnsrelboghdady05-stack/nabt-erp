@@ -367,6 +367,48 @@
                     <i data-lucide="log-in" class="w-4 h-4"></i>
                     <span>تسجيل الدخول للمحل 🌸</span>
                 </button>
+
+                <!-- Quick User Selector (الدخول السريع بنقرة واحدة) -->
+                <div class="pt-3 border-t border-cream-200 space-y-2">
+                    <p class="text-[11px] text-slate-500 font-bold text-center">أو اختر حسابك للدخول السريع بنقرة واحدة 👇</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <button type="button" onclick="quickLoginUser('faisal', '123456')" class="p-2.5 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-400 rounded-xl text-right transition-all cursor-pointer flex flex-col justify-center">
+                            <span class="font-black text-slate-800 text-xs flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                فيصل
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-medium">مدير تشغيلي ⚙️</span>
+                        </button>
+                        <button type="button" onclick="quickLoginUser('yasser', '123456')" class="p-2.5 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-xl text-right transition-all cursor-pointer flex flex-col justify-center">
+                            <span class="font-black text-slate-800 text-xs flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                ياسر
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-medium">المدير العام 👑</span>
+                        </button>
+                        <button type="button" onclick="quickLoginUser('nader', '123456')" class="p-2.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-400 rounded-xl text-right transition-all cursor-pointer flex flex-col justify-center">
+                            <span class="font-black text-slate-800 text-xs flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                نادر
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-medium">مدير فرع 🏢</span>
+                        </button>
+                        <button type="button" onclick="quickLoginUser('omar', '123456')" class="p-2.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-400 rounded-xl text-right transition-all cursor-pointer flex flex-col justify-center">
+                            <span class="font-black text-slate-800 text-xs flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                عمر
+                            </span>
+                            <span class="text-[10px] text-purple-700 font-medium">منسق ورد 🌸</span>
+                        </button>
+                        <button type="button" onclick="quickLoginUser('rico', '123456')" class="p-2.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-400 rounded-xl text-right transition-all cursor-pointer flex flex-col justify-center">
+                            <span class="font-black text-slate-800 text-xs flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                ريكو
+                            </span>
+                            <span class="text-[10px] text-purple-700 font-medium">منسق ورد 🌸</span>
+                        </button>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
@@ -4627,9 +4669,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261124_partial_pay_v1"></script>
+    <script src="/static/js/i18n.js?v=20261124_quick_login_v3"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261124_partial_pay_v1"></script>
+    <script src="/static/js/app.js?v=20261124_quick_login_v3"></script>
     <script>
     // Inline guarantee for Daily Report modal opening in case of browser cache
     window.openNewDailyReportModal = function() {
@@ -4890,6 +4932,20 @@
         if (display) display.textContent = code;
         currentWaPairingCode = code;
     }
+
+    // Inline guarantee for quick login in case of browser script delay
+    window.quickLoginUser = function(username, password) {
+        const idInput = document.getElementById('page-login-identifier');
+        const pwdInput = document.getElementById('page-login-password');
+        if (idInput) idInput.value = username;
+        if (pwdInput) pwdInput.value = password;
+        if (typeof handlePageLogin === 'function') {
+            handlePageLogin();
+        } else {
+            const form = document.querySelector('#login-screen form');
+            if (form) form.requestSubmit();
+        }
+    };
     </script>
 </body>
 </html>

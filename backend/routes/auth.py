@@ -14,33 +14,60 @@ class ChangePasswordRequest(BaseModel):
     current_password: Optional[str] = None
     new_password: str
 
+def normalize_digits(s: str) -> str:
+    if not s:
+        return ""
+    eastern_arabic = "٠١٢٣٤٥٦٧٨٩"
+    persian = "۰۱۲۳۴۵۶۷۸۹"
+    for i in range(10):
+        s = s.replace(eastern_arabic[i], str(i)).replace(persian[i], str(i))
+    return s.strip()
+
 @router.post("/login")
 def login(payload: LoginRequest):
-    identifier = payload.identifier.strip()
-    password = payload.password.strip()
+    identifier_raw = payload.identifier.strip()
+    identifier = normalize_digits(identifier_raw)
+    password = normalize_digits(payload.password.strip())
 
     conn = get_db()
     cursor = conn.cursor()
 
-    # Search by username, phone, or name
-    cursor.execute("""
-    SELECT id, name, username, phone, role, status, specialty, password
-    FROM employees
-    WHERE LOWER(username) = LOWER(?) 
-       OR phone = ? 
-       OR name = ? 
-       OR name LIKE ?
-    LIMIT 1
-    """, (identifier, identifier, identifier, f"%{identifier}%"))
-    
-    emp = cursor.fetchone()
-    conn.close()
+    try:
+        # Extract digits if user entered a phone number
+        phone_digits = "".join(ch for ch in identifier if ch.isdigit())
+        phone_like = f"%{phone_digits[-9:]}%" if len(phone_digits) >= 9 else None
+
+        query = """
+        SELECT id, name, username, phone, role, status, specialty, password
+        FROM employees
+        WHERE LOWER(username) = LOWER(?)
+           OR LOWER(username) = LOWER(?)
+           OR phone = ?
+           OR phone = ?
+           OR name = ?
+           OR name LIKE ?
+        """
+        params = [
+            identifier, identifier_raw,
+            identifier, phone_digits,
+            identifier_raw, f"%{identifier_raw}%"
+        ]
+
+        if phone_like:
+            query += " OR phone LIKE ?"
+            params.append(phone_like)
+
+        query += " LIMIT 1"
+        cursor.execute(query, params)
+        emp = cursor.fetchone()
+    finally:
+        conn.close()
 
     if not emp:
-        raise HTTPException(status_code=401, detail="اسم المستخدم غير مسجل في النظام")
+        raise HTTPException(status_code=401, detail="اسم المستخدم أو رقم الجوال غير مسجل في النظام")
 
     emp_dict = dict(emp)
-    stored_password = emp_dict.get('password') or '123456'
+    stored_password = normalize_digits(emp_dict.get('password') or '123456')
 
     if password != stored_password:
         raise HTTPException(status_code=401, detail="كلمة المرور غير صحيحة")
