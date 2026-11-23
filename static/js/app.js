@@ -358,18 +358,25 @@ function canCreateOrders() {
 }
 window.canCreateOrders = canCreateOrders;
 
-// Initialize on load
-document.addEventListener('DOMContentLoaded', () => {
-    startLiveClock();
+// Master Application Bootstrapper
+function bootApp() {
+    try {
+        startLiveClock();
+    } catch (e) {
+        console.error("startLiveClock error:", e);
+    }
     if (typeof applyTranslations === 'function') {
-        applyTranslations();
+        try { applyTranslations(); } catch (e) { console.error("applyTranslations error:", e); }
     }
     initIcons();
-    initUserProfileMenu();
+    try { initUserProfileMenu(); } catch (e) { console.error("initUserProfileMenu error:", e); }
 
     // Check login state:
     const isExplicitLoginRoute = window.location.pathname === '/login' || window.location.search.includes('login');
-    const savedUser = localStorage.getItem('nabt_current_user');
+    let savedUser = localStorage.getItem('nabt_current_user');
+    if (!savedUser && window.currentUser) {
+        savedUser = JSON.stringify(window.currentUser);
+    }
 
     if (!savedUser || isExplicitLoginRoute) {
         currentUser = null;
@@ -380,20 +387,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentUser || !currentUser.id || !currentUser.role) {
                 throw new Error("Invalid session");
             }
+            window.currentUser = currentUser;
             hideLoginScreen();
             updateUserInterface();
             loadDashboardData();
+            loadOrders();
             loadProducts();
             loadDrivers();
             checkWhatsAppStatus();
             startLiveOrdersPolling();
         } catch (e) {
+            console.error("Session initialization error:", e);
             currentUser = null;
             localStorage.removeItem('nabt_current_user');
             showLoginScreen();
         }
     }
-});
+}
+window.bootApp = bootApp;
+
+// Auto-run whether DOM is still loading or already loaded (handles Cloudflare/async loading perfectly)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+    bootApp();
+}
 
 function showLoginScreen() {
     const screen = document.getElementById('login-screen');

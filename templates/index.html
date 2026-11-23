@@ -410,15 +410,19 @@
 
                 hideLoginScreen();
 
-                if (typeof updateUserInterface === 'function') updateUserInterface();
-                if (typeof loadOrders === 'function') loadOrders();
-                if (typeof loadDashboardData === 'function') loadDashboardData();
-                if (typeof loadProducts === 'function') loadProducts();
-                if (typeof loadDrivers === 'function') loadDrivers();
-                if (typeof checkWhatsAppStatus === 'function') checkWhatsAppStatus();
-                if (typeof startLiveOrdersPolling === 'function') startLiveOrdersPolling();
-                if (typeof loadPurchases === 'function') loadPurchases();
-                if (typeof loadCreativeTasks === 'function') loadCreativeTasks();
+                if (typeof bootApp === 'function') {
+                    bootApp();
+                } else {
+                    if (typeof updateUserInterface === 'function') updateUserInterface();
+                    if (typeof loadOrders === 'function') loadOrders();
+                    if (typeof loadDashboardData === 'function') loadDashboardData();
+                    if (typeof loadProducts === 'function') loadProducts();
+                    if (typeof loadDrivers === 'function') loadDrivers();
+                    if (typeof checkWhatsAppStatus === 'function') checkWhatsAppStatus();
+                    if (typeof startLiveOrdersPolling === 'function') startLiveOrdersPolling();
+                    if (typeof loadPurchases === 'function') loadPurchases();
+                    if (typeof loadCreativeTasks === 'function') loadCreativeTasks();
+                }
                 return true;
             } else {
                 if (err) {
@@ -4816,9 +4820,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261124_login_instant_v5"></script>
+    <script src="/static/js/i18n.js?v=20261124_full_sync_v6"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261124_login_instant_v5"></script>
+    <script src="/static/js/app.js?v=20261124_full_sync_v6"></script>
     <script>
     // Inline guarantee for Daily Report modal opening in case of browser cache
     window.openNewDailyReportModal = function() {
@@ -5079,20 +5083,6 @@
         if (display) display.textContent = code;
         currentWaPairingCode = code;
     }
-
-    // Inline guarantee for quick login in case of browser script delay
-    window.quickLoginUser = function(username, password) {
-        const idInput = document.getElementById('page-login-identifier');
-        const pwdInput = document.getElementById('page-login-password');
-        if (idInput) idInput.value = username;
-        if (pwdInput) pwdInput.value = password;
-        if (typeof handlePageLogin === 'function') {
-            handlePageLogin();
-        } else {
-            const form = document.querySelector('#login-screen form');
-            if (form) form.requestSubmit();
-        }
-    };
     </script>
 </body>
 </html>
