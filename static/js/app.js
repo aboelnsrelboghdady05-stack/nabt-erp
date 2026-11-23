@@ -1459,6 +1459,8 @@ async function loadOrders() {
                             <span class="font-black text-slate-900 block">${o.total_amount} ر.س</span>
                             ${o.payment_status === 'paid' 
                                 ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">مسدد ✅</span>` 
+                                : o.payment_status === 'partial'
+                                ? `<span class="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded block">مسدد جزئياً ⏳</span><span class="text-[10px] text-amber-700 font-bold block mt-0.5">متبقي: ${(o.remaining_amount !== undefined && o.remaining_amount !== null ? o.remaining_amount : Math.max(0, o.total_amount - (o.paid_amount || 0))).toFixed(2)} ر.س</span>`
                                 : `<span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">غير مسدد ⚠️</span>`}
                         `}
                     </td>
@@ -1602,7 +1604,11 @@ async function loadOrders() {
                             <div class="text-left">
                                 <span class="text-[10px] text-slate-400 block">الإجمالي:</span>
                                 <span class="font-black text-sm text-olive-900">${o.total_amount} ر.س</span>
-                                ${o.payment_status === 'paid' ? '<span class="text-[9px] text-emerald-700 font-bold">مسدد ✅</span>' : '<span class="text-[9px] text-amber-700 font-bold">غير مسدد ⚠️</span>'}
+                                ${o.payment_status === 'paid' 
+                                    ? '<span class="text-[9px] text-emerald-700 font-bold block">مسدد ✅</span>' 
+                                    : o.payment_status === 'partial'
+                                    ? `<span class="text-[9px] text-blue-700 font-bold block">مسدد جزئياً ⏳</span><span class="text-[9px] text-amber-700 font-bold block">متبقي: ${(o.remaining_amount !== undefined && o.remaining_amount !== null ? o.remaining_amount : Math.max(0, o.total_amount - (o.paid_amount || 0))).toFixed(2)} ر.س</span>`
+                                    : '<span class="text-[9px] text-amber-700 font-bold block">غير مسدد ⚠️</span>'}
                             </div>
                         ` : ''}
                     </div>
@@ -2422,6 +2428,12 @@ async function openNewOrderModal() {
     const timeSlotInput = document.getElementById('order-time-slot');
     if (timeSlotInput) timeSlotInput.value = '';
 
+    const payStatus = document.getElementById('order-payment-status');
+    if (payStatus) payStatus.value = 'unpaid';
+    const paidInput = document.getElementById('order-paid-amount');
+    if (paidInput) paidInput.value = '0';
+    if (typeof handleOrderPaymentStatusChange === 'function') handleOrderPaymentStatusChange();
+
     calculateOrderModalTotals();
     openModal('modal-new-order');
 }
@@ -2530,6 +2542,9 @@ async function openEditOrderModal(orderId) {
         if (discountInput) discountInput.value = o.discount || 0;
         const payStatus = document.getElementById('order-payment-status');
         if (payStatus) payStatus.value = o.payment_status || 'unpaid';
+        const paidInput = document.getElementById('order-paid-amount');
+        if (paidInput) paidInput.value = (o.paid_amount !== undefined && o.paid_amount !== null) ? o.paid_amount : 0;
+        if (typeof handleOrderPaymentStatusChange === 'function') handleOrderPaymentStatusChange();
         const payMethod = document.getElementById('order-payment-method');
         if (payMethod) payMethod.value = o.payment_method || 'pos';
         const notesInput = document.getElementById('order-notes');
@@ -3054,6 +3069,19 @@ async function openOrderDetailModal(orderId) {
         const payBadge = document.getElementById('detail-payment-badge');
         if (ord.payment_status === 'paid') {
             payBadge.innerHTML = `<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold px-3 py-1 rounded-xl text-xs">مسدد بالكامل ✅</span>`;
+        } else if (ord.payment_status === 'partial') {
+            const paid = ord.paid_amount || 0;
+            const remaining = (ord.remaining_amount !== undefined && ord.remaining_amount !== null) ? ord.remaining_amount : Math.max(0, (ord.total_amount || 0) - paid);
+            payBadge.innerHTML = `
+                <div class="text-left space-y-1">
+                    <span class="bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold px-3 py-1 rounded-xl text-xs inline-block">مسدد جزئياً ⏳</span>
+                    <div class="text-[11px] text-cream-200">
+                        <span>المدفوع: <strong class="text-emerald-300 font-mono">${paid.toFixed(2)} ر.س</strong></span>
+                        <span class="mx-1">•</span>
+                        <span>المتبقي: <strong class="text-amber-300 font-mono">${remaining.toFixed(2)} ر.س</strong></span>
+                    </div>
+                </div>
+            `;
         } else {
             payBadge.innerHTML = `<span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-3 py-1 rounded-xl text-xs">غير مسدد (آجل) ⚠️</span>`;
         }
@@ -3167,6 +3195,40 @@ function quickFillBouquet(name, price) {
     }
 }
 
+function handleOrderPaymentStatusChange() {
+    const payStatusEl = document.getElementById('order-payment-status');
+    const container = document.getElementById('order-partial-payment-container');
+    const previewLine = document.getElementById('modal-order-partial-preview-line');
+    const paidInput = document.getElementById('order-paid-amount');
+    
+    if (!payStatusEl) return;
+    const isPartial = (payStatusEl.value === 'partial');
+    
+    if (container) {
+        if (isPartial) {
+            container.classList.remove('hidden');
+            if (paidInput && (!paidInput.value || parseFloat(paidInput.value) <= 0)) {
+                setTimeout(() => paidInput.focus(), 100);
+            }
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+    
+    if (previewLine) {
+        if (isPartial) {
+            previewLine.classList.remove('hidden');
+            previewLine.classList.add('flex');
+        } else {
+            previewLine.classList.add('hidden');
+            previewLine.classList.remove('flex');
+        }
+    }
+    
+    calculateOrderModalTotals();
+}
+window.handleOrderPaymentStatusChange = handleOrderPaymentStatusChange;
+
 function calculateOrderModalTotals() {
     let itemsGross = 0;
     const rows = document.querySelectorAll('#order-items-rows > div');
@@ -3193,6 +3255,34 @@ function calculateOrderModalTotals() {
 
     const totalEl = document.getElementById('modal-order-total-preview');
     if (totalEl) totalEl.textContent = `${totalInclusive.toFixed(2)} ر.س`;
+
+    // Partial Payment calculation
+    const payStatusEl = document.getElementById('order-payment-status');
+    const isPartial = payStatusEl && payStatusEl.value === 'partial';
+    const paidInput = document.getElementById('order-paid-amount');
+    const remainingEl = document.getElementById('order-remaining-amount-preview');
+    const previewLine = document.getElementById('modal-order-partial-preview-line');
+    const paidSummaryEl = document.getElementById('modal-order-paid-summary');
+    const remSummaryEl = document.getElementById('modal-order-remaining-summary');
+
+    if (isPartial) {
+        const paidAmount = parseFloat(paidInput?.value || 0);
+        const remaining = Math.max(0, totalInclusive - paidAmount);
+
+        if (remainingEl) remainingEl.textContent = `${remaining.toFixed(2)} ر.س`;
+        if (paidSummaryEl) paidSummaryEl.textContent = `${paidAmount.toFixed(2)} ر.س`;
+        if (remSummaryEl) remSummaryEl.textContent = `${remaining.toFixed(2)} ر.س`;
+
+        if (previewLine) {
+            previewLine.classList.remove('hidden');
+            previewLine.classList.add('flex');
+        }
+    } else {
+        if (previewLine) {
+            previewLine.classList.add('hidden');
+            previewLine.classList.remove('flex');
+        }
+    }
 }
 
 async function handleCreateOrder(event) {
@@ -3253,6 +3343,7 @@ async function handleCreateOrder(event) {
         delivery_fee: parseFloat(document.getElementById('order-delivery-fee').value || 0),
         discount: parseFloat(document.getElementById('order-discount').value || 0),
         payment_status: document.getElementById('order-payment-status').value,
+        paid_amount: parseFloat(document.getElementById('order-paid-amount')?.value || 0),
         payment_method: document.getElementById('order-payment-method').value,
         notes: document.getElementById('order-notes').value || null,
         items: items

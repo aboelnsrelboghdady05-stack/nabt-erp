@@ -40,7 +40,8 @@ class OrderCreateSchema(BaseModel):
     created_by: Optional[str] = "المدير (Admin)"
     delivery_fee: float = 35.0
     discount: float = 0.0
-    payment_status: str = "unpaid" # paid, unpaid
+    payment_status: str = "unpaid" # paid, unpaid, partial
+    paid_amount: Optional[float] = 0.0
     payment_method: str = "pos" # cash, pos, transfer, stc_pay, online
     notes: Optional[str] = None
     items: List[OrderItemSchema]
@@ -161,10 +162,14 @@ def get_orders(
 
     query = """
     SELECT o.*, d.name as driver_name, d.phone as driver_phone,
-           e.name as florist_name, e.phone as florist_phone
+           e.name as florist_name, e.phone as florist_phone,
+           inv.id as invoice_id, inv.invoice_number, inv.status as invoice_status,
+           COALESCE(inv.paid_amount, CASE WHEN o.payment_status = 'paid' THEN o.total_amount ELSE 0.0 END) as paid_amount,
+           COALESCE(inv.remaining_amount, CASE WHEN o.payment_status = 'paid' THEN 0.0 ELSE o.total_amount END) as remaining_amount
     FROM orders o
     LEFT JOIN drivers d ON o.driver_id = d.id
     LEFT JOIN employees e ON o.florist_id = e.id
+    LEFT JOIN invoices inv ON inv.order_id = o.id
     WHERE 1=1
     """
     params = []
@@ -237,7 +242,9 @@ def get_order_detail(order_id: int):
     cursor.execute("""
     SELECT o.*, d.name as driver_name, d.phone as driver_phone,
            e.name as florist_name, e.phone as florist_phone,
-           inv.id as invoice_id, inv.invoice_number, inv.status as invoice_status, inv.remaining_amount
+           inv.id as invoice_id, inv.invoice_number, inv.status as invoice_status,
+           COALESCE(inv.paid_amount, CASE WHEN o.payment_status = 'paid' THEN o.total_amount ELSE 0.0 END) as paid_amount,
+           COALESCE(inv.remaining_amount, CASE WHEN o.payment_status = 'paid' THEN 0.0 ELSE o.total_amount END) as remaining_amount
     FROM orders o
     LEFT JOIN drivers d ON o.driver_id = d.id
     LEFT JOIN employees e ON o.florist_id = e.id
@@ -346,6 +353,28 @@ def create_order(payload: OrderCreateSchema):
     is_future_order = bool(payload.delivery_date and payload.delivery_date > today_ksa)
     initial_acceptance = 'scheduled' if is_future_order else 'pending'
     assigned_at_val = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if florist_id else None
+
+    # Determine payment calculations
+    req_status = (payload.payment_status or "unpaid").strip().lower()
+    if req_status == "paid":
+        final_payment_status = "paid"
+        paid_amt = total_amount
+        rem_amt = 0.0
+    elif req_status == "partial":
+        req_paid = round(max(0.0, float(payload.paid_amount or 0.0)), 2)
+        if req_paid >= total_amount:
+            final_payment_status = "paid"
+            paid_amt = total_amount
+            rem_amt = 0.0
+        else:
+            final_payment_status = "partial"
+            paid_amt = req_paid
+            rem_amt = round(max(0.0, total_amount - paid_amt), 2)
+    else:
+        final_payment_status = "unpaid"
+        paid_amt = 0.0
+        rem_amt = total_amount
+
     cursor.execute("""
     INSERT INTO orders (
         order_number, customer_id, customer_name, customer_phone,
@@ -365,7 +394,7 @@ def create_order(payload: OrderCreateSchema):
         payload.event_name, payload.event_venue, payload.event_coordinator_contact,
         payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
         payload.driver_id, florist_id, subtotal, payload.delivery_fee, payload.discount, tax, total_amount,
-        payload.payment_status, payload.payment_method, payload.notes,
+        final_payment_status, payload.payment_method, payload.notes,
         assigned_at_val, initial_acceptance
     ))
     order_id = cursor.lastrowid
@@ -387,8 +416,6 @@ def create_order(payload: OrderCreateSchema):
 
     # 6. Create Invoice
     invoice_number = f"INV-{year_prefix}{count:04d}"
-    paid_amt = total_amount if payload.payment_status == "paid" else 0.0
-    rem_amt = 0.0 if payload.payment_status == "paid" else total_amount
 
     cursor.execute("""
     INSERT INTO invoices (
@@ -399,18 +426,19 @@ def create_order(payload: OrderCreateSchema):
     """, (
         invoice_number, order_id, customer_id, payload.customer_name,
         taxable_amount, tax, total_amount, paid_amt, rem_amt,
-        payload.payment_status, payload.payment_method, payload.delivery_date, payload.delivery_date
+        final_payment_status, payload.payment_method, payload.delivery_date, payload.delivery_date
     ))
     invoice_id = cursor.lastrowid
 
-    # 7. Record Payment if paid
-    if payload.payment_status == "paid":
+    # 7. Record Payment if paid or partially paid
+    if paid_amt > 0:
         cursor.execute("SELECT COALESCE(MAX(id), 0) FROM payments")
         p_count = cursor.fetchone()[0] + 1
+        pay_note = "سداد كامل للطلب عند الإنشاء" if final_payment_status == "paid" else f"سداد دفعة / عربون بقيمة {paid_amt} ر.س ومتبقي {rem_amt} ر.س"
         cursor.execute("""
         INSERT INTO payments (payment_number, invoice_id, amount, payment_method, reference_number, notes)
         VALUES (?, ?, ?, ?, ?, ?)
-        """, (f"PAY-{p_count:05d}", invoice_id, total_amount, payload.payment_method, f"TXN-{order_number}", "سداد كامل للطلب عند الإنشاء"))
+        """, (f"PAY-{p_count:05d}", invoice_id, paid_amt, payload.payment_method, f"TXN-{order_number}", pay_note))
 
     # 8. Update Customer totals
     cursor.execute("""
@@ -418,10 +446,18 @@ def create_order(payload: OrderCreateSchema):
     SET orders_count = orders_count + 1,
         total_spent = total_spent + ?
     WHERE id = ?
-    """, (total_amount if payload.payment_status == 'paid' else 0.0, customer_id))
+    """, (paid_amt, customer_id))
 
     # 9. Send Automated WhatsApp Confirmation to Customer (المرحلة الأولى: استكمال الطلب)
-    pay_status_ar = "مسدد" if payload.payment_status == 'paid' else "غير مسدد"
+    if final_payment_status == 'paid':
+        pay_status_ar = "مسدد بالكامل ✅"
+    elif final_payment_status == 'partial':
+        paid_str = f"{paid_amt:g}" if float(paid_amt).is_integer() else f"{paid_amt:.2f}"
+        rem_str = f"{rem_amt:g}" if float(rem_amt).is_integer() else f"{rem_amt:.2f}"
+        pay_status_ar = f"مسدد جزئياً (المدفوع: {paid_str} ر.س | المتبقي: {rem_str} ر.س) ⏳"
+    else:
+        pay_status_ar = "غير مسدد ⚠️"
+
     slot_text = payload.delivery_time_slot or "مسائي (4ع - 8م)"
     amount_str = f"{total_amount:g}" if float(total_amount).is_integer() else f"{total_amount:.2f}"
     wa_msg = (
@@ -818,6 +854,27 @@ def update_order(order_id: int, payload: OrderCreateSchema):
     tax = round(total_amount - subtotal, 2)
     taxable_amount = subtotal
 
+    # Determine payment calculations
+    req_status = (payload.payment_status or "unpaid").strip().lower()
+    if req_status == "paid":
+        final_payment_status = "paid"
+        paid_amt = total_amount
+        rem_amt = 0.0
+    elif req_status == "partial":
+        req_paid = round(max(0.0, float(payload.paid_amount or 0.0)), 2)
+        if req_paid >= total_amount:
+            final_payment_status = "paid"
+            paid_amt = total_amount
+            rem_amt = 0.0
+        else:
+            final_payment_status = "partial"
+            paid_amt = req_paid
+            rem_amt = round(max(0.0, total_amount - paid_amt), 2)
+    else:
+        final_payment_status = "unpaid"
+        paid_amt = 0.0
+        rem_amt = total_amount
+
     # 4. Prepare reference images
     ref_imgs = payload.reference_images or []
     if payload.reference_image and payload.reference_image not in ref_imgs:
@@ -875,7 +932,7 @@ def update_order(order_id: int, payload: OrderCreateSchema):
         payload.flower_colors, payload.delivery_date, payload.delivery_time_slot,
         payload.driver_id, new_florist_id,
         subtotal, payload.delivery_fee, payload.discount, tax, total_amount,
-        payload.payment_status, payload.payment_method, payload.notes,
+        final_payment_status, payload.payment_method, payload.notes,
         order_id
     ]
 
@@ -890,9 +947,6 @@ def update_order(order_id: int, payload: OrderCreateSchema):
         """, (order_id, item.product_id, item.product_name, item.quantity, item.unit_price, item.quantity * item.unit_price))
 
     # 7. Update associated invoice
-    paid_amt = total_amount if payload.payment_status == "paid" else 0.0
-    rem_amt = 0.0 if payload.payment_status == "paid" else total_amount
-
     cursor.execute("""
     UPDATE invoices SET
         customer_name = ?,
@@ -908,30 +962,44 @@ def update_order(order_id: int, payload: OrderCreateSchema):
     WHERE order_id = ?
     """, (
         payload.customer_name, taxable_amount, tax, total_amount,
-        paid_amt, rem_amt, payload.payment_status, payload.payment_method,
+        paid_amt, rem_amt, final_payment_status, payload.payment_method,
         payload.delivery_date, payload.delivery_date, order_id
     ))
 
-    # 8. Update Payments if paid status changed
-    if payload.payment_status == "paid":
-        cursor.execute("SELECT id FROM payments WHERE invoice_id IN (SELECT id FROM invoices WHERE order_id = ?)", (order_id,))
+    # 8. Update Payments if paid or partial
+    cursor.execute("SELECT id FROM invoices WHERE order_id = ?", (order_id,))
+    inv_row = cursor.fetchone()
+    if inv_row:
+        inv_id = inv_row['id']
+        cursor.execute("SELECT id FROM payments WHERE invoice_id = ?", (inv_id,))
         existing_pay = cursor.fetchone()
-        if not existing_pay:
-            cursor.execute("SELECT id FROM invoices WHERE order_id = ?", (order_id,))
-            inv_row = cursor.fetchone()
-            if inv_row:
+        if paid_amt > 0:
+            if existing_pay:
+                cursor.execute("""
+                UPDATE payments 
+                SET amount = ?, payment_method = ?, notes = ?
+                WHERE id = ?
+                """, (paid_amt, payload.payment_method, f"تحديث الدفعة ({paid_amt} ر.س) بعد تعديل الطلب", existing_pay['id']))
+            else:
                 cursor.execute("SELECT COALESCE(MAX(id), 0) FROM payments")
                 p_count = cursor.fetchone()[0] + 1
                 cursor.execute("""
                 INSERT INTO payments (payment_number, invoice_id, amount, payment_method, reference_number, notes)
                 VALUES (?, ?, ?, ?, ?, ?)
-                """, (f"PAY-{p_count:05d}", inv_row['id'], total_amount, payload.payment_method, f"TXN-{orig_order['order_number']}", "سداد كامل للطلب بعد التعديل"))
+                """, (f"PAY-{p_count:05d}", inv_id, paid_amt, payload.payment_method, f"TXN-{orig_order['order_number']}", "سداد للطلب بعد التعديل"))
+        else:
+            if existing_pay:
+                cursor.execute("DELETE FROM payments WHERE id = ?", (existing_pay['id'],))
 
     # 9. Recalculate customer stats
     cursor.execute("""
         UPDATE customers 
         SET orders_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?),
-            total_spent = COALESCE((SELECT SUM(total_amount) FROM orders WHERE customer_id = ? AND payment_status = 'paid'), 0.0)
+            total_spent = COALESCE((
+                SELECT SUM(inv.paid_amount) 
+                FROM invoices inv 
+                WHERE inv.customer_id = ?
+            ), 0.0)
         WHERE id = ?
     """, (customer_id, customer_id, customer_id))
 

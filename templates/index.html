@@ -2258,11 +2258,37 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1">حالة السداد الفوري *</label>
-                        <select id="order-payment-status" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-bold">
+                        <select id="order-payment-status" onchange="handleOrderPaymentStatusChange()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-bold">
                             <option value="paid" class="text-emerald-600 font-bold">مسدد بالكامل (مدفوع) ✅</option>
+                            <option value="partial" class="text-blue-600 font-bold">سداد جزئي (عربون / دفعة) ⏳</option>
                             <option value="unpaid" class="text-amber-600 font-bold">غير مسدد (آجل / عند الاستلام) ⚠️</option>
                         </select>
                     </div>
+
+                    <!-- Partial Payment Container (shown when partial is selected) -->
+                    <div id="order-partial-payment-container" class="hidden md:col-span-3 bg-blue-50/80 border-2 border-blue-200 rounded-2xl p-3.5 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                                <i data-lucide="coins" class="w-4 h-4 text-blue-600"></i>
+                                تفاصيل السداد الجزئي (العربون / الدفعة):
+                            </span>
+                            <span class="text-[11px] font-semibold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full" id="order-partial-payment-badge">دفعة مقدمة</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-700 mb-1">المبلغ المدفوع حالياً (العربون) ر.س *</label>
+                                <input type="number" id="order-paid-amount" value="0" min="0" step="any" oninput="calculateOrderModalTotals()" placeholder="أدخل العربون أو الدفعة..." class="w-full text-xs px-3 py-2.5 bg-white border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 font-black text-blue-950">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-700 mb-1">المبلغ المتبقي على العميل</label>
+                                <div class="w-full text-xs px-3 py-2 bg-white border border-amber-300 rounded-xl font-black text-amber-700 flex items-center justify-between h-[38px]">
+                                    <span id="order-remaining-amount-preview" class="font-mono text-sm">0.00 ر.س</span>
+                                    <span class="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-semibold border border-amber-200">متبقي غير مسدد</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1">طريقة الدفع</label>
                         <select id="order-payment-method" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
@@ -2290,6 +2316,11 @@
                         <div class="flex items-baseline gap-2">
                             <span class="text-xs text-cream-300/90 font-medium">إجمالي الفاتورة النهائي (شامل الضريبة):</span>
                             <h3 class="text-2xl font-black text-peach-300" id="modal-order-total-preview">0.00 ر.س</h3>
+                        </div>
+                        <div id="modal-order-partial-preview-line" class="hidden items-center gap-2 text-xs pt-0.5">
+                            <span class="text-emerald-300 font-semibold">المدفوع: <strong id="modal-order-paid-summary" class="font-mono text-white">0.00 ر.س</strong></span>
+                            <span class="text-cream-400">•</span>
+                            <span class="text-amber-300 font-semibold">المتبقي: <strong id="modal-order-remaining-summary" class="font-mono text-amber-200">0.00 ر.س</strong></span>
                         </div>
                         <p class="text-[10px] text-cream-300/70">الأسعار شاملة ضريبة القيمة المضافة 15%.</p>
                     </div>
@@ -4596,9 +4627,9 @@
     </nav>
 
     <!-- Multilingual i18n Engine (Arabic / English / Bengali) -->
-    <script src="/static/js/i18n.js?v=20261111_daily_unified_v10"></script>
+    <script src="/static/js/i18n.js?v=20261124_partial_pay_v1"></script>
     <!-- Application Script with Cache Buster -->
-    <script src="/static/js/app.js?v=20261111_daily_unified_v10"></script>
+    <script src="/static/js/app.js?v=20261124_partial_pay_v1"></script>
     <script>
     // Inline guarantee for Daily Report modal opening in case of browser cache
     window.openNewDailyReportModal = function() {
@@ -4776,6 +4807,9 @@
             if (discountInput) discountInput.value = o.discount || 0;
             const payStatus = document.getElementById('order-payment-status');
             if (payStatus) payStatus.value = o.payment_status || 'unpaid';
+            const paidAmountInput = document.getElementById('order-paid-amount');
+            if (paidAmountInput) paidAmountInput.value = o.paid_amount || 0;
+            if (typeof handleOrderPaymentStatusChange === 'function') handleOrderPaymentStatusChange();
             const payMethod = document.getElementById('order-payment-method');
             if (payMethod) payMethod.value = o.payment_method || 'pos';
             const notesInput = document.getElementById('order-notes');
