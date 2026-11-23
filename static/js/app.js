@@ -200,18 +200,8 @@ function updateFloristSlaCounters() {
         } else {
             if (labelEl) labelEl.textContent = '🔄 جاري التحويل التلقائي...';
             if (timeEl) timeEl.textContent = '';
-            needsReload = true;
         }
     });
-
-    if (needsReload && !window._slaReloadCooldown) {
-        window._slaReloadCooldown = true;
-        setTimeout(() => {
-            window._slaReloadCooldown = false;
-            if (currentActiveTab === 'orders') loadOrders();
-            else if (currentActiveTab === 'dashboard') loadDashboardData();
-        }, 3000);
-    }
 }
 
 function getFloristAcceptanceSlaHtml(o) {
@@ -389,13 +379,13 @@ function bootApp() {
             }
             window.currentUser = currentUser;
             hideLoginScreen();
-            updateUserInterface();
-            loadDashboardData();
-            loadOrders();
-            loadProducts();
-            loadDrivers();
-            checkWhatsAppStatus();
-            startLiveOrdersPolling();
+            try { updateUserInterface(); } catch(e){ console.error("updateUserInterface error:", e); }
+            try { loadDashboardData(); } catch(e){ console.error("loadDashboardData error:", e); }
+            try { loadOrders(); } catch(e){ console.error("loadOrders error:", e); }
+            try { loadProducts(); } catch(e){ console.error("loadProducts error:", e); }
+            try { loadDrivers(); } catch(e){ console.error("loadDrivers error:", e); }
+            try { checkWhatsAppStatus(); } catch(e){ console.error("checkWhatsAppStatus error:", e); }
+            try { startLiveOrdersPolling(); } catch(e){ console.error("startLiveOrdersPolling error:", e); }
         } catch (e) {
             console.error("Session initialization error:", e);
             currentUser = null;
