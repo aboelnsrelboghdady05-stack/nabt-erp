@@ -2485,7 +2485,6 @@ async function openNewOrderModal() {
     const timeSlotInput = document.getElementById('order-time-slot');
     if (timeSlotInput) timeSlotInput.value = '';
 
-    const payStatus = document.getElementById('order-payment-status');
     if (payStatus) payStatus.value = 'unpaid';
     const paidInput = document.getElementById('order-paid-amount');
     if (paidInput) paidInput.value = '0';
